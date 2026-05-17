@@ -244,6 +244,19 @@
   {\color{slideMuted}\fontsize{5.5}{6.5}\selectfont\textit{Source:} #1\par}%
 }
 
+% References slide: aggregate citations + further reading at the end of a section.
+% Usage:  \referencesframe{ \item ... \item ... }
+% The `frame` environment must be written literally in the deck, so this is a
+% macro rather than a wrapper environment (beamer collects the frame body and
+% trips over \newenvironment wrappers).
+\newcommand{\referencesframe}[1]{%
+  \begin{frame}[allowframebreaks]{References -- Section \sectionNumber}
+    \fontsize{7.5}{9}\selectfont
+    \setlength{\itemsep}{1pt}
+    \begin{itemize}#1\end{itemize}
+  \end{frame}%
+}
+
 % --- title page -----------------------------------------------------
 \title[\courseTitle]{\courseTitle}
 \subtitle{\courseSubtitle}
