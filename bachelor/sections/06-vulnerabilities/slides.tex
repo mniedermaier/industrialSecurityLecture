@@ -1,0 +1,237 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\courseSubtitle{Section 06 -- Vulnerabilities and Assessment}
+\def\sectionNumber{06}
+\def\sectionTitle{Vulnerabilities and Assessment}
+
+\input{../../../template/slides-preamble.tex}
+
+\begin{document}
+
+\sectionoverviewframe
+
+\learningobjectives{
+  \item Find and interpret ICS vulnerability advisories.
+  \item Apply CVSS v3.1 with environmental modifiers in an OT context.
+  \item Plan a safe asset inventory across passive and active methods.
+  \item Run a vulnerability management workflow that fits OT constraints.
+}
+
+\section{Vulnerability Intelligence}
+
+\begin{frame}{Sources of ICS Vulnerability Intelligence}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[server, fill=isOT!12, draw=isOT, minimum width=24mm, font=\scriptsize] (cisa) {CISA / ICS-CERT};
+  \node[server, fill=isOT!12, draw=isOT, minimum width=24mm, font=\scriptsize, right=of cisa] (psirt) {Vendor PSIRTs};
+  \node[server, fill=isOT!12, draw=isOT, minimum width=24mm, font=\scriptsize, right=of psirt] (nvd) {NVD / CVE};
+  \node[server, fill=isAccent!12, draw=isAccent, minimum width=24mm, font=\scriptsize, right=of nvd] (claroty) {Team82};
+  \node[server, fill=isAccent!12, draw=isAccent, minimum width=24mm, font=\scriptsize, right=of claroty] (dragos) {Dragos};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=110mm, below=14mm of {$(cisa.south)!0.5!(dragos.south)$}, font=\small] (you) {Your vulnerability programme};
+  \foreach \n in {cisa,psirt,nvd,claroty,dragos}{\draw[flow] (\n.south) -- (\n.south |- you.north);}
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Anatomy of a CVE Advisory}
+\centering
+\begin{tikzpicture}[node distance=2mm]
+  \node[isbox, fill=isLight, draw=isOT, minimum width=110mm, align=left, font=\scriptsize] (a)
+    {\textbf{ICSA-25-XXX-NN} \quad ACME Controller series X / firmware 2.0--2.4};
+  \node[isbox, fill=isLight, draw=isOT, minimum width=110mm, align=left, font=\scriptsize, below=of a] (b)
+    {\textbf{CVSS v3.1:} 9.8 / AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H};
+  \node[isbox, fill=isLight, draw=isOT, minimum width=110mm, align=left, font=\scriptsize, below=of b] (c)
+    {\textbf{CWE-798:} Use of hard-coded credentials};
+  \node[isbox, fill=isLight, draw=isOT, minimum width=110mm, align=left, font=\scriptsize, below=of c] (d)
+    {\textbf{Impact:} Unauthenticated remote attacker may take control of the device};
+  \node[isbox, fill=isLight, draw=isOT, minimum width=110mm, align=left, font=\scriptsize, below=of d] (e)
+    {\textbf{Mitigation:} Upgrade to FW 2.5; segregate behind firewall; disable web UI};
+  \node[isbox, fill=isLight, draw=isOT, minimum width=110mm, align=left, font=\scriptsize, below=of e] (f)
+    {\textbf{Timeline:} Reported 2024-11; patched 2025-02; advisory 2025-05};
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{CVSS for ICS -- Caveats}
+\centering
+\begin{tikzpicture}
+  \draw[fill=isOT!10, draw=isOT, thick] (0,0) rectangle (10,1.4) node[midway, font=\small]{Base score (vendor-published)};
+  \draw[fill=isAccent!15, draw=isAccent, thick] (0,-1.6) rectangle (10,-0.2) node[midway, font=\small]{Environmental score (yours)};
+  \draw[fill=isAttack!10, draw=isAttack, thick] (0,-3.2) rectangle (10,-1.8) node[midway, font=\small]{Process / safety impact (yours, no CVSS)};
+  \draw[-{Stealth[length=2mm]}, thick] (5,0) -- (5,-0.2);
+  \draw[-{Stealth[length=2mm]}, thick] (5,-1.6) -- (5,-1.8);
+\end{tikzpicture}
+\par\vspace{2mm}
+\footnotesize Base alone is misleading. ``Low Availability'' in IT may equal \emph{plant shutdown} in OT. Always combine with process consequence.
+\end{frame}
+
+\section{Asset Inventory and Scanning}
+
+\begin{frame}{Asset Inventory -- The Foundation}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[isbox, fill=isOT!12, draw=isOT] (eng) {Engineering files};
+  \node[isbox, fill=isOT!12, draw=isOT, below=of eng] (cfg) {Config backups};
+  \node[isbox, fill=isOT!12, draw=isOT, below=of cfg] (pass) {Passive sniffing};
+  \node[isbox, fill=isOT!12, draw=isOT, below=of pass] (walk) {Manual walk-downs};
+  \node[server, right=22mm of cfg, fill=isPLC!15, draw=isPLC, minimum width=32mm] (cmdb) {Asset CMDB};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of cmdb, font=\scriptsize, align=left, minimum width=40mm]
+    {Per asset:\\IP, MAC, vendor,\\model, firmware,\\zone, owner};
+  \foreach \n in {eng,cfg,pass,walk}{\draw[flow] (\n.east) -- (cmdb.west);}
+\end{tikzpicture}
+\par\vspace{2mm}
+\footnotesize ``You can't protect what you don't know you have.'' Firmware version is required to match CVEs.
+\end{frame}
+
+\begin{frame}{Passive vs.\ Active Scanning}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[isbox, fill=isNet!15, draw=isNet, minimum width=55mm, minimum height=28mm, align=left, font=\small]
+    (p)
+    {\textbf{Passive}\\\scriptsize
+       $+$ Safe in production\\
+       $+$ No risk to PLCs\\
+       $-$ Misses silent devices\\
+       $-$ Needs SPAN/TAP};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=55mm, minimum height=28mm, align=left, font=\small, right=of p]
+    (a)
+    {\textbf{Active}\\\scriptsize
+       $+$ Faster, deeper\\
+       $+$ Versions, banners\\
+       $-$ Can crash legacy PLCs\\
+       $-$ Bench / maint.\ window};
+  \draw[<->, very thick, isMute] (p) -- node[above=2pt, font=\scriptsize, fill=white, inner sep=2pt]{combine} (a);
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}[fragile]{Safe \texttt{nmap} Against a Test PLC}
+\centering
+\begin{tikzpicture}[node distance=8mm]
+  \node[workstation] (lap) {Auditor};
+  \node[switch, right=of lap] (sw) {SW};
+  \node[plc, right=of sw] (plc) {PLC (test)};
+  \draw[netline] (lap) -- (sw); \draw[netline] (sw) -- (plc);
+\end{tikzpicture}\par\vspace{3mm}
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize, frame=single]
+# Bench only -- never on production
+nmap -sT -p 102,502,20000,44818,20256 \
+     --max-rate 5 --scan-delay 200ms \
+     -Pn 192.168.10.10
+
+nmap -p 102 --script s7-info       192.168.10.10
+nmap -p 502 --script modbus-discover 192.168.10.10
+\end{lstlisting}
+\end{frame}
+
+\section{Vulnerability Management Workflow}
+
+\begin{frame}{Vulnerability Management Cycle}
+\centering
+\begin{tikzpicture}[scale=0.92, transform shape]
+  \def\R{1.4}
+  \foreach \deg/\lbl/\col in {
+    90/{Subscribe (feeds)}/isOT,
+    30/{Match (CVE $\leftrightarrow$ asset)}/isPLC,
+    330/{Triage (CVSS-E + process)}/isAccent,
+    270/{Mitigate (patch / control)}/isNet,
+    210/{Document}/isMute,
+    150/{Re-assess after change}/isAttack}{
+    \node[isbox, fill=\col!15, draw=\col, font=\scriptsize, align=center, text width=26mm, minimum height=10mm]
+      (n-\deg) at (\deg:\R+1.5) {\lbl};
+  }
+  \foreach \a/\b in {90/30, 30/330, 330/270, 270/210, 210/150, 150/90}{
+    \draw[-{Stealth[length=2.5mm]}, isOT, thick] (n-\a) to[bend left=14] (n-\b);
+  }
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Vendor Disclosure Practices}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=40mm, font=\small] (a) {Coordinated disclosure};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=40mm, font=\small, right=of a] (b) {Bug bounty};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=40mm, font=\small, right=of b] (c) {Silent fix};
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{Why ICS lags}
+Vendor patch cycles average \textbf{90--180 days}; many critical CVEs are released without code. Always check the security advisory page weekly, not the homepage.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{Common ICS Weakness Patterns}
+\begin{itemize}
+  \item \textbf{CWE-798} -- hard-coded credentials in firmware
+  \item \textbf{CWE-22}  -- path traversal in web UIs
+  \item \textbf{CWE-787} -- out-of-bounds write in protocol parsers
+  \item \textbf{CWE-306} -- missing authentication on critical functions
+  \item \textbf{CWE-352} -- CSRF in HMI web interfaces
+  \item \textbf{CWE-918} -- SSRF in cloud connectors
+\end{itemize}
+\begin{tipbox}{Pattern recognition}
+Once you have read 50 ICS advisories you will start to recognise the same weaknesses across vendors.
+\end{tipbox}
+\end{frame}
+
+\begin{frame}{Honeypots and Deception}
+\centering
+\begin{tikzpicture}[node distance=6mm]
+  \node[plc, fill=isAccent!15, draw=isAccent] (h1) {Honey-PLC};
+  \node[hmi, fill=isAccent!15, draw=isAccent, right=of h1] (h2) {Honey-HMI};
+  \node[server, fill=isAccent!15, draw=isAccent, right=of h2] (h3) {Honey-Hist};
+  \node[isbox, fill=isOT!15, draw=isOT, font=\small, below=10mm of h2, minimum width=90mm] (sink) {Alert + capture pipeline};
+  \foreach \n in {h1,h2,h3}{\draw[flow] (\n) -- (sink);}
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{Examples}
+\texttt{conpot} (open-source), GasPot, Cymmetria; sector-tailored ICS honeypots from MITRE Caldera and Dragos.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{Asset Criticality Classification}
+\centering
+\begin{tikzpicture}[x=2.9cm]
+  \node[isbox, fill=isMute!15, draw=isMute, minimum width=32mm, minimum height=18mm, align=center, font=\small] at (0,0) {\textbf{Low}\\\scriptsize office IT};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=32mm, minimum height=18mm, align=center, font=\small] at (1,0) {\textbf{Moderate}\\\scriptsize MES, historian};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=32mm, minimum height=18mm, align=center, font=\small] at (2,0) {\textbf{High}\\\scriptsize HMI, SCADA};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=32mm, minimum height=18mm, align=center, font=\small] at (3,0) {\textbf{Critical}\\\scriptsize PLC, SIS};
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{Drives priority}
+The classification determines patch SLA, monitoring depth, and acceptable downtime.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{Patching Cadence -- IT vs OT}
+\centering
+\renewcommand{\arraystretch}{1.3}
+\footnotesize
+\begin{tabular}{|p{3.5cm}|p{4cm}|p{4cm}|}
+\hline
+\rowcolor{slidePanel}
+ & \textbf{IT} & \textbf{OT} \\
+\hline
+Critical CVE        & 48--72 hours          & 30--90 days, with vendor approval \\
+Normal patch        & Monthly Patch Tuesday & Annual maintenance window \\
+Reboot tolerance    & Routine               & Co-ordinated, with operators \\
+Rollback plan       & Standard              & Mandatory + tested \\
+\hline
+\end{tabular}
+\vspace{2mm}
+\begin{importantbox}{Compensating controls}
+When you cannot patch quickly, deploy a virtual patch (IPS rule) or tighten the firewall around the affected service.
+\end{importantbox}
+\end{frame}
+
+\begin{frame}{Summary -- Section \sectionNumber}
+\begin{takeawaybox}{What to remember from this section}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Track CVEs from CISA, vendor PSIRTs, and threat intel feeds.
+  \item Asset inventory with firmware versions is the foundation.
+  \item CVSS base alone misleads -- always add environmental and process impact.
+  \item Active scans only on test benches; passive sniffing is the production-safe default.
+\end{itemize}
+\end{takeawaybox}
+\end{frame}
+
+\closingframe
+
+\end{document}

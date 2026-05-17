@@ -1,0 +1,55 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\sectionNumber{02}
+\def\sectionTitle{ICS and SCADA Fundamentals}
+\def\sheetKind{Solution Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 2.1 -- Component Mapping}
+\begin{enumerate}
+  \item Historian.
+  \item SIS (Safety Instrumented System).
+  \item PLC.
+  \item HMI.
+  \item RTU (legacy SCADA over leased serial / radio link).
+  \item DCS (Distributed Control System).
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 2.2 -- Sample Solution}
+\begin{verbatim}
+| Start    Stop(NC)  Guard1   Guard2     Motor   |
+|---] [---]/[--------] [------] [------(   )----|
+|                                                |
+| Motor                                          |
+|---] [-----+ (parallel seal-in into Motor)     |
+|                                                |
+| Motor                  Lamp                    |
+|---] [-----------------(    )-------------------|
+\end{verbatim}
+The seal-in latches the motor on; either Stop, Guard1, or Guard2 dropping out breaks the chain.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 2.3 -- Independent SIS}
+\begin{enumerate}
+  \item Independence ensures that the BPCS cannot be a common-cause failure for the protection layer. If the same controller both runs the process and protects it, a single attack or fault can defeat both -- giving an attacker direct path to unsafe states.
+  \item TRITON (2017) targeted a Schneider Triconex SIS at a Saudi petrochemical plant via the proprietary TriStation protocol. The goal was to reprogram safety logic to permit unsafe states. A bug in the malware caused the SIS to trip and revealed the operation.
+  \item (a) Signed and verified safety-logic uploads; (b) physical keyswitch for ``program enable'' that cannot be overridden remotely.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 2.4 -- Lab Notes}
+Expected observations:
+\begin{itemize}
+  \item OpenPLC defaults to Modbus TCP on port 502.
+  \item HMI traffic uses function codes \texttt{0x03} (read holding regs), \texttt{0x06} or \texttt{0x10} (write).
+  \item Communication is plaintext -- no authentication, no integrity.
+\end{itemize}
+\end{taskbox}
+
+\end{document}

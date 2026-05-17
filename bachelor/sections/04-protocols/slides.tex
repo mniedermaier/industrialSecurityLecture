@@ -1,0 +1,226 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\courseSubtitle{Section 04 -- Industrial Protocols}
+\def\sectionNumber{04}
+\def\sectionTitle{Industrial Protocols}
+
+\input{../../../template/slides-preamble.tex}
+
+\begin{document}
+
+\sectionoverviewframe
+
+\learningobjectives{
+  \item Recognise common industrial protocols and their use cases.
+  \item Understand why legacy protocols typically lack authentication.
+  \item Decode a Modbus TCP frame by hand.
+  \item Compare insecure legacy protocols with secure modern alternatives (OPC UA, MQTT-TLS).
+  \item Identify when secure variants are appropriate.
+}
+
+\section{Legacy Heritage}
+
+\begin{frame}{Why Industrial Protocols Are Different}
+\begin{importantbox}{Core fact}
+Most industrial protocols in production today were \textbf{designed before the Internet} and provide no authentication, integrity, or confidentiality.
+\end{importantbox}
+\vspace{1mm}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isMute!10, draw=isMute, minimum width=36mm, minimum height=18mm, align=center, font=\scriptsize] (then)
+    {Designed 1970s--90s\\for serial links};
+  \node[isbox, fill=isPLC!10, draw=isPLC, minimum width=36mm, minimum height=18mm, right=of then, align=center, font=\scriptsize] (req)
+    {Optimised:\\small payloads, low CPU,\\deterministic};
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=36mm, minimum height=18mm, right=of req, align=center, font=\scriptsize] (gap)
+    {Missing:\\authentication, encryption,\\integrity};
+  \draw[flow] (then) -- (req);
+  \draw[flow] (req) -- (gap);
+\end{tikzpicture}
+\end{frame}
+
+\section{Modbus}
+
+\begin{frame}{Modbus Overview}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[server] (m) {Master / Client};
+  \node[plc, right=24mm of m] (s1) {Slave 1};
+  \node[plc, below=of s1] (s2) {Slave 2};
+  \node[plc, above=of s1] (s3) {Slave 3};
+  \draw[-{Stealth[length=2.5mm]}, thick] (m.east) to[bend left=22] node[above=2pt, font=\tiny, sloped]{request} (s1.west);
+  \draw[-{Stealth[length=2.5mm]}, thick] (s1.west) to[bend left=22] node[above=2pt, font=\tiny, sloped]{response} (m.east);
+  \draw[-{Stealth[length=2.5mm]}, thick] (m) -- (s2);
+  \draw[-{Stealth[length=2.5mm]}, thick] (m) -- (s3);
+  \node[font=\scriptsize, below=18mm of m, align=left]
+    {Variants: \texttt{Modbus RTU} (serial), \texttt{Modbus TCP} (port 502)\\
+     Address space: coils, discrete inputs, input regs, holding regs\\
+     No auth, no encryption -- by design (1979)};
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}[fragile]{Modbus TCP Frame Anatomy}
+\centering
+\begin{tikzpicture}[x=10mm, y=8mm]
+  \foreach \x/\w/\name/\col in {
+    0/2/{Trans ID}/isOT,
+    2/2/{Proto ID}/isOT,
+    4/2/{Length}/isOT,
+    6/1.4/{Unit}/isOT,
+    7.4/1.4/{Func}/isPLC,
+    8.8/2.6/{Data (n B)}/isPLC}{
+    \draw[fill=\col!15, draw=\col, thick] (\x,0) rectangle ++(\w,1);
+    \node[font=\tiny, align=center] at (\x+\w/2,0.5) {\name};
+  }
+  \draw[brace] (0,1.1) -- (6,1.1) node[midway,above=4pt,font=\scriptsize]{MBAP header (7 B)};
+  \draw[brace] (6,1.1) -- (11.4,1.1) node[midway,above=4pt,font=\scriptsize]{PDU};
+\end{tikzpicture}
+\par\vspace{4mm}
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize, frame=none, backgroundcolor=\color{white}]
+00 01 00 00 00 06 01 03 00 00 00 0A
+^TID^ ^PID^ ^LEN^ ^U^ ^FC^ ^Addr^ ^Cnt^   -> Read 10 Holding Regs from 0x0000
+\end{lstlisting}
+\end{frame}
+
+\section{Siemens, DNP3, EtherNet/IP}
+
+\begin{frame}{Siemens S7comm}
+\centering
+\begin{tikzpicture}[node distance=2mm]
+  \node[isbox, fill=isOT!10, draw=isOT, minimum width=70mm, minimum height=8mm] (eth) {Ethernet};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=70mm, minimum height=8mm, above=of eth] (ip) {IP};
+  \node[isbox, fill=isOT!20, draw=isOT, minimum width=70mm, minimum height=8mm, above=of ip] (tcp) {TCP (port 102)};
+  \node[isbox, fill=isPLC!20, draw=isPLC, minimum width=70mm, minimum height=8mm, above=of tcp] (cotp) {ISO 8073 (TPKT/COTP)};
+  \node[isbox, fill=isPLC!30, draw=isPLC, minimum width=70mm, minimum height=8mm, above=of cotp] (s7) {S7comm};
+\end{tikzpicture}
+\par\vspace{2mm}
+\footnotesize Read/write variables, upload/download programs, start/stop CPU. S7commPlus added session keys -- still broken in practice.
+\end{frame}
+
+\begin{frame}{DNP3 and IEC 60870-5-104}
+\centering
+\begin{tikzpicture}[node distance=12mm]
+  \node[server] (master) {Master};
+  \node[plc] (out1) at (4,1) {Outstation 1};
+  \node[plc] (out2) at (4,-1) {Outstation 2};
+  \node[plc] (out3) at (4,-3) {Outstation 3};
+  \draw[flow] (master.east) to[bend left=22] node[above=2pt, font=\tiny, sloped]{poll} (out1.west);
+  \draw[flow] (out1.west) to[bend left=22] node[above=2pt, font=\tiny, sloped]{unsolicited} (master.east);
+  \draw[flow] (master) -- (out2);
+  \draw[flow] (master) -- (out3);
+\end{tikzpicture}
+\par\vspace{2mm}
+\footnotesize DNP3 dominant in NA utilities; IEC 60870-5-104 in Europe. Both ride TCP today; both added Secure Authentication (SAv5) on top, but encryption is optional.
+\end{frame}
+
+\begin{frame}{EtherNet/IP and CIP}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[server] (scan) {Scanner};
+  \node[plc, right=of scan] (dev) {CIP Device};
+  \draw[-{Stealth[length=2mm]}, thick] (scan) to[bend left=18] node[above=2pt, font=\tiny, sloped]{Explicit TCP/44818} (dev);
+  \draw[-{Stealth[length=2mm]}, thick] (scan) to[bend right=18] node[below=2pt, font=\tiny, sloped]{Implicit UDP/2222} (dev);
+  \node[isbox, fill=isAccent!10, draw=isAccent, below=18mm of scan, font=\scriptsize, align=left, minimum width=90mm]
+    {CIP carries object-oriented messages (assemblies, parameters, identity).\\CIP Security adds TLS/DTLS and certificate-based authentication.};
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Profinet}
+\centering
+\begin{tikzpicture}[node distance=8mm]
+  \node[server] (ctl) {Controller};
+  \node[plc, right=of ctl] (dev1) {Device};
+  \node[plc, right=of dev1] (dev2) {Device};
+  \node[plc, right=of dev2] (dev3) {Device};
+  \draw[-{Stealth[length=2mm]}, thick, isOT] (ctl) -- node[midway, above, font=\tiny, yshift=1mm]{RT} (dev1);
+  \draw[-{Stealth[length=2mm]}, thick, isOT] (dev1) -- (dev2);
+  \draw[-{Stealth[length=2mm]}, thick, isOT] (dev2) -- (dev3);
+  \node[font=\scriptsize, below=10mm of dev2, align=center]
+    {EtherType 0x8892 -- bypasses IP for real time.\\IRT needs hardware switching for sub-ms cycles.};
+\end{tikzpicture}
+\end{frame}
+
+\section{Modern Secure Protocols}
+
+\begin{frame}{OPC UA}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[server, fill=isHMI!15, draw=isHMI] (srv) {OPC UA Server};
+  \node[hmi, above left=14mm and 10mm of srv] (c1) {Client (HMI)};
+  \node[hmi, above right=14mm and 10mm of srv] (c2) {Client (MES)};
+  \node[isbox, fill=isAccent!10, draw=isAccent, below=of srv, font=\scriptsize, minimum width=70mm, align=left]
+    {X.509 mutual auth $\bullet$ message signing $\bullet$ encryption\\Rich information model $\bullet$ pub/sub since v1.04};
+  \draw[-{Stealth[length=2mm]}, thick] (c1) -- node[left, font=\tiny]{TLS} (srv);
+  \draw[-{Stealth[length=2mm]}, thick] (c2) -- node[right, font=\tiny]{TLS} (srv);
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{MQTT for IIoT}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[server, fill=isSCADA!12, draw=isSCADA, minimum width=22mm] (br) {Broker};
+  \node[sensor, above left=10mm and 16mm of br] (s1) {Sensor};
+  \node[sensor, left=22mm of br] (s2) {Sensor};
+  \node[sensor, below left=10mm and 16mm of br] (s3) {Sensor};
+  \node[hmi, above right=10mm and 16mm of br] (sub1) {HMI};
+  \node[hmi, right=22mm of br] (sub2) {Analytics};
+  \node[hmi, below right=10mm and 16mm of br] (sub3) {Cloud};
+  \foreach \n in {s1,s2,s3}{\draw[flow] (\n) -- node[above=2pt, font=\tiny, sloped]{pub} (br);}
+  \foreach \n in {sub1,sub2,sub3}{\draw[flow] (br) -- node[above=2pt, font=\tiny, sloped]{sub} (\n);}
+  \node[font=\scriptsize, below=22mm of br] {Default 1883 plaintext / 8883 with TLS. Sparkplug B adds OT semantics.};
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Protocol Security at a Glance}
+\centering
+\renewcommand{\arraystretch}{1.3}
+\footnotesize
+\begin{tabular}{|l|c|c|c|l|}
+\hline
+\rowcolor{isMute!20}
+\textbf{Protocol} & \textbf{Auth} & \textbf{Integrity} & \textbf{Confid.} & \textbf{Notes} \\
+\hline
+Modbus       & \cellcolor{isAttack!20}$\times$ & \cellcolor{isAttack!20}$\times$ & \cellcolor{isAttack!20}$\times$ & 1979, ubiquitous \\
+S7comm       & \cellcolor{isAttack!20}$\times$ & \cellcolor{isAttack!20}$\times$ & \cellcolor{isAttack!20}$\times$ & Siemens-proprietary \\
+DNP3         & \cellcolor{isAccent!20}opt SAv5 & \cellcolor{isAccent!20}opt     & \cellcolor{isAttack!20}$\times$ & Utilities \\
+EtherNet/IP  & \cellcolor{isAccent!20}opt CIP  & \cellcolor{isAccent!20}opt     & \cellcolor{isAccent!20}opt      & Rockwell \\
+Profinet     & \cellcolor{isAttack!20}weak     & \cellcolor{isAttack!20}$\times$ & \cellcolor{isAttack!20}$\times$ & Siemens / IRT \\
+OPC UA       & \cellcolor{isNet!25}X.509       & \cellcolor{isNet!25}sign       & \cellcolor{isNet!25}TLS         & modern default \\
+MQTT         & \cellcolor{isAccent!20}+TLS     & \cellcolor{isNet!25}TLS         & \cellcolor{isNet!25}TLS         & IIoT messaging \\
+\hline
+\end{tabular}
+\end{frame}
+
+\begin{frame}{IEC 61850 in Substations}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[plc, fill=isOT!15, minimum width=24mm] (ied1) {IED};
+  \node[plc, fill=isOT!15, minimum width=24mm, right=of ied1] (ied2) {IED};
+  \node[plc, fill=isOT!15, minimum width=24mm, right=of ied2] (ied3) {IED};
+  \node[switch, below=10mm of ied2, minimum width=28mm] (sw) {Process bus};
+  \node[server, fill=isHMI!15, draw=isHMI, below=8mm of sw, minimum width=44mm, font=\small] (scada) {Station HMI / SCADA};
+  \draw[netline] (ied1.south) -- ([yshift=2pt]ied1.south |- sw.north);
+  \draw[netline] (ied2.south) -- ([yshift=2pt]ied2.south |- sw.north);
+  \draw[netline] (ied3.south) -- ([yshift=2pt]ied3.south |- sw.north);
+  \draw[netline] (sw.south) -- (scada.north);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{The substation stack}
+\textbf{MMS} for client/server; \textbf{GOOSE} for sub-4\,ms trip messages; \textbf{Sampled Values} for measurements. Goose has \emph{no} authentication by default.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{Summary -- Section \sectionNumber}
+\begin{takeawaybox}{What to remember from this section}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Most legacy industrial protocols are unauthenticated and unencrypted by design.
+  \item Modbus is the canonical example -- 12 bytes of MBAP and a one-byte function code.
+  \item Modern protocols (OPC UA, MQTT-TLS) bring real cryptography, but require correct configuration.
+  \item Network-layer mitigations (firewalls, segmentation) compensate where the protocol cannot.
+\end{itemize}
+\end{takeawaybox}
+\end{frame}
+
+\closingframe
+
+\end{document}

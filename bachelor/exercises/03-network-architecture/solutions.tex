@@ -1,0 +1,60 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\sectionNumber{03}
+\def\sectionTitle{Industrial Network Architectures}
+\def\sheetKind{Solution Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 3.1 -- Purdue Diagram (sample)}
+\centering
+\begin{tikzpicture}[node distance=4mm, y=0.8cm]
+  \foreach \y/\lvl/\desc/\col in {
+    0/0/{Field: pumps, valves, sensors}/isOT,
+    1/1/{PLC 1\ldots PLC 6}/isPLC,
+    2/2/{HMI 1, HMI 2}/isSCADA,
+    3/3/{SCADA, Historian}/isHMI,
+    4/{3.5}/{Patch/AV stage, Vendor jump host}/isAccent,
+    5/4/{Office IT (ERP, email)}/isIT,
+    6/5/{Enterprise (Internet edge)}/isIT}{
+    \node[level, fill=\col!15, draw=\col, anchor=west, minimum width=120mm] at (0,\y) {\textbf{L\lvl}\quad \desc};
+  }
+\end{tikzpicture}
+Vendor remote support terminates in the iDMZ on the jump host, never directly in L1/2.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 3.2 -- Zones \& Conduits (sample)}
+Zones:
+\begin{itemize}
+  \item Z1 Field (SL-T 2), Z2 Control (SL-T 3), Z3 Supervisory (SL-T 3), Z4 iDMZ (SL-T 2), Z5 IT (SL-T 1).
+\end{itemize}
+Conduits (excerpt):
+\begin{itemize}
+  \item C1 Z3$\to$Z4 (Historian replication, OPC UA, push-only, TCP/4840).
+  \item C2 Z5$\to$Z4 (Historian read for BI, REST/HTTPS).
+  \item C3 Z4$\to$Z3 (vendor jump-host RDP, MFA, time-bound).
+\end{itemize}
+A data diode is appropriate for C1: it is push-only and integrity of the BPCS must not be at risk from any IT-side compromise. A stateful firewall still depends on software correctness; a diode enforces direction in hardware.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 3.3 -- Lab Notes}
+Expected outcome: \texttt{nmap -Pn 192.168.10.0/24} from the Enterprise host returns no open ports. Replication test (e.g.\ \texttt{nc -lvp 5450} on the DMZ) succeeds only from the Control subnet.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 3.4 -- Topology Trade-Offs}
+\begin{tabular}{p{2.5cm} p{6cm} p{6cm}}
+\toprule
+ & \textbf{Star} & \textbf{Ring (HSR/MRP)} \\
+\midrule
+Failure modes & Switch is single point of failure & Survives single link failure \\
+Recovery time & Manual switch replacement & Sub-second (HSR is 0\,ms) \\
+Cabling cost & Lowest & Higher; needs ring-capable switches \\
+\bottomrule
+\end{tabular}
+\end{taskbox}
+
+\end{document}

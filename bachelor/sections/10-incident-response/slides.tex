@@ -1,0 +1,224 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\courseSubtitle{Section 10 -- Incident Response and Recovery}
+\def\sectionNumber{10}
+\def\sectionTitle{Incident Response and Recovery}
+
+\input{../../../template/slides-preamble.tex}
+
+\begin{document}
+
+\sectionoverviewframe
+
+\learningobjectives{
+  \item Distinguish IT and OT considerations in incident response.
+  \item Build a basic OT IR playbook.
+  \item Understand forensic acquisition options on ICS devices.
+  \item Plan a tabletop exercise.
+}
+
+\section{OT-Specific Considerations}
+
+\begin{frame}{Why OT IR Is Different}
+\centering
+\begin{tikzpicture}[node distance=3mm]
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small] (a) {Safety first -- a wrong response may cause a worse incident};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small, below=of a] (b) {Don't pull the cable -- losing visibility can blind operators};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small, below=of b] (c) {Process owners must be in the IR loop, not just IT};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small, below=of c] (d) {Some forensic actions (memory dump on running PLC) are infeasible};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small, below=of d] (e) {Containment may require manual fall-back to local control};
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{The IR Lifecycle (Adapted for OT)}
+\centering
+\vspace{-2mm}
+\centering
+\begin{tikzpicture}[scale=0.85, transform shape]
+  \def\R{1.4}
+  \foreach \deg/\name/\col in {
+    90/{1. Preparation}/isOT,
+    30/{2. Detection \& analysis}/isPLC,
+    330/{3. Containment}/isAccent,
+    270/{4. Eradication}/isHMI,
+    210/{5. Recovery}/isNet,
+    150/{6. Lessons learned}/isMute}{
+    \node[isbox, fill=\col!15, draw=\col, font=\scriptsize, align=center, minimum width=30mm, minimum height=10mm]
+      (n-\deg) at (\deg:\R+1.6) {\name};
+  }
+  \foreach \a/\b in {90/30, 30/330, 330/270, 270/210, 210/150, 150/90}{
+    \draw[-{Stealth[length=2.5mm]}, thick, isOT] (n-\a) to[bend left=12] (n-\b);
+  }
+\end{tikzpicture}
+\end{frame}
+
+\section{Forensics and Reporting}
+
+\begin{frame}{ICS Forensics -- What Can You Pull?}
+\centering
+\begin{tikzpicture}[node distance=14mm, scale=0.85, transform shape]
+  \node[plc, minimum width=20mm] (plc) {PLC};
+  \node[hmi, right=of plc, minimum width=20mm] (hmi) {HMI};
+  \node[server, right=of hmi, minimum width=24mm] (eng) {Engineering WS};
+  \node[switch, right=of eng, minimum width=22mm] (sw) {Network};
+  \node[isbox, fill=isAccent!10, draw=isAccent, font=\scriptsize, below=of plc, minimum width=32mm, align=left]
+    {Config via vendor\\tool, read-only\\vs.\ baseline};
+  \node[isbox, fill=isAccent!10, draw=isAccent, font=\scriptsize, below=of hmi, minimum width=32mm, align=left]
+    {Disk image\\(live or offline)\\Memory if feasible};
+  \node[isbox, fill=isAccent!10, draw=isAccent, font=\scriptsize, below=of eng, minimum width=32mm, align=left]
+    {Project files\\Audit logs (TIA,\\RSLogix)};
+  \node[isbox, fill=isAccent!10, draw=isAccent, font=\scriptsize, below=of sw, minimum width=32mm, align=left]
+    {NetFlow + PCAP\\from IDS layer};
+\end{tikzpicture}
+\par\vspace{1mm}
+{\footnotesize Chain of custody from minute one.}
+\end{frame}
+
+\begin{frame}{Coordination and Reporting (NIS2 timing)}
+\centering
+\begin{tikzpicture}[x=1.6cm]
+  \draw[axisline] (0,0) -- (8,0);
+  \foreach \x/\label/\det in {
+    0/{Detection}/{Internal first response},
+    2/{24 h}/{Initial notice (NIS2)},
+    5/{72 h}/{Update notice},
+    7.5/{1 month}/{Final report}}{
+    \draw[thick] (\x,-1mm) -- (\x,1mm);
+    \node[font=\tiny, below=1mm] at (\x,0) {\label};
+    \node[font=\tiny, above=2mm, align=center] at (\x,0) {\det};
+  }
+\end{tikzpicture}
+\par\vspace{6mm}
+\footnotesize Also: national CERT (BSI / CISA), sector ISAC (E-ISAC, WaterISAC), law enforcement, regulators, customers per contract.
+\end{frame}
+
+\section{Exercises and Continuity}
+
+\begin{frame}{Tabletop Exercise Scenarios}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small] (a) {Ransomware encrypts the Historian};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small, below=of a] (b) {Insider exfiltrates PLC programs before resignation};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small, below=of b] (c) {Nation-state intrusion into Safety Instrumented System};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small, below=of c] (d) {Vendor remote-access account is compromised};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small, below=of d] (e) {Suspicious unsolicited Modbus writes from IT subnet};
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Business Continuity \& Recovery}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=24mm, minimum height=14mm, align=center, font=\scriptsize] (rto) {\textbf{RTO}\\Recovery\\Time};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=24mm, minimum height=14mm, align=center, font=\scriptsize, right=of rto] (rpo) {\textbf{RPO}\\Recovery\\Point};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=24mm, minimum height=14mm, align=center, font=\scriptsize, right=of rpo] (man) {\textbf{Manual}\\fall-back\\ops};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=24mm, minimum height=14mm, align=center, font=\scriptsize, right=of man] (spare) {\textbf{Cold spares}\\PLCs /\\switches};
+\end{tikzpicture}
+\vspace{3mm}
+\begin{importantbox}{Rehearse}
+Plans must be rehearsed. Paper plans fail under stress.
+\end{importantbox}
+\end{frame}
+
+\begin{frame}{IR Roles (RACI)}
+\centering
+\renewcommand{\arraystretch}{1.2}
+\footnotesize
+\begin{tabular}{|l|c|c|c|c|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Activity} & \textbf{Operator} & \textbf{Control Eng} & \textbf{OT Security} & \textbf{Plant Mgr} \\
+\hline
+Detect anomaly       & R & C & I & I \\
+Assess process risk  & C & R & C & A \\
+Contain (segment FW) & I & C & R & A \\
+Stop production      & C & C & C & A/R \\
+Forensic capture     & I & C & R & I \\
+External notification& I & I & C & A \\
+\hline
+\end{tabular}
+\par\vspace{2mm}
+{\footnotesize R = Responsible, A = Accountable, C = Consulted, I = Informed.}
+\end{frame}
+
+\begin{frame}{Network Forensic Toolbox}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=32mm, font=\small] (a) {Wireshark / tshark};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=32mm, font=\small, right=of a] (b) {Zeek};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=32mm, font=\small, right=of b] (c) {Suricata + ICS rules};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=32mm, font=\small, below=of a] (d) {Malcolm (full stack)};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=32mm, font=\small, below=of b] (e) {NetworkMiner};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=32mm, font=\small, below=of c] (f) {tcpdump};
+\end{tikzpicture}
+\vspace{3mm}
+\begin{tipbox}{Workflow}
+PCAP first, parse second, derive metrics third. Never reformat raw evidence -- keep an immutable copy and work on a derivative.
+\end{tipbox}
+\end{frame}
+
+\begin{frame}{Communication Strategy}
+\begin{itemize}
+  \item \textbf{Internal first:} plant operator, on-call engineer, executive sponsor.
+  \item \textbf{External next:} CERT (BSI / CISA), sectoral ISAC, regulators.
+  \item Templates for each audience: technical (engineering), operational (plant managers), executive (board), public (PR).
+  \item Use a \textbf{single channel of truth} -- e.g.\ war-room chat -- to avoid contradictory updates.
+\end{itemize}
+\begin{warnbox}
+Speculation kills credibility. Communicate \emph{what you know} and \emph{what you do not know} separately.
+\end{warnbox}
+\end{frame}
+
+\begin{frame}{Post-Mortem Template}
+\centering
+\begin{tikzpicture}[node distance=2mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small] (a) {1. Timeline of events with timestamps};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of a] (b) {2. What happened (root cause, contributing factors)};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of b] (c) {3. What worked / what did not};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of c] (d) {4. Action items with owners and due dates};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of d] (e) {5. Follow-up review date};
+\end{tikzpicture}
+\vspace{1mm}
+\begin{notebox}{Blameless}
+Focus on systems and decisions, never on individuals.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{Exercise Cadence}
+\centering
+\begin{tikzpicture}[x=3cm]
+  \node[isbox, fill=isOT!15, draw=isOT, font=\scriptsize, minimum width=28mm, minimum height=14mm, align=center] at (0,0) {Annual\\full-scale};
+  \node[isbox, fill=isPLC!15, draw=isPLC, font=\scriptsize, minimum width=28mm, minimum height=14mm, align=center] at (1,0) {Quarterly\\tabletop};
+  \node[isbox, fill=isAccent!15, draw=isAccent, font=\scriptsize, minimum width=28mm, minimum height=14mm, align=center] at (2,0) {Monthly\\drill};
+  \node[isbox, fill=isNet!15, draw=isNet, font=\scriptsize, minimum width=28mm, minimum height=14mm, align=center] at (3,0) {Continuous\\monitoring};
+\end{tikzpicture}
+\par\vspace{2mm}
+{\footnotesize Cadence depends on regulatory pressure (NERC CIP, KRITIS) and on the maturity of the team.}
+\end{frame}
+
+\begin{frame}{Recovery Validation}
+\begin{itemize}
+  \item Verify integrity of restored PLC programs against a signed baseline.
+  \item Re-baseline alarms and trends -- known-good snapshot before declaring ``done''.
+  \item Heightened monitoring window (e.g.\ 72 hours) after recovery.
+  \item Capture lessons learned within 5 working days while details are fresh.
+\end{itemize}
+\begin{importantbox}{Don't rush}
+Premature ``all clear'' is how secondary incidents happen. The attacker may still be present.
+\end{importantbox}
+\end{frame}
+
+\begin{frame}{Summary -- Section \sectionNumber}
+\begin{takeawaybox}{What to remember from this section}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item OT IR rules differ from IT IR -- safety leads, visibility matters more than isolation.
+  \item Forensics on PLCs is constrained; the network capture is the most valuable evidence.
+  \item Regulators expect short reporting windows -- 24 / 72 hours under NIS2.
+  \item Tabletops surface gaps before incidents do; rehearse recovery, not just plans.
+\end{itemize}
+\end{takeawaybox}
+\end{frame}
+
+\closingframe
+
+\end{document}

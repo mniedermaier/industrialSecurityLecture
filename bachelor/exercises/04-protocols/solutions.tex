@@ -1,0 +1,53 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\sectionNumber{04}
+\def\sectionTitle{Industrial Protocols}
+\def\sheetKind{Solution Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 4.1 -- Modbus Frame}
+\begin{enumerate}
+  \item MBAP: Transaction ID = \texttt{0x0001}, Protocol ID = \texttt{0x0000} (always 0 for Modbus), Length = \texttt{0x0006} (6 bytes follow), Unit ID = \texttt{0x01}.
+  \item Function code = \texttt{0x03} = ``Read Holding Registers''.
+  \item Starting address = \texttt{0x0000}, quantity = \texttt{0x000A} = 10 registers.
+  \item Expected response (Unit ID 1, FC 03, byte count = $10 \times 2 = 20$):
+  \begin{center}\ttfamily
+00 01 \ 00 00 \ 00 17 \ 01 \ 03 \ 14 \ 00 00 \ 00 00 \ 00 00 \ 00 00 \ 00 00 \ 00 00 \ 00 00 \ 00 00 \ 00 00 \ 00 00
+  \end{center}
+  (Length = 1 + 1 + 1 + 20 = 23 = \texttt{0x0017}.)
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 4.2 -- Lab Notes}
+The injection works because Modbus TCP has no authentication, no integrity, no encryption. Any host that can reach TCP/502 can write to any address. Mitigations:
+\begin{itemize}
+  \item Network segmentation (only authorised hosts reach TCP/502).
+  \item Industrial firewall with Modbus DPI (allowlist function codes per source).
+  \item Modbus Security (TCP/802) with TLS -- adoption is slow.
+  \item Cryptographic wrappers / VPN tunnels.
+\end{itemize}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 4.3 -- OPC UA vs Modbus (key comparisons)}
+\begin{itemize}
+  \item \textbf{Authentication.} OPC UA: X.509 mutual + user. Modbus: none.
+  \item \textbf{Integrity.} OPC UA: signed messages. Modbus: none beyond TCP checksum.
+  \item \textbf{Confidentiality.} OPC UA: TLS / OPC UA \texttt{SignAndEncrypt}. Modbus: none.
+  \item \textbf{Operational overhead.} OPC UA: certificate lifecycle management is non-trivial. Modbus: trivial to deploy, hence its persistence.
+\end{itemize}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 4.4 -- Protocol Selection (sample)}
+\begin{enumerate}
+  \item \textbf{IEC 61850} (MMS, GOOSE, SV) -- it is the substation standard and provides standardised modelling.
+  \item \textbf{Modbus TCP via gateway}, isolated in the iDMZ, with passive replication to corporate. Pragmatic for retrofits.
+  \item \textbf{MQTT (Sparkplug B) with TLS}, brokered, certificate-authenticated. Suits sparse, many-publisher IIoT.
+\end{enumerate}
+\end{taskbox}
+
+\end{document}

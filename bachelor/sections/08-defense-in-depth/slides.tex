@@ -1,0 +1,236 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\courseSubtitle{Section 08 -- Defense in Depth}
+\def\sectionNumber{08}
+\def\sectionTitle{Defense in Depth}
+
+\input{../../../template/slides-preamble.tex}
+
+\begin{document}
+
+\sectionoverviewframe
+
+\learningobjectives{
+  \item Apply defense-in-depth across people, process, and technology.
+  \item Design layered controls for an ICS environment.
+  \item Specify secure remote access patterns for vendors.
+  \item Position passive ICS IDS and explain alert triage.
+}
+
+\section{Layered Controls}
+
+\begin{frame}{The Defense-in-Depth Onion}
+\vspace{-2mm}
+\begin{columns}[T]
+\column{0.5\textwidth}
+\centering
+\begin{tikzpicture}[scale=0.5, transform shape]
+  \foreach \R/\col in {
+    4.5/isMute, 3.7/isIT, 3.0/isOT, 2.3/isPLC,
+    1.7/isAccent, 1.1/isNet, 0.5/isAttack}{
+    \draw[thick, fill=\col!12, draw=\col] (0,0) circle (\R);
+  }
+\end{tikzpicture}
+\column{0.5\textwidth}
+\vspace{1mm}
+{\scriptsize\setlength{\itemsep}{1pt}
+\begin{itemize}
+  \item \textcolor{isMute}{$\blacksquare$} Policies \& procedures
+  \item \textcolor{isIT}{$\blacksquare$} Physical security
+  \item \textcolor{isOT}{$\blacksquare$} Network segmentation
+  \item \textcolor{isPLC}{$\blacksquare$} Host hardening
+  \item \textcolor{isAccent}{$\blacksquare$} Application \& RBAC
+  \item \textcolor{isNet}{$\blacksquare$} Data \& backups
+  \item \textcolor{isAttack}{$\blacksquare$} Monitoring \& IR
+\end{itemize}}
+\end{columns}
+\vspace{1mm}
+\begin{importantbox}{Layered}
+A single failed layer should not equal a successful attack.
+\end{importantbox}
+\end{frame}
+
+\begin{frame}{Hardening ICS Hosts}
+\centering
+\begin{tikzpicture}[node distance=3mm]
+  \node[isbox, fill=isOT!10, draw=isOT, minimum width=110mm, font=\small] (a) {Remove or disable USB, optical, unused services};
+  \node[isbox, fill=isOT!10, draw=isOT, minimum width=110mm, font=\small, below=of a] (b) {CIS Benchmarks adapted for OT availability constraints};
+  \node[isbox, fill=isOT!10, draw=isOT, minimum width=110mm, font=\small, below=of b] (c) {Application whitelisting (AppLocker, McAfee Solidcore)};
+  \node[isbox, fill=isOT!10, draw=isOT, minimum width=110mm, font=\small, below=of c] (d) {Local firewalls with explicit allowlists};
+  \node[isbox, fill=isOT!10, draw=isOT, minimum width=110mm, font=\small, below=of d] (e) {Vendor-approved AV signatures only};
+\end{tikzpicture}
+\end{frame}
+
+\section{Access and Remote Support}
+
+\begin{frame}{IAM in OT -- Role Hierarchy}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[isbox, fill=isAccent!15, draw=isAccent] (admin) {Domain admin};
+  \node[isbox, fill=isPLC!15, draw=isPLC, below=of admin] (eng) {Engineer};
+  \node[isbox, fill=isHMI!15, draw=isHMI, below=of eng] (op) {Operator};
+  \node[isbox, fill=isMute!15, draw=isMute, below=of op] (view) {View only};
+  \node[isbox, fill=isAttack!15, draw=isAttack, right=22mm of eng, minimum width=30mm] (mfa) {MFA + just-in-time};
+  \draw[flow] (admin) -- (eng);
+  \draw[flow] (eng) -- (op);
+  \draw[flow] (op) -- (view);
+  \draw[flow, dashed, isAttack] (mfa.west) -- (eng.east);
+\end{tikzpicture}
+\par\vspace{2mm}
+\footnotesize Per-person accounts, no shared logins. Keep a local fallback in case AD goes down.
+\end{frame}
+
+\begin{frame}{Secure Remote Access Pattern}
+\centering
+\begin{tikzpicture}[node distance=6mm, scale=0.92, transform shape]
+  \node[isbox, fill=isMute!15, draw=isMute, minimum width=16mm] (vend) {Vendor};
+  \node[inetnode, fill=isLight, minimum width=18mm, right=of vend] (inet) {Internet};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of inet, align=center, minimum width=22mm, font=\scriptsize] (broker) {Brokered\\portal (MFA)};
+  \node[isbox, fill=isAttack!15, draw=isAttack, right=of broker, align=center, minimum width=22mm, font=\scriptsize] (jump) {Jump host\\(iDMZ)};
+  \node[plc, right=of jump, minimum width=14mm] (target) {PLC};
+  \node[isbox, fill=isPLC!12, draw=isPLC, below=10mm of broker, font=\scriptsize, minimum width=28mm] (rec) {Session recording};
+  \node[isbox, fill=isOT!12, draw=isOT, below=10mm of jump, font=\scriptsize, minimum width=28mm, xshift=10mm] (appr) {Operator approval};
+  \draw[flow] (vend) -- (inet) -- (broker) -- (jump) -- (target);
+  \draw[flow, dashed] (broker) -- (rec);
+  \draw[flow, dashed] (jump) -- (appr);
+\end{tikzpicture}
+\end{frame}
+
+\section{Patching, Backups, Monitoring}
+
+\begin{frame}{Patching Strategy in OT}
+\centering
+\begin{tikzpicture}[node distance=4mm, scale=0.85, transform shape]
+  \node[server, minimum width=22mm, font=\scriptsize] (vend) {Vendor advisory};
+  \node[isbox, fill=isOT!12, draw=isOT, right=of vend, minimum width=20mm, font=\scriptsize] (apv) {Approved?};
+  \node[isbox, fill=isPLC!12, draw=isPLC, right=of apv, minimum width=20mm, font=\scriptsize] (test) {Test bench};
+  \node[isbox, fill=isAccent!12, draw=isAccent, right=of test, minimum width=20mm, font=\scriptsize] (stage) {Pre-prod};
+  \node[isbox, fill=isAttack!15, draw=isAttack, right=of stage, minimum width=22mm, font=\scriptsize] (prod) {Plant outage};
+  \node[isbox, fill=isNet!15, draw=isNet, below=10mm of stage, minimum width=70mm, font=\scriptsize, align=center] (cc)
+    {Patching infeasible $\Rightarrow$ compensating control\\(firewall rule, virtual patch via IPS)};
+  \draw[flow] (vend) -- (apv);
+  \draw[flow] (apv) -- (test);
+  \draw[flow] (test) -- (stage);
+  \draw[flow] (stage) -- (prod);
+  \draw[flow, dashed] (apv.south) |- (cc.west);
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Backups -- 3-2-1 (and Immutable)}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[server] (prod) {Production};
+  \node[server, fill=isPLC!10, right=22mm of prod] (b1) {Backup A\\(\scriptsize disk)};
+  \node[server, fill=isPLC!10, right=of b1] (b2) {Backup B\\(\scriptsize NAS)};
+  \node[server, fill=isAttack!15, draw=isAttack, below=of b2] (b3) {Off-site / immutable};
+  \draw[flow] (prod) -- (b1);
+  \draw[flow] (b1) -- (b2);
+  \draw[flow] (b2) -- (b3);
+  \node[isbox, fill=isAccent!10, draw=isAccent, below=18mm of b1, font=\scriptsize, minimum width=110mm, align=left]
+    {Back up: PLC programs (with checksums), HMI projects, engineering workstations,\\
+     historian DB, switch configs.\quad Restore-test regularly.};
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Passive OT IDS Placement}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[server] (scada) {SCADA};
+  \node[switch, below=of scada] (sw) {Switch (SPAN)};
+  \node[plc, below left=of sw] (p1) {PLC};
+  \node[plc, below=of sw] (p2) {PLC};
+  \node[plc, below right=of sw] (p3) {PLC};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=22mm of sw, minimum width=32mm] (ids) {ICS IDS\\\scriptsize Zeek / Malcolm / Claroty};
+  \node[server, right=of ids, fill=isHMI!12, draw=isHMI] (soc) {SOC};
+  \draw[netline] (scada) -- (sw);
+  \foreach \n in {p1,p2,p3}{\draw[netline] (\n) -- (sw);}
+  \draw[-{Stealth[length=2mm]}, dashed, thick] (sw) -- node[above, font=\tiny, fill=white, inner sep=1pt]{mirror only} (ids);
+  \draw[flow] (ids) -- (soc);
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{What an OT IDS Looks For}
+\centering
+\begin{tikzpicture}[node distance=3mm]
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small] (a) {New device joining (MAC unseen)};
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small, below=of a] (b) {Unexpected Modbus function code (e.g.\ write coil from HMI subnet)};
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small, below=of b] (c) {Engineering download outside scheduled change window};
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small, below=of c] (d) {Outbound connection from PLC to Internet};
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small, below=of d] (e) {PLC mode change (RUN $\rightarrow$ STOP)};
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Network Access Control (NAC) in OT}
+\centering
+\begin{tikzpicture}[node distance=8mm]
+  \node[workstation] (lap) {Engineer laptop};
+  \node[switch, right=of lap] (sw) {NAC-capable switch};
+  \node[server, fill=isPLC!15, draw=isPLC, right=of sw, minimum width=28mm, font=\small] (auth) {RADIUS / 802.1X};
+  \node[plc, below=14mm of sw] (plc) {PLC port};
+  \draw[flow] (lap) -- (sw) -- (auth);
+  \draw[flow, dashed] (sw) -- node[right=2pt, font=\tiny, fill=white, inner sep=1pt]{quarantine} (plc);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{Sealing the wall jack}
+802.1X (with MAC bypass for legacy devices) prevents random laptops from joining the plant LAN. Static PLC ports get MAC pinning.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{USB Allow-Listing}
+\centering
+\begin{tikzpicture}[node distance=8mm]
+  \node[workstation] (ws) {HMI};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of ws, minimum width=40mm, font=\small, align=center] (kiosk) {Kiosk scanner\\(Olea, OPSWAT, Nettitude)};
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\small, above=10mm of kiosk] (usb) {USB stick};
+  \draw[flow] (usb) -- (kiosk);
+  \draw[flow] (kiosk) -- node[above=2pt, font=\tiny, fill=white, inner sep=1pt]{cleared} (ws);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{importantbox}{One door}
+Every USB must pass through one of N approved scanning kiosks before it touches an HMI. Block all other USB at the OS level.
+\end{importantbox}
+\end{frame}
+
+\begin{frame}{Logging Strategy for OT}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[plc] (a) {PLC syslog};
+  \node[hmi, right=of a] (b) {HMI events};
+  \node[server, right=of b, fill=isHMI!12] (c) {Historian alarms};
+  \node[firewall, right=of c] (d) {FW logs};
+  \node[server, fill=isPLC!15, draw=isPLC, below=14mm of {$(b)!0.5!(c)$}, minimum width=70mm, font=\small] (siem) {OT-aware SIEM};
+  \foreach \n in {a,b,c,d}{\draw[flow] (\n.south) -- (\n.south |- siem.north);}
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{Send everything, correlate centrally}
+Most ICS devices have weak logging -- compensate with network IDS and host-based agents on the windows-class assets.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{Deception in OT}
+\begin{itemize}
+  \item Honey-PLCs / honey-HMIs lure scans and exploit attempts.
+  \item Decoy credentials (canary tokens) trip alerts when used.
+  \item Fake assets in DNS / Active Directory.
+  \item False engineering-WS hostnames as tripwires.
+\end{itemize}
+\begin{tipbox}{Low cost, high signal}
+A honey-PLC sees \emph{zero} legitimate traffic by design -- any hit is a near-certain incident.
+\end{tipbox}
+\end{frame}
+
+\begin{frame}{Summary -- Section \sectionNumber}
+\begin{takeawaybox}{What to remember from this section}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Defense in depth layers people, process, and technology.
+  \item Hardening and application whitelisting fit well on static HMIs.
+  \item Brokered, recorded, approved remote access beats open VPNs to the plant.
+  \item Passive OT IDS provides visibility without injecting traffic into production.
+\end{itemize}
+\end{takeawaybox}
+\end{frame}
+
+\closingframe
+
+\end{document}

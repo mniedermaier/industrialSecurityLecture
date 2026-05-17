@@ -1,0 +1,51 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\sectionNumber{10}
+\def\sectionTitle{Incident Response and Recovery}
+\def\sheetKind{Solution Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 10.1 -- Playbook (sample structure)}
+\textbf{Trigger:} OT IDS alert -- unsolicited Modbus write from corporate subnet.\\
+\textbf{Roles:} OT IR lead (incident commander), control engineer (process impact), IT SOC (forensics), plant manager (decisions), communications (external).\\
+\textbf{First 60 min:}
+\begin{enumerate}
+  \item Confirm alert is not a false positive.
+  \item Notify operator in the control room; verify HMI vs.\ raw PLC values.
+  \item Block the source IP at the iDMZ firewall (do \emph{not} disconnect PLC).
+  \item Snapshot relevant network captures from the IDS.
+  \item Page plant manager and on-call OT IR.
+\end{enumerate}
+\textbf{Containment options:} (a) source-host isolation in IT, (b) PLC mode switch to local-only, (c) emergency manual operation. Document process impact of each.\\
+\textbf{Recovery:} re-image source host, rotate affected credentials, increase monitoring, run post-incident review within 5 working days.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 10.2 -- Tabletop (mark scheme)}
+Award marks for: safety-first thinking (no rash disconnects); calling for control engineer expertise early; preserving forensic evidence (PCAP, logs); clear comms; documenting decisions; identifying \emph{when} to involve external CERT/regulators.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 10.3 -- Forensic Report (mark scheme)}
+Award marks for: correct attacker IP, accurate timeline (Wireshark filter \texttt{modbus.func\_code == 6}), process impact described in operator terms, clean executive summary at the top, recommendations distinct from facts.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 10.4 -- Business Continuity (sample)}
+\begin{tabular}{p{3cm} p{1.5cm} p{1.5cm} p{6cm}}
+\toprule
+\textbf{System} & \textbf{RTO} & \textbf{RPO} & \textbf{Notes} \\
+\midrule
+SCADA           & 4 h & 1 h & Spare server image + last config \\
+Historian       & 24 h & 24 h & Off-site immutable backup \\
+PLC             & 1 h & 0 h & Cold spare on the shelf \\
+HMI             & 2 h & N/A & Spare workstation image \\
+\bottomrule
+\end{tabular}
+\\[1em]
+Manual ops procedure: pre-printed run-cards per loop, local panel readings, two-operator rule for valve operations, hourly logsheets to be entered into Historian on recovery.
+\end{taskbox}
+
+\end{document}

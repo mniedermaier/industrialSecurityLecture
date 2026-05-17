@@ -1,0 +1,50 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\sectionNumber{05}
+\def\sectionTitle{Threat Landscape}
+\def\sheetKind{Solution Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 5.1 -- ATT\&CK Mapping (Stuxnet sample)}
+\begin{tabular}{p{4cm} p{3cm} p{7cm}}
+\toprule
+\textbf{Tactic} & \textbf{Technique ID} & \textbf{Detection idea} \\
+\midrule
+Initial Access     & T0862 Replication via removable media & USB telemetry; allow-list peripherals \\
+Execution          & T0871 Execution through API     & Audit Step7 DLL load events \\
+Persistence        & T0859 Valid accounts            & Alert on new admin sessions on eng WS \\
+Lateral Movement   & T0859 Valid accounts (SMB)      & SMB anomaly detection between L2 and L3 \\
+Inhibit Response   & T0856 Spoof Reporting Message   & Compare HMI tags vs raw PLC tags via diff \\
+Impact             & T0833 Modify parameter          & PLC code change-control + checksum monitoring \\
+\bottomrule
+\end{tabular}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 5.2 -- Shodan observations}
+Typical findings: hundreds of Modbus endpoints (often building automation), bare Siemens PLCs without firewalls (residential PV inverters, water utilities), Unitronics PLCs with default port and password. Asset owners must remove direct Internet exposure, replace defaults, and use VPN/jump hosts. CERTs/ISPs can notify owners via WHOIS or sectoral channels (e.g.\ Shadowserver).
+\end{taskbox}
+
+\begin{taskbox}{Exercise 5.3 -- Threat Modelling (sample)}
+Ranking for a regional speciality-chemicals site (most $\to$ least likely):
+\begin{enumerate}
+  \item Cybercrime / ransomware (high financial motive, low cost).
+  \item Insider (former contractor).
+  \item Hacktivist (industry visibility).
+  \item Competitor / industrial espionage.
+  \item Nation-state APT (only if of strategic interest).
+\end{enumerate}
+Sample ransomware path: phishing $\to$ corporate AD $\to$ vendor jump host $\to$ engineering WS $\to$ lateral to Historian $\to$ encryption. Choke points: MFA, EDR, segmentation between iDMZ and L2/3, offline backups.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 5.4 -- Supply Chain Response}
+Compensating controls: block ingress to vulnerable service on the firewall, deploy a virtual patch on the IPS, disable the vulnerable feature where possible, enable enhanced logging.\\
+Inform: plant manager, OT/IT security leads, process safety, vendor account team, legal (in case of regulatory disclosure).\\
+Executive briefing: explain in business terms -- ``a critical flaw affects N PLCs; we have temporary controls in place that reduce, but do not eliminate, the risk. Vendor patch in $Q\ldots$, plant outage required.''
+\end{taskbox}
+
+\end{document}

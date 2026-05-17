@@ -1,0 +1,65 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\sectionNumber{07}
+\def\sectionTitle{Risk Management}
+\def\sheetKind{Exercise Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 7.1 -- Build a Risk Matrix}
+For a fictional gas compressor station:
+\begin{enumerate}
+  \item Define five-point likelihood and consequence scales tailored to a midstream gas operator.
+  \item Brainstorm ten cyber risks and place each in the matrix.
+  \item Highlight the top three risks. Propose at least one mitigation per risk.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 7.2 -- Cyber-HAZOP Mini-Workshop}
+The instructor provides a P\&ID node (e.g.\ a heat exchanger). In groups of four:
+\begin{enumerate}
+  \item Apply HAZOP guide words (No, More, Less, Reverse, As well as, Part of, Other than).
+  \item For each meaningful deviation, brainstorm a plausible \emph{cyber} cause.
+  \item Identify existing safeguards and gaps.
+  \item Document findings in a HAZOP worksheet (one row per guide-word $\times$ parameter combination).
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 7.3 -- CCE Mini-Exercise}
+For the water-treatment plant from Section 03:
+\begin{enumerate}
+  \item List the top three ``worst-day'' consequences (think public health, environmental release, downstream impact).
+  \item For each, identify the minimum set of assets that must fail simultaneously to realise it.
+  \item Propose one \emph{engineering} change (not an IT control) that eliminates or radically reduces one of those consequences.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 7.4 -- Risk Response Choice}
+For each, choose Avoid / Mitigate / Transfer / Accept and justify:
+\begin{enumerate}
+  \item Legacy fax line into the order-entry system used by two customers per year.
+  \item OPC Classic (DCOM) link from L3 to L4, behind two firewalls.
+  \item Vendor remote-support tunnel using vendor-managed accounts.
+  \item Internet-exposed HMI used by a single offshore operator.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 7.5 -- FAIR for the Board}
+Translate one risk from your matrix in Exercise 7.1 into a FAIR sketch:
+\begin{itemize}
+  \item Estimate loss-event frequency (low / most likely / high, per year).
+  \item Estimate loss magnitude (low / most likely / high, in EUR).
+  \item Compute a rough Annualised Loss Expectancy range.
+  \item Write a 3-sentence summary for the board that includes the ALE and the residual risk after one investment.
+\end{itemize}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 7.6 -- Insurance Baseline}
+Pick a cyber-insurance carrier and find the minimum control baseline they publish (MFA, EDR, backups, etc.). For each control on the list, mark whether a typical mid-sized water utility meets it. Identify the three biggest gaps and propose a closing roadmap.
+\end{taskbox}
+
+\end{document}

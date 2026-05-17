@@ -1,0 +1,37 @@
+# LaTeX intermediate files
+*.aux
+*.log
+*.nav
+*.out
+*.snm
+*.toc
+*.vrb
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+*.bbl
+*.blg
+*.idx
+*.ilg
+*.ind
+*.lof
+*.lot
+*.bcf
+*.run.xml
+
+# Build artifacts (PDFs are committed for convenience; remove from this list if not wanted)
+# *.pdf
+
+# Editor cruft
+*~
+*.swp
+.DS_Store
+
+# Python (labs)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Local notes
+notes-private/

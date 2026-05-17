@@ -1,0 +1,58 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\sectionNumber{09}
+\def\sectionTitle{Standards, Compliance, Governance}
+\def\sheetKind{Exercise Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 9.1 -- Map Controls}
+Take ten NIST SP 800-53 controls of your choice. For each, map to:
+\begin{itemize}
+  \item the most relevant IEC 62443-3-3 System Requirement (SR);
+  \item the relevant NIST CSF subcategory;
+  \item OT feasibility: Easy / Moderate / Hard, with one-line justification.
+\end{itemize}
+Present as a single five-column table.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 9.2 -- Choose a Security Level}
+Using the Section 03 water-treatment plant architecture:
+\begin{enumerate}
+  \item Assign every zone a target Security Level (SL-T 1--4).
+  \item Justify each assignment with reference to consequence, threat actor capability, and feasibility.
+  \item Identify zones where SL-T 4 would be disproportionate.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 9.3 -- Regulatory Gap Analysis}
+For a fictional mid-sized German water utility:
+\begin{enumerate}
+  \item Identify which laws and standards apply (e.g.\ KRITIS, NIS2, B3S Wasser/Abwasser, DSGVO).
+  \item Pick five obligations and assess current compliance against controls discussed in this course.
+  \item Recommend three concrete improvements with rough cost/effort estimates.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 9.4 -- Programme Sketch}
+Write a 1-page outline of an OT security programme for the same utility:
+\begin{itemize}
+  \item Governance: who reports to whom, RACI for OT security tasks.
+  \item Year 1 priorities (4--6 bullets).
+  \item Three KPIs the programme will report quarterly.
+\end{itemize}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 9.5 -- CRA Vendor Checklist}
+You are reviewing a PLC supplier for compliance with the EU Cyber Resilience Act. List five concrete artefacts you would ask for (e.g.\ SBOM, vulnerability handling process, security-update SLA, signed firmware). For each, decide what counts as a pass and what counts as a fail.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 9.6 -- Maturity Self-Assessment}
+Pick a maturity model from the slides (C2M2, CMMC, or IEC 62443 programme maturity). Score your institution (or a fictional plant) at each of the model's levels and propose two improvements that would raise the score by one level.
+\end{taskbox}
+
+\end{document}

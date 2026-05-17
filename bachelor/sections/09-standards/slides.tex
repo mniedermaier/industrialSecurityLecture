@@ -1,0 +1,222 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\courseSubtitle{Section 09 -- Standards, Compliance, Governance}
+\def\sectionNumber{09}
+\def\sectionTitle{Standards, Compliance, and Governance}
+
+\input{../../../template/slides-preamble.tex}
+
+\begin{document}
+
+\sectionoverviewframe
+
+\learningobjectives{
+  \item Navigate the IEC 62443 family of standards.
+  \item Understand the role of NIST CSF and NIST SP 800-82.
+  \item Recognise major regulations: NIS2, KRITIS, NERC CIP, TSA, CIRCIA.
+  \item Sketch the structure of an OT security programme.
+}
+
+\section{Standards}
+
+\begin{frame}{The IEC 62443 Family}
+\centering
+\begin{tikzpicture}[node distance=8mm]
+  \node[isbox, fill=isOT!20, draw=isOT, minimum width=38mm, minimum height=12mm] (root) {IEC 62443};
+  \node[isbox, fill=isOT!10, draw=isOT, below=14mm of root, xshift=-42mm, minimum width=26mm, font=\scriptsize, align=center] (g) {1-x\\General};
+  \node[isbox, fill=isOT!10, draw=isOT, below=14mm of root, xshift=-14mm, minimum width=26mm, font=\scriptsize, align=center] (p) {2-x\\Asset owner};
+  \node[isbox, fill=isOT!10, draw=isOT, below=14mm of root, xshift=14mm, minimum width=26mm, font=\scriptsize, align=center] (s) {3-x\\System};
+  \node[isbox, fill=isOT!10, draw=isOT, below=14mm of root, xshift=42mm, minimum width=26mm, font=\scriptsize, align=center] (c) {4-x\\Component};
+  \foreach \n in {g,p,s,c}{\draw[flow] (root.south) -- (\n.north);}
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{IEC 62443 Security Levels}
+\centering
+\begin{tikzpicture}[x=1cm, y=0.85cm]
+  \foreach \sl/\name/\col in {
+    1/{Casual / coincidental violation}/isOT,
+    2/{Simple, low-resource attacker}/isPLC,
+    3/{Sophisticated, moderate resources}/isAccent,
+    4/{Sophisticated, nation-state}/isAttack}{
+    \pgfmathsetmacro{\w}{1.4 + (\sl-1)*0.6}
+    \draw[fill=\col!15, draw=\col, thick] (0, -\sl) rectangle (\w, -\sl+0.7);
+    \node[font=\scriptsize\bfseries, anchor=center] at (\w/2, -\sl+0.35) {SL\,\sl};
+    \node[font=\scriptsize, anchor=west] at (4.5, -\sl+0.35) {\name};
+  }
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{notebox}{Per-zone target}
+Each zone gets a target SL (SL-T) chosen by \emph{consequence} and the expected \emph{threat actor}.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{NIST Cybersecurity Framework}
+\centering
+\begin{tikzpicture}[scale=0.9, transform shape]
+  \def\R{2.0}
+  \foreach \deg/\name/\col in {
+    90/Govern/isOT,
+    30/Identify/isPLC,
+    330/Protect/isAccent,
+    270/Detect/isHMI,
+    210/Respond/isNet,
+    150/Recover/isMute}{
+    \node[isbox, fill=\col!15, draw=\col, font=\scriptsize, minimum width=20mm]
+      at (\deg:\R) {\name};
+  }
+  \draw[thick, isMute, dashed] (0,0) circle (\R+1.2);
+  \node[font=\scriptsize\bfseries] at (0,0) {CSF 2.0};
+\end{tikzpicture}
+\par\vspace{2mm}
+\footnotesize Outcome-based, sector-neutral. NIST SP 800-82 Rev.\,3 is the ICS-specific companion.
+\end{frame}
+
+\section{Regulations}
+
+\begin{frame}{Sectoral \& Regional Regulations}
+\centering
+\begin{tikzpicture}[node distance=6mm]
+  \node[isbox, fill=isIT!15, draw=isIT, minimum width=46mm] (eu) {EU -- NIS2};
+  \node[isbox, fill=isIT!15, draw=isIT, minimum width=44mm, below=of eu, font=\scriptsize] (de) {DE -- KRITIS, IT-SiG 2.0, BSI};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=44mm, below=of de, font=\scriptsize] (cira) {EU -- CRA};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=44mm, right=8mm of eu, font=\scriptsize] (us1) {US -- NERC CIP (electric)};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=44mm, below=of us1, font=\scriptsize] (us2) {US -- TSA SD (pipelines)};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=44mm, below=of us2, font=\scriptsize] (us3) {US -- CIRCIA reporting};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=100mm, below=10mm of cira, font=\scriptsize] (sec)
+    {Sector: IEC 62443, IEC 61850, ANSI/ISA-84};
+\end{tikzpicture}
+\end{frame}
+
+\section{Programme}
+
+\begin{frame}{Building an OT Security Programme}
+\vspace{-2mm}
+\centering
+\begin{tikzpicture}[node distance=0.8mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, minimum height=5mm, font=\footnotesize] (a) {1. Governance -- charter, RACI, executive sponsor};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, minimum height=5mm, font=\footnotesize, below=of a] (b) {2. Asset inventory -- ground truth};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, minimum height=5mm, font=\footnotesize, below=of b] (c) {3. Risk assessment -- IEC 62443-3-2};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, minimum height=5mm, font=\footnotesize, below=of c] (d) {4. Architecture -- zones, conduits, segmentation};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, minimum height=5mm, font=\footnotesize, below=of d] (e) {5. Controls -- baseline per SL-T};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, minimum height=5mm, font=\footnotesize, below=of e] (f) {6. Operations -- patching, monitoring, IR};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, minimum height=5mm, font=\footnotesize, below=of f] (g) {7. Training \& awareness -- engineers and IT};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, minimum height=5mm, font=\footnotesize, below=of g] (h) {8. Measurement -- KPIs, audits, lessons learned};
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{IEC 62443-2-1 -- Asset Owner Programme}
+\centering
+\begin{tikzpicture}[node distance=3mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small] (a) {Cybersecurity management system (CSMS) -- the OT-side ISMS};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of a] (b) {Risk analysis, system architecture, security policies};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of b] (c) {Patch management, incident response, training};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of c] (d) {Supplier requirements (62443-2-4) and SDL (62443-4-1)};
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{For asset owners}
+2-1 is the part you implement as a utility or operator. It is the auditable backbone.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{IEC 62443-4-2 -- Component Requirements}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=50mm, font=\small] (id) {Identification \& authentication};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=50mm, font=\small, right=of id] (uc) {Use control};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=50mm, font=\small, below=of id] (di) {Data integrity};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=50mm, font=\small, right=of di] (dc) {Data confidentiality};
+  \node[isbox, fill=isNet!15, draw=isNet, minimum width=50mm, font=\small, below=of di] (rd) {Restricted data flow};
+  \node[isbox, fill=isNet!15, draw=isNet, minimum width=50mm, font=\small, right=of rd] (te) {Timely event response};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=104mm, font=\small, below=of rd] (ra) {Resource availability};
+\end{tikzpicture}
+\par\vspace{2mm}
+{\footnotesize Seven Foundational Requirements (FRs), each refined into System Requirements (SRs) per SL.}
+\end{frame}
+
+\begin{frame}{NIST SP 800-82 Rev.\,3}
+\begin{itemize}
+  \item ICS-specific companion to NIST SP 800-53.
+  \item Published 2023; mapping tables to IEC 62443 included.
+  \item Tiered guidance: low / moderate / high impact systems.
+  \item Strong focus on \textbf{safety} and \textbf{operational continuity} -- not just confidentiality.
+\end{itemize}
+\vspace{2mm}
+\begin{notebox}{When to reach for it}
+US federal contractors, sector-CISA regulated entities, and any team that prefers outcome-based controls to a prescriptive standard.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{EU Cyber Resilience Act (CRA)}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=34mm, minimum height=14mm, align=center, font=\scriptsize] (m) {Manufacturer\\(vendor)};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=34mm, minimum height=14mm, align=center, font=\scriptsize, right=of m] (p) {Product with\\digital elements};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=34mm, minimum height=14mm, align=center, font=\scriptsize, right=of p] (u) {EU market\\(operator)};
+  \draw[flow] (m) -- (p); \draw[flow] (p) -- (u);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{importantbox}{New duties}
+Manufacturers must provide security updates, vulnerability handling, and an SBOM. CE marking now covers cybersecurity too.
+\end{importantbox}
+\end{frame}
+
+\begin{frame}{ENISA OT Recommendations}
+\begin{itemize}
+  \item Risk-based, sector-tailored controls (energy, transport, water).
+  \item Strong emphasis on \emph{supply chain} obligations.
+  \item Continuous monitoring (network + endpoint) for OT estates.
+  \item Cross-border incident-information-sharing framework.
+\end{itemize}
+\begin{notebox}{For EU operators}
+ENISA guidance is non-binding but informs how national CERTs interpret NIS2 obligations.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{Maturity Models in OT}
+\centering
+\begin{tikzpicture}[x=2.5cm]
+  \foreach \i/\name/\col in {
+    0/Initial/isMute,
+    1/Managed/isOT,
+    2/Defined/isPLC,
+    3/{Quantitatively\\managed}/isAccent,
+    4/Optimising/isNet}{
+    \node[isbox, fill=\col!15, draw=\col, font=\scriptsize, minimum width=22mm, minimum height=14mm, align=center]
+      at (\i,0) {\name};
+  }
+\end{tikzpicture}
+\par\vspace{2mm}
+{\footnotesize Common references: \textbf{C2M2} (DOE), \textbf{CMMC} (US DoD), and IEC 62443's own programme maturity.}
+\end{frame}
+
+\begin{frame}{Audit Preparation Checklist}
+\begin{itemize}
+  \item Up-to-date asset inventory with firmware versions
+  \item Documented zones \& conduits (preferably in a CMDB)
+  \item Risk register with named owners and review dates
+  \item Patch and change-management records
+  \item Backup logs with restore-test evidence
+  \item Incident-response playbooks plus a recent tabletop report
+  \item Training attendance for operators and engineers
+\end{itemize}
+\begin{tipbox}{Tip}
+The first audit is hardest. Treat it as a baseline scan -- gaps you find are not failures, they are your roadmap.
+\end{tipbox}
+\end{frame}
+
+\begin{frame}{Summary -- Section \sectionNumber}
+\begin{takeawaybox}{What to remember from this section}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item IEC 62443 provides the engineering vocabulary; NIST CSF gives the outcomes language.
+  \item Security Levels (SL 1--4) tie risk to required control rigor.
+  \item Regulations now demand board-level accountability and incident reporting.
+  \item A programme is governance, inventory, risk, architecture, controls, ops, training, measurement.
+\end{itemize}
+\end{takeawaybox}
+\end{frame}
+
+\closingframe
+
+\end{document}

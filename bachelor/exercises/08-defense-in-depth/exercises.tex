@@ -1,0 +1,47 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\sectionNumber{08}
+\def\sectionTitle{Defense in Depth}
+\def\sheetKind{Exercise Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 8.1 -- Layered Control Design}
+Scenario: \emph{a malicious USB stick is inserted into an engineering workstation by a contractor}.
+\begin{enumerate}
+  \item List every defense-in-depth control that could break this attack chain.
+  \item Aim for at least eight controls across at least four layers (physical, host, network, monitoring, identity, policy).
+  \item Mark each control as \emph{Preventive}, \emph{Detective}, or \emph{Corrective}.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 8.2 -- Lab: Application Whitelisting}
+On a Windows VM acting as an HMI:
+\begin{enumerate}
+  \item Configure AppLocker with default rules.
+  \item Add a publisher rule allowing your chosen HMI runtime.
+  \item Attempt to run a downloaded \texttt{.exe} and a PowerShell script.
+  \item Document the AppLocker audit log entries and the user experience.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 8.3 -- Lab: OT IDS}
+See \texttt{labs/lab-06-ids}.
+\begin{enumerate}
+  \item Deploy Malcolm or Zeek on a Linux VM.
+  \item Mirror the OpenPLC traffic to it.
+  \item Generate baseline traffic for $\sim$30 minutes.
+  \item Launch the Modbus injection from Lab 02 and confirm the IDS surfaces it.
+  \item Tune one false positive to an acceptable level.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 8.4 -- Remote-Access Pattern}
+Draw the secure-remote-access pattern for a vendor that needs to update a PLC in your plant once a quarter. Label every component, indicate where MFA happens, where the session is recorded, and where the operator approves. Identify two failure modes and how the design tolerates them.
+\end{taskbox}
+
+\end{document}

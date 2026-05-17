@@ -1,0 +1,59 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\sectionNumber{04}
+\def\sectionTitle{Industrial Protocols}
+\def\sheetKind{Exercise Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 4.1 -- Decode a Modbus Frame}
+Given the Modbus TCP frame in hex:
+\begin{center}\ttfamily
+00 01 \ 00 00 \ 00 06 \ 01 \ 03 \ 00 00 \ 00 0A
+\end{center}
+\begin{enumerate}
+  \item Identify each MBAP header field and its value.
+  \item Identify the function code and its meaning.
+  \item Which register range is requested and how many?
+  \item Write the expected response if all registers contain \texttt{0x0000}.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 4.2 -- Lab: Sniffing and Injection}
+See \texttt{labs/lab-02-modbus}.
+\begin{enumerate}
+  \item Start an OpenPLC instance with Modbus TCP enabled.
+  \item Use \texttt{pymodbus} to poll holding registers.
+  \item Capture traffic in Wireshark and confirm your Exercise 4.1 decoding.
+  \item Without authenticating, write \texttt{0xFFFF} to coil 1 using a Python script.
+  \item Explain in 5--7 lines why this works and what mitigations exist.
+\end{enumerate}
+\begin{warnbox}
+Lab environment only. Targeting real PLCs is illegal without authorisation.
+\end{warnbox}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 4.3 -- OPC UA Modes}
+See \texttt{labs/lab-04-opcua}.
+\begin{enumerate}
+  \item Install an OPC UA server (open62541 or Prosys).
+  \item Connect with UAExpert in three modes: anonymous, username/password, certificate.
+  \item Capture each handshake in Wireshark.
+  \item Write a 1-page comparison vs.\ the Modbus exercise: \emph{authentication, integrity, confidentiality, operational overhead.}
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 4.4 -- Protocol Selection}
+For each scenario, recommend a protocol and justify your choice:
+\begin{enumerate}
+  \item A new greenfield substation needing IEC 61850-compliant device messaging.
+  \item A retrofitted 1990s motor drive that must report runtime to a corporate dashboard.
+  \item An IIoT prototype where 200 vibration sensors stream to a cloud analytics platform.
+\end{enumerate}
+\end{taskbox}
+
+\end{document}

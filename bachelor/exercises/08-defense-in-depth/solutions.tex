@@ -1,0 +1,51 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\sectionNumber{08}
+\def\sectionTitle{Defense in Depth}
+\def\sheetKind{Solution Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 8.1 -- Layered Controls (sample)}
+\begin{tabular}{p{5cm} p{2.5cm} p{2cm}}
+\toprule
+\textbf{Control} & \textbf{Layer} & \textbf{Type} \\
+\midrule
+Contractor escort policy & Policy & Preventive \\
+Locked USB ports / physical port covers & Physical & Preventive \\
+Disable USB mass storage at OS & Host & Preventive \\
+USB allow-list (whitelisted devices) & Host & Preventive \\
+AppLocker / WDAC on the WS & Host & Preventive \\
+EDR alert on suspicious child process & Host & Detective \\
+Network monitoring of WS outbound traffic & Network & Detective \\
+Segmentation between WS and PLCs (DPI) & Network & Preventive \\
+RBAC + MFA for engineering tool & Identity & Preventive \\
+Logging + SOC review & Monitoring & Detective \\
+IR playbook, rapid re-image policy & Process & Corrective \\
+\bottomrule
+\end{tabular}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 8.2 -- AppLocker Lab Notes}
+Expected log: Event ID 8004 (Exe blocked) and 8007 (Script blocked) under \emph{Applications and Services Logs $\to$ Microsoft $\to$ Windows $\to$ AppLocker}. User receives a Windows toast or explicit denial dialogue.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 8.3 -- IDS Lab Notes}
+Malcolm dashboards will show: a previously unseen Modbus client IP, write function codes from an unexpected source, and elevated alert count after the injection. Tuning a false positive typically involves whitelisting a known scheduled task or polling interval.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 8.4 -- Remote Access (sample)}
+Components: vendor laptop $\to$ brokered portal (MFA) $\to$ iDMZ jump host (session recording) $\to$ industrial firewall $\to$ PLC. Operator approval gates each session.
+\\
+Failure modes:
+\begin{itemize}
+  \item Vendor MFA token compromised $\to$ jump host still enforces operator approval and session recording.
+  \item Operator unavailable $\to$ design must include a back-up approver and a clear escalation; never grant ``standing'' access.
+\end{itemize}
+\end{taskbox}
+
+\end{document}

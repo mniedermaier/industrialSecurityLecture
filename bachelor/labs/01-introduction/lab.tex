@@ -1,0 +1,47 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\labNumber{01}
+\def\labTitle{Where Is the Industrial Security?}
+\def\labSection{01}
+\def\labTime{30--45 min}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Build your first map of the IT/OT spectrum and the cyber-physical interfaces around you. No tools required -- pen and paper or any diagramming software.
+\end{goalbox}
+
+\begin{stepbox}{1 -- Spot the systems}
+List eight systems within walking distance of your classroom (or building):
+elevators, HVAC, badge readers, vending machines, lab equipment, fire panel,
+projectors, parking barriers, electricity meter, etc. For each, decide:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item IT, OT, or hybrid (IIoT)?
+  \item Worst-case consequence of compromise?
+  \item Who owns / maintains it?
+\end{itemize}
+\end{stepbox}
+
+\begin{stepbox}{2 -- Draw a stakeholder map}
+Pick one of the eight systems and draw the stakeholder map (operator, owner,
+integrator, vendor, regulator). Mark which stakeholder cares about
+\emph{availability}, \emph{integrity}, \emph{confidentiality} respectively.
+\end{stepbox}
+
+\begin{stepbox}{3 -- Reflection}
+Write 5--7 lines: which stakeholder would push back against a security
+control that interrupted normal operation, and why is that legitimate?
+\end{stepbox}
+
+\begin{deliverbox}
+Hand in: the table from Step 1, the stakeholder diagram from Step 2, and the reflection.
+\end{deliverbox}
+
+\begin{warnbox}
+Do not photograph, scan, or attempt to access any device discovered. This lab is observational only.
+\end{warnbox}
+\end{document}

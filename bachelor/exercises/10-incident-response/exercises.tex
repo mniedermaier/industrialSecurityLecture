@@ -1,0 +1,61 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\sectionNumber{10}
+\def\sectionTitle{Incident Response and Recovery}
+\def\sheetKind{Exercise Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 10.1 -- Write a Playbook}
+Draft a 1-page incident response playbook for:\\
+\emph{``Suspicious unsolicited Modbus write commands detected from the corporate network.''}
+Include:
+\begin{itemize}
+  \item Roles and trigger conditions
+  \item Detection inputs (IDS, firewall, historian)
+  \item First-60-minutes response steps
+  \item Containment options and their process impact
+  \item Recovery and post-incident actions
+\end{itemize}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 10.2 -- Tabletop Exercise}
+In groups of six, play out the following scenario:
+\begin{quote}
+Saturday 03:00. The night-shift operator notices random valve cycling on the HMI. The Historian shows odd writes from an engineering workstation that should be powered off. The plant manager is unreachable.
+\end{quote}
+Roles: operator, control engineer, OT security, IT security, plant manager, communications. Decide and document each action for the first three hours.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 10.3 -- Forensic Walk-Through}
+Given a captured \texttt{.pcap} (provided by instructor) containing a Modbus injection attack:
+\begin{enumerate}
+  \item Identify the attacker IP and the timestamp range of the attack.
+  \item Reconstruct the sequence of register writes.
+  \item Estimate the process impact based on the register tag descriptions provided.
+  \item Produce a 1-page forensic report suitable for sharing with management.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 10.4 -- Business Continuity}
+For your water-treatment plant (Section 03):
+\begin{enumerate}
+  \item Set RTO and RPO for each major system (SCADA, Historian, PLCs, HMI).
+  \item Identify which systems require cold spares.
+  \item Sketch a one-page manual-operations procedure for running the plant with no SCADA for up to 24 hours.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 10.5 -- RACI for a Real Incident}
+Take the Modbus-injection playbook from Exercise 10.1 and turn it into a 6-row RACI for: operator, control engineer, OT security, IT security, plant manager, comms/legal. Each cell is one of R / A / C / I -- justify your assignment of \emph{Accountable} in two sentences.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 10.6 -- Post-Mortem Draft}
+Pick any past incident (your own or a public one) and write a 1-page post-mortem using the 5-section template from the slides (timeline, what happened, what worked / what did not, action items, follow-up date). Keep the writeup blameless -- focus on systems and decisions.
+\end{taskbox}
+
+\end{document}

@@ -1,0 +1,238 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\courseSubtitle{Section 05 -- Threat Landscape}
+\def\sectionNumber{05}
+\def\sectionTitle{Threat Landscape}
+
+\input{../../../template/slides-preamble.tex}
+
+\begin{document}
+
+\sectionoverviewframe
+
+\learningobjectives{
+  \item Categorise threat actors targeting industrial environments.
+  \item Map ICS attacks to the MITRE ATT\&CK for ICS matrix.
+  \item Analyse landmark incidents: Stuxnet, Ukraine, TRITON, Colonial.
+  \item Identify supply-chain and insider risk vectors.
+}
+
+\section{Threat Actors and Frameworks}
+
+\begin{frame}{Threat Actor Categories}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isAttack!25, draw=isAttack, minimum width=110mm] (a) {\textbf{Nation-state APTs} -- Sandworm, Volt Typhoon, Lazarus};
+  \node[isbox, fill=isAttack!20, draw=isAttack, minimum width=110mm, below=of a] (b) {\textbf{Cybercrime / Ransomware} -- LockBit, BlackCat, Conti};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, below=of b] (c) {\textbf{Hacktivists} -- CyberAv3ngers, GhostSec};
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, below=of c] (d) {\textbf{Insiders} -- disgruntled employees, contractors};
+  \node[isbox, fill=isAttack!7, draw=isAttack, minimum width=110mm, below=of d] (e) {\textbf{Opportunists} -- script kiddies, Shodan hunters};
+  \node[isbox, fill=isMute!10, draw=isMute, minimum width=110mm, below=of e] (f) {\textbf{Competitors} -- industrial espionage};
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{MITRE ATT\&CK for ICS Tactics}
+\centering
+\begin{tikzpicture}[node distance=1.5mm]
+  \foreach \i/\name in {
+    0/Initial Access,
+    1/Execution,
+    2/Persistence,
+    3/Priv.\ Esc.,
+    4/Evasion,
+    5/Discovery}{
+    \node[isbox, fill=isOT!10, draw=isOT, minimum width=20mm, minimum height=8mm, font=\tiny] (t\i) at ({\i*2.15cm-5.5cm}, 0.7) {\name};
+  }
+  \foreach \i/\name in {
+    0/Lateral Movement,
+    1/Collection,
+    2/C\&C,
+    3/Inhibit Response,
+    4/Impair Process,
+    5/Impact}{
+    \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=20mm, minimum height=8mm, font=\tiny] (b\i) at ({\i*2.15cm-5.5cm}, -0.7) {\name};
+  }
+\end{tikzpicture}
+\par\vspace{3mm}
+\begin{notebox}{Why this matters}
+ATT\&CK for ICS gives a shared vocabulary for techniques, detections, and incident discussion across teams and vendors.
+\end{notebox}
+\end{frame}
+
+\section{Landmark Incidents}
+
+\begin{frame}{Stuxnet (2010) -- Kill Chain}
+\centering
+\begin{tikzpicture}[node distance=2mm]
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=16mm, font=\scriptsize] (a) {1. USB};
+  \node[isbox, fill=isAttack!10, draw=isAttack, right=of a, minimum width=18mm, font=\scriptsize] (b) {2. 0-days};
+  \node[isbox, fill=isAttack!10, draw=isAttack, right=of b, minimum width=18mm, font=\scriptsize] (c) {3. Step7};
+  \node[isbox, fill=isAttack!10, draw=isAttack, right=of c, minimum width=18mm, font=\scriptsize] (d) {4. PLC};
+  \node[isbox, fill=isAttack!10, draw=isAttack, right=of d, minimum width=20mm, font=\scriptsize] (e) {5. Centrifuge};
+  \node[isbox, fill=isAttack!10, draw=isAttack, right=of e, minimum width=20mm, font=\scriptsize] (f) {6. Spoof HMI};
+  \draw[attack] (a)--(b); \draw[attack] (b)--(c); \draw[attack] (c)--(d);
+  \draw[attack] (d)--(e); \draw[attack] (e)--(f);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{Natanz, 2010}
+Four zero-days, two stolen code-signing certificates. Subtly destroyed $\sim$1\,000 centrifuges over months while feeding the HMI \emph{normal-looking} data. The first widely-known cyber-physical weapon.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{Ukraine 2015 \& 2016}
+\centering
+\begin{tikzpicture}[x=1.3cm]
+  \draw[axisline] (0,0) -- (9,0);
+  \foreach \x/\year/\label in {
+    0/{Spring 2015}/{Spearphish DSO\\HR depts},
+    1.6/{Jun 2015}/{BlackEnergy3\\foothold},
+    3.0/{Dec 23 2015}/{Manual SCADA\\actions; KillDisk},
+    4.5/{2015}/{225k customers\\dark},
+    6.0/{Dec 17 2016}/{Industroyer\\IEC 104},
+    7.6/{2016}/{Kyiv substation\\1 hr outage}}{
+    \draw[thick] (\x,-1mm) -- (\x,1mm);
+    \node[font=\tiny, below=1mm] at (\x,0) {\year};
+    \node[font=\tiny, above=1mm, align=center] at (\x,0) {\label};
+  }
+\end{tikzpicture}
+\par\vspace{4mm}
+\footnotesize Sandworm (GRU). Industroyer was the first malware framework with built-in grid protocol modules.
+\end{frame}
+
+\begin{frame}{TRITON / TRISIS (2017)}
+\centering
+\begin{tikzpicture}[node distance=12mm]
+  \node[process] (proc) {Petrochemical\\process};
+  \node[plc, above left=of proc] (bpcs) {BPCS};
+  \node[plc, above right=of proc, fill=isAttack!25, draw=isAttack] (sis) {Triconex\\SIS};
+  \node[attacker, above=18mm of sis] (atk) {Attacker};
+  \draw[flow] (bpcs) -- (proc); \draw[flow] (sis) -- (proc);
+  \draw[attack] (atk) -- node[right=3pt, font=\tiny, align=center, fill=white, inner sep=1pt]{TriStation\\proprietary} (sis);
+\end{tikzpicture}
+\par\vspace{2mm}
+\footnotesize First publicly known attack on a Safety Instrumented System. Programming error in the malware tripped the plant -- and exposed the operation. Watershed moment: attackers reached the safety layer.
+\end{frame}
+
+\begin{frame}{Colonial Pipeline (2021)}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[attacker] (atk) {DarkSide\\ransomware};
+  \node[server, right=of atk] (vpn) {Legacy VPN\\(no MFA)};
+  \node[server, right=of vpn] (it) {IT \&\\billing};
+  \node[isbox, fill=isAttack!20, draw=isAttack, right=of it, minimum width=22mm] (enc) {Encryption};
+  \node[isbox, fill=isAccent!20, draw=isAccent, below=14mm of enc, minimum width=42mm] (shut) {Operator shuts down OT};
+  \node[isbox, fill=isAttack!10, draw=isAttack, below=of shut, minimum width=42mm] (impact) {5-day fuel outage};
+  \draw[attack] (atk) -- (vpn) -- (it) -- (enc);
+  \draw[flow] (enc) -- (shut) -- (impact);
+\end{tikzpicture}
+\par\vspace{2mm}
+\footnotesize IT compromise; operator pre-emptively halted OT. Highlights IT/OT interdependence and the physical impact of ransomware.
+\end{frame}
+
+\begin{frame}{CyberAv3ngers / Unitronics (2023)}
+\begin{warningbox}{Lessons that keep coming back}
+\textbf{Default credentials} and \textbf{direct Internet exposure} of PLCs are still common -- and still get exploited by low-skill actors at scale.
+\end{warningbox}
+\vspace{1mm}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[attacker] (atk) {Hacktivist};
+  \node[inetnode, fill=isAttack!10, right=of atk] (inet) {Internet};
+  \node[plc, fill=isAttack!15, draw=isAttack, right=of inet] (plc) {Unitronics PLC\\\scriptsize port 20256 open\\default pwd \texttt{1111}};
+  \node[isbox, fill=isAttack!10, draw=isAttack, right=of plc] (def) {HMI defaced};
+  \draw[attack] (atk) -- (inet) -- (plc) -- (def);
+\end{tikzpicture}
+\par\vspace{3mm}
+\footnotesize No process damage, but trivially exploited at multiple water utilities. \textbf{Reminder:} never expose OT to the Internet, always change defaults.
+\end{frame}
+
+\section{Cross-Cutting Risks}
+
+\begin{frame}{Supply Chain}
+\centering
+\begin{tikzpicture}[node distance=8mm]
+  \node[isbox, fill=isMute!10, draw=isMute] (dev) {Vendor};
+  \node[isbox, fill=isAttack!15, draw=isAttack, right=of dev] (cmp) {Compromised\\build pipeline};
+  \node[isbox, fill=isPLC!12, draw=isPLC, right=of cmp] (upd) {Signed update};
+  \node[isbox, fill=isOT!12, draw=isOT, right=of upd] (cust) {Customer plant};
+  \draw[attack] (dev) -- (cmp);
+  \draw[flow] (cmp) -- (upd);
+  \draw[flow] (upd) -- (cust);
+  \node[font=\scriptsize, below=10mm of upd]
+    {SolarWinds, 3CX, MOVEit -- and OT-relevant cases such as Codesys runtime CVEs (\emph{CoDe16}).};
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Insider Threat}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[workstation] (in) {Insider};
+  \node[plc, right=of in] (plc) {PLC};
+  \node[process, right=of plc] (proc) {Process};
+  \draw[attack] (in) -- node[above=4pt, font=\tiny, align=center, fill=white, inner sep=1pt]{knows passwords\\\& topology} (plc);
+  \draw[flow] (plc) -- (proc);
+  \node[font=\scriptsize, below=12mm of plc, align=center, text width=10cm]
+    {Maroochy Shire (2000): ex-contractor with a stolen radio modem released sewage 46 times.};
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{INCONTROLLER / PIPEDREAM (2022)}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[attacker] (atk) {APT toolkit};
+  \node[plc, fill=isAttack!15, draw=isAttack, above right=4mm and 14mm of atk, minimum width=24mm, font=\scriptsize] (s1) {Schneider};
+  \node[plc, fill=isAttack!15, draw=isAttack, right=14mm of atk, minimum width=24mm, font=\scriptsize] (om) {Omron};
+  \node[plc, fill=isAttack!15, draw=isAttack, below right=4mm and 14mm of atk, minimum width=24mm, font=\scriptsize] (o) {OPC UA};
+  \node[plc, fill=isAttack!15, draw=isAttack, right=14mm of om, minimum width=24mm, font=\scriptsize] (cdo) {CodeSys};
+  \draw[attack] (atk.east) -- (s1.west);
+  \draw[attack] (atk.east) -- (om.west);
+  \draw[attack] (atk.east) -- (o.west);
+  \draw[attack] (om.east) -- (cdo.west);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{importantbox}{First multi-target ICS framework}
+PIPEDREAM is the first modular framework with pre-built modules for several vendors at once -- captured before it was used in anger.
+\end{importantbox}
+\end{frame}
+
+\begin{frame}{Volt Typhoon -- Living off the Land in OT}
+\begin{itemize}
+  \item Suspected China-linked APT, active since at least 2021.
+  \item Targets US critical infrastructure: telecoms, water, energy.
+  \item Uses \emph{built-in tools} (PowerShell, WMI, native Windows) -- minimal new malware.
+  \item Apparent goal: pre-positioning for disruptive action during conflict.
+\end{itemize}
+\begin{warnbox}
+The hardest threat to detect is the one that looks like a normal admin task. Behavioural analytics matter more than signatures.
+\end{warnbox}
+\end{frame}
+
+\begin{frame}{Common Initial Access Vectors in ICS}
+\centering
+\begin{tikzpicture}[x=2.6cm, y=1.2cm]
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\scriptsize, minimum width=36mm, minimum height=14mm, align=center] at (0,0) {Spearphish\\corporate IT};
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\scriptsize, minimum width=36mm, minimum height=14mm, align=center] at (1,0) {Compromised\\vendor};
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\scriptsize, minimum width=36mm, minimum height=14mm, align=center] at (2,0) {Internet-exposed\\PLC / HMI};
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\scriptsize, minimum width=36mm, minimum height=14mm, align=center] at (3,0) {USB / removable\\media};
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\scriptsize, minimum width=36mm, minimum height=14mm, align=center] at (0,-1.6) {Stolen / shared\\credentials};
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\scriptsize, minimum width=36mm, minimum height=14mm, align=center] at (1,-1.6) {Vendor remote\\access};
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\scriptsize, minimum width=36mm, minimum height=14mm, align=center] at (2,-1.6) {VPN with\\no MFA};
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\scriptsize, minimum width=36mm, minimum height=14mm, align=center] at (3,-1.6) {Insider with\\physical access};
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Summary -- Section \sectionNumber}
+\begin{takeawaybox}{What to remember from this section}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Threat actors range from script kiddies to nation-state APTs, each with different capabilities.
+  \item MITRE ATT\&CK for ICS provides a shared vocabulary for techniques and detections.
+  \item Stuxnet $\rightarrow$ Ukraine $\rightarrow$ TRITON shows an escalating willingness to harm.
+  \item Supply chain and insider risk demand controls beyond the perimeter.
+\end{itemize}
+\end{takeawaybox}
+\end{frame}
+
+\closingframe
+
+\end{document}

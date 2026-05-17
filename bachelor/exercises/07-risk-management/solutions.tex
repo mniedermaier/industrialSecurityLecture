@@ -1,0 +1,49 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\sectionNumber{07}
+\def\sectionTitle{Risk Management}
+\def\sheetKind{Solution Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 7.1 -- Risk Matrix (sample)}
+Sample top-three risks for a gas compressor station:
+\begin{enumerate}
+  \item Loss of control of compressor speed (consequence: catastrophic; likelihood: possible) -- mitigate via independent overspeed trip and SIS isolation.
+  \item Ransomware on Historian server (consequence: major; likelihood: likely) -- mitigate via immutable backups and segmentation.
+  \item Spoofed alarms / suppressed alarms (consequence: major; likelihood: possible) -- mitigate via independent alarm path, change-control on alarm configuration.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 7.2 -- Cyber-HAZOP (sample row)}
+\footnotesize
+\textbf{Guide word:} More \quad \textbf{Parameter:} Flow
+
+\smallskip
+\textbf{Cyber cause:} Attacker increases pump set-point via HMI compromise.
+
+\smallskip
+\textbf{Safeguards:} Alarm at $1.1\times$ design; SIS trip at $1.3\times$ design.
+
+\smallskip
+\textbf{Gap:} No Modbus write allowlist on the HMI--PLC conduit.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 7.3 -- CCE (sample)}
+Worst-day consequence: contamination of supply due to loss of disinfection. Minimum failure set: chlorine dosing pump command + chlorine residual sensor reading. Engineering change: install a mechanical interlock that closes a downstream valve if residual sensor reads below threshold for 30\,s, independent of the BPCS.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 7.4 -- Risk Response}
+\begin{enumerate}
+  \item \textbf{Avoid.} The cost of decommissioning the fax line is small and removes an attack surface.
+  \item \textbf{Mitigate.} Replace OPC Classic with OPC UA over TLS or use a UA Gateway in the iDMZ.
+  \item \textbf{Mitigate + Transfer.} Reduce to brokered/recorded sessions, contractually require vendor security controls.
+  \item \textbf{Avoid.} Remove Internet exposure immediately; deploy VPN/jump host.
+\end{enumerate}
+\end{taskbox}
+
+\end{document}

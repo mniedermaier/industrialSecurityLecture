@@ -1,0 +1,41 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\labNumber{07}
+\def\labTitle{Risk Matrix Workshop}
+\def\labSection{07}
+\def\labTime{60 min, group of 3--4}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Build a defensible cyber risk register for a fictional gas compressor station and use it to argue for three concrete investments.
+\end{goalbox}
+
+\begin{stepbox}{1 -- Define your scales}
+Define a 5-point \textbf{Likelihood} scale and a 5-point \textbf{Consequence} scale tailored to a midstream gas operator. Consequence dimensions must include \emph{safety, environment, production loss, regulatory}.
+\end{stepbox}
+
+\begin{stepbox}{2 -- Brainstorm risks}
+List \textbf{ten} cyber risks affecting the station. Examples: ransomware on the Historian, vendor remote-access compromise, USB-borne malware on engineering laptops, SIS bypass via TriStation analogue, etc. Place each in your matrix.
+\end{stepbox}
+
+\begin{stepbox}{3 -- Pick top three}
+Sort by combined score. For the top three risks, write one Cyber-HAZOP-style row: \emph{guide word, deviation, cyber cause, existing safeguards, gap.}
+\end{stepbox}
+
+\begin{stepbox}{4 -- Investment case}
+For each top-three risk, propose one mitigation with rough cost (low / medium / high) and time (this quarter / this year / multi-year).
+\end{stepbox}
+
+\begin{deliverbox}
+Hand in: the matrix with all ten risks plotted, three Cyber-HAZOP rows, and a 5-line ``CFO summary'' arguing for the three investments.
+\end{deliverbox}
+
+\begin{warnbox}
+This lab is intentionally fictional. Do not use real plant data, even from public sources -- some incidents are still active.
+\end{warnbox}
+\end{document}

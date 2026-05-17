@@ -1,0 +1,55 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\labNumber{10}
+\def\labTitle{Saturday Night Tabletop Exercise}
+\def\labSection{10}
+\def\labTime{90 min, group of 6}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Play out an unexpected OT incident in real time. Practise safety-first decisions, role coordination, and forensic preservation when nobody is at full strength.
+\end{goalbox}
+
+\begin{stepbox}{Scenario}
+\begin{quote}
+\textbf{Saturday, 03:00.} The night-shift operator notices valves cycling on the HMI without any commanded change. The Historian shows write traffic from an engineering workstation that should be powered off. The plant manager is unreachable. Mobile reception is patchy.
+\end{quote}
+
+\textbf{Roles} (one student each):
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item Night-shift operator
+  \item Control / process engineer (on-call)
+  \item OT security lead (on-call)
+  \item IT SOC analyst
+  \item Plant manager (reachable after 90 min sim)
+  \item Communications / legal lead
+\end{itemize}
+\end{stepbox}
+
+\begin{stepbox}{Phase 1 -- First 30 minutes (sim)}
+Operator notifies whom? Who has authority to act? What \emph{not} to do? Document every decision and timestamp in a shared log.
+\end{stepbox}
+
+\begin{stepbox}{Phase 2 -- 30--90 minutes (sim)}
+Triage. Containment options (each with process impact). Forensic preservation
+(network capture, HMI screenshots, Historian snapshot). External notification
+trigger conditions (NIS2 24-hour clock).
+\end{stepbox}
+
+\begin{stepbox}{Phase 3 -- Recovery and lessons}
+What does ``back to normal'' mean? Who signs off? Three follow-ups that should be open issues by Monday morning.
+\end{stepbox}
+
+\begin{deliverbox}
+Hand in: the decision log with timestamps, the final containment choice with justification, and a 1-page lessons-learned summary highlighting what your team would change in the playbook.
+\end{deliverbox}
+
+\begin{warnbox}
+The instructor will inject curveballs (false alarms, contradictory information, a panicked phone call). Track what your team did right and where pressure made things worse.
+\end{warnbox}
+\end{document}

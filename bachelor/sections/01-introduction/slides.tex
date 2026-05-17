@@ -1,0 +1,288 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\courseSubtitle{Section 01 -- Introduction to Industrial Security}
+\def\sectionNumber{01}
+\def\sectionTitle{Introduction to Industrial Security}
+
+\input{../../../template/slides-preamble.tex}
+
+\begin{document}
+
+\sectionoverviewframe
+
+\learningobjectives{
+  \item Define Operational Technology (OT) and contrast it with Information Technology (IT).
+  \item Identify the core components of an Industrial Control System (ICS).
+  \item Explain why the CIA triad is re-ordered for industrial environments.
+  \item Place industrial security in its historical and economic context.
+  \item Recognise common misconceptions about ICS security.
+}
+
+% --------------------------------------------------------------
+\section{Cyber-Physical Foundations}
+
+\begin{frame}{What is Industrial Security?}
+\begin{columns}[T,onlytextwidth]
+\column{0.45\textwidth}
+\begin{defbox}{Definition}
+\textbf{Industrial security} is the protection of cyber-physical systems --- computers that monitor and control machines in the physical world.
+\end{defbox}
+
+\medskip
+\textbf{Sectors:} power, water, oil \& gas, manufacturing, transport, building automation.
+
+\medskip
+A breach has consequences in \emph{atoms}, not just in \emph{bits}.
+
+\column{0.55\textwidth}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  % Cyber row (top): PLC reads sensor, sends decisions to HMI for display
+  \node[plc, minimum width=18mm] (plc) {PLC};
+  \node[server, right=18mm of plc, minimum width=18mm] (srv) {HMI};
+  % Physical row (bottom): sensor measures, actuator changes the process
+  \node[sensor, below=14mm of plc, minimum width=18mm] (sens) {Sensor};
+  \node[actuator, below=14mm of srv, minimum width=18mm] (act) {Actuator};
+  \node[process, below=8mm of sens.south -| {$(sens)!0.5!(act)$}, minimum width=46mm, font=\scriptsize] (proc) {Physical process};
+  % Vertical flows (no crossings)
+  \draw[flow] (sens.north) -- (plc.south);
+  \draw[flow] (srv.south) -- (act.north);
+  % Horizontal cyber link
+  \draw[flow] (plc.east) -- node[above, font=\tiny]{display} (srv.west);
+  % Physical process at the bottom -- arrows enter the process from the sides
+  \draw[flow] (act.south) -- ([yshift=2mm]proc.east) ;
+  \draw[flow] ([yshift=2mm]proc.west) -- (sens.south);
+\end{tikzpicture}
+\end{columns}
+\end{frame}
+
+\begin{frame}{IT vs.\ OT --- Two Different Worlds}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[isbox, fill=isIT!12, draw=isIT, minimum width=52mm, minimum height=42mm, align=left, font=\scriptsize] (it)
+   {\textbf{Information Technology}\\[2pt]
+     \quad Conf.\ $\succ$ Integ.\ $\succ$ Avail.\\
+     \quad Lifecycle: 3--5 years\\
+     \quad Frequent patches\\
+     \quad Soft real-time\\
+     \quad Office environment\\
+     \quad Failure cost: data loss};
+  \node[isbox, fill=isOT!12, draw=isOT, right=8mm of it, minimum width=52mm, minimum height=42mm, align=left, font=\scriptsize] (ot)
+   {\textbf{Operational Technology}\\[2pt]
+     \quad Avail.\ $\succ$ Integ.\ $\succ$ Conf.\\
+     \quad Lifecycle: 15--30 years\\
+     \quad Patches require shutdown\\
+     \quad Hard real-time, deterministic\\
+     \quad Hostile environment\\
+     \quad Failure cost: safety, lives};
+  \draw[<->, very thick, isAttack] (it.east) -- (ot.west) node[midway, above=2pt, font=\scriptsize, fill=white, inner sep=1pt] {converge};
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{The CIA Triad --- Inverted for OT}
+\centering
+\begin{tikzpicture}
+  % IT triangle
+  \begin{scope}[shift={(-3.5,0)}]
+    \draw[thick, fill=isIT!10] (0,0) -- (3,0) -- (1.5,2.6) -- cycle;
+    \node[font=\scriptsize\bfseries] at (1.5, 2.1) {C};
+    \node[font=\scriptsize\bfseries] at (0.7, 0.6) {I};
+    \node[font=\scriptsize\bfseries] at (2.3, 0.6) {A};
+    \node[font=\small\bfseries, below=2mm of {(1.5,0)}] {IT priorities};
+  \end{scope}
+  % OT triangle (flipped)
+  \begin{scope}[shift={(3.5,0)}]
+    \draw[thick, fill=isOT!10] (0,2.6) -- (3,2.6) -- (1.5,0) -- cycle;
+    \node[font=\scriptsize\bfseries] at (1.5, 0.5) {C};
+    \node[font=\scriptsize\bfseries] at (0.7, 2.0) {I};
+    \node[font=\scriptsize\bfseries] at (2.3, 2.0) {A};
+    \node[font=\small\bfseries, below=2mm of {(1.5,0)}] {OT priorities};
+  \end{scope}
+\end{tikzpicture}
+\vspace{2mm}\par
+\begin{importantbox}{Remember}
+In OT, \textbf{availability} and \textbf{safety} dominate the CIA triad. A blocked alarm can blind an operator to a runaway reactor.
+\end{importantbox}
+\end{frame}
+
+% --------------------------------------------------------------
+\section{Context and History}
+
+\begin{frame}{A Brief History of Industrial Control}
+\centering
+\begin{tikzpicture}[x=1.1cm]
+  \draw[axisline] (0,0) -- (11.5,0);
+  \foreach \x/\year/\label in {
+    0/1960s/Direct\\digital ctrl,
+    1.5/1970s/PLCs invented,
+    3/1980s/DCS dominate\\process plants,
+    4.5/1990s/Ethernet on\\plant floor,
+    6/2000s/IT/OT\\convergence,
+    7/2010/Stuxnet,
+    8.5/2015--16/Ukraine grid,
+    10/2017+/TRITON\\Industroyer}{
+    \draw[thick] (\x,-1mm) -- (\x,1mm);
+    \node[font=\tiny, below=1mm] at (\x,0) {\year};
+    \node[font=\tiny, above=2mm, align=center] at (\x,0) {\label};
+  }
+\end{tikzpicture}
+\vspace{2mm}\par
+\small Each milestone made systems more capable -- and more reachable.
+\end{frame}
+
+\begin{frame}{Why Industrial Security Now?}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=60mm] (a) {Geopolitical tensions};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=60mm, below=of a] (b) {Ransomware-as-a-service};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=60mm, below=of b] (c) {Cloud / IIoT connectivity};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=60mm, below=of c] (d) {Regulation: NIS2, KRITIS, CIRCIA};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=60mm, below=of d] (e) {Cyber insurance pressure};
+  \node[process, right=14mm of c, minimum width=30mm, minimum height=44mm] (target) {Industrial\\plant};
+  \draw[attack] (a.east) -- ([yshift=18mm]target.west);
+  \draw[attack] (b.east) -- ([yshift=10mm]target.west);
+  \draw[attack] (c.east) -- (target.west);
+  \draw[flow]   (d.east) -- ([yshift=-10mm]target.west);
+  \draw[flow]   (e.east) -- ([yshift=-18mm]target.west);
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Stakeholders}
+\centering
+\begin{tikzpicture}[node distance=8mm]
+  \node[process] (plant) {Plant /\\Process};
+  \node[isbox, above left=of plant] (op) {Operator};
+  \node[isbox, above right=of plant] (ce) {Control\\Engineer};
+  \node[isbox, left=14mm of plant] (sa) {Safety\\Engineer};
+  \node[isbox, right=14mm of plant] (sec) {OT\\Security};
+  \node[isbox, below left=of plant] (it) {IT\\Security};
+  \node[isbox, below right=of plant] (vend) {Vendor /\\Integrator};
+  \node[isbox, below=14mm of plant] (reg) {Regulator};
+  \foreach \n in {op,ce,sa,sec,it,vend,reg}{
+    \draw[flow] (\n) -- (plant);
+  }
+\end{tikzpicture}
+\vspace{2mm}\par
+\small Industrial security is a team sport across roles that rarely sat together historically.
+\end{frame}
+
+% --------------------------------------------------------------
+\section{Threat Setting and Misconceptions}
+
+\begin{frame}{Common Misconceptions}
+\centering
+\begin{tikzpicture}[node distance=2mm]
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small] (a)
+    {\textit{``We're air-gapped, so we're safe.''}};
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small, below=of a] (b)
+    {\textit{``Our protocols are obscure; nobody understands them.''}};
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small, below=of b] (c)
+    {\textit{``We've never been attacked, so we're fine.''}};
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small, below=of c] (d)
+    {\textit{``IT tools will solve OT problems.''}};
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small, below=of d] (e)
+    {\textit{``Patching solves everything.''}};
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small, below=of e] (f)
+    {\textit{``Compliance equals security.''}};
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Threat Pyramid -- Who Targets ICS?}
+\centering
+\begin{tikzpicture}
+  % Pyramid outline (narrower base to keep labels clearly inside)
+  \draw[thick, fill=isAttack!15] (0,0) -- (10,0) -- (5,5) -- cycle;
+  % Tier dividers inside the pyramid (computed at heights 1..4)
+  \foreach \y in {1,2,3,4}{
+    \pgfmathsetmacro{\xl}{\y}
+    \pgfmathsetmacro{\xr}{10-\y}
+    \draw[dashed, black!40] (\xl,\y) -- (\xr,\y);
+  }
+  % Labels centred horizontally on the pyramid axis (x=5)
+  \node[font=\scriptsize, align=center] at (5, 0.5) {Script kiddies / opportunists};
+  \node[font=\scriptsize, align=center] at (5, 1.5) {Hacktivists};
+  \node[font=\scriptsize, align=center] at (5, 2.5) {Cybercriminals (ransomware)};
+  \node[font=\scriptsize, align=center] at (5, 3.5) {Industrial espionage};
+  \node[font=\tiny, align=center] at (5, 4.2) {Nation-state};
+\end{tikzpicture}
+\vspace{2mm}\par
+\small Capability rises as we move up; volume of actors falls.
+\end{frame}
+
+\begin{frame}{The Cost of ICS Incidents}
+\centering
+\begin{tikzpicture}[x=1.4cm]
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, align=center, minimum width=28mm, minimum height=20mm] at (0,0) {\textbf{Colonial}\\\textbf{Pipeline}\\\scriptsize \$4.4M ransom\\5-day outage};
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, align=center, minimum width=28mm, minimum height=20mm] at (2.2,0) {\textbf{Norsk Hydro}\\\\\scriptsize \$71M loss\\6-month recov.};
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, align=center, minimum width=28mm, minimum height=20mm] at (4.4,0) {\textbf{Maersk}\\\textbf{(NotPetya)}\\\scriptsize \$300M loss\\10 days down};
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, align=center, minimum width=28mm, minimum height=20mm] at (6.6,0) {\textbf{Stuxnet}\\\\\scriptsize $\sim$1000 centrifuges\\multi-year program};
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{Direct + indirect}
+Recovery costs typically exceed ransom by 5--10$\times$. The lasting damage is reputation and regulatory.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{Industry 4.0 -- Convergence Pressure}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=26mm, font=\scriptsize] (plc) {PLC / DCS};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of plc, minimum width=26mm, font=\scriptsize] (edge) {Edge gateway};
+  \node[isbox, fill=isPLC!15, draw=isPLC, right=of edge, minimum width=26mm, font=\scriptsize] (cloud) {Cloud analytics};
+  \node[isbox, fill=isIT!15, draw=isIT, right=of cloud, minimum width=26mm, font=\scriptsize] (ai) {ML / digital twin};
+  \draw[flow] (plc) -- (edge); \draw[flow] (edge) -- (cloud); \draw[flow] (cloud) -- (ai);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{importantbox}{New attack surface}
+Every cloud connector is a new ingress -- and a new authentication challenge for legacy field devices.
+\end{importantbox}
+\end{frame}
+
+\begin{frame}{Career Paths in Industrial Security}
+\begin{itemize}
+  \item \textbf{OT Security Engineer} -- design, deploy, monitor controls; bridges IT and OT
+  \item \textbf{Control Engineer with security focus} -- starts from process side
+  \item \textbf{ICS Penetration Tester} -- offensive; specialised employers
+  \item \textbf{Compliance / Audit} -- IEC 62443, NIS2 specialist
+  \item \textbf{Incident Responder (OT)} -- on-call, often consulting-side (Dragos, Mandiant)
+  \item \textbf{Researcher} -- vendor / academic; vulnerabilities, threat intel
+\end{itemize}
+\begin{tipbox}{Demand}
+Headhunter reports consistently rank OT security in the top three hardest-to-fill cyber roles globally.
+\end{tipbox}
+\end{frame}
+
+\begin{frame}{Section Roadmap}
+\centering
+\begin{tikzpicture}[y=0.55cm, x=1cm]
+  \foreach \i/\name/\col in {
+    1/{ICS \& SCADA fundamentals}/isOT,
+    2/{Network architectures}/isOT,
+    3/{Industrial protocols}/isPLC,
+    4/{Threat landscape}/isAttack,
+    5/{Vulnerabilities \& assessment}/isPLC,
+    6/{Risk management}/isAccent,
+    7/{Defense in depth}/isNet,
+    8/{Standards \& governance}/isOT,
+    9/{Incident response}/isMute}{
+    \draw[fill=\col!15, draw=\col, thick] (0,-\i) rectangle (9,-\i+0.7);
+    \node[font=\small, anchor=west] at (0.2, -\i+0.35) {\name};
+  }
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Summary -- Section \sectionNumber}
+\begin{takeawaybox}{Industrial security is different from IT security}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item OT differs fundamentally from IT in goals, lifecycle, and tolerance for failure.
+  \item Availability and safety dominate the CIA triad in industrial contexts.
+  \item Adversaries today span from script kiddies to nation-state APTs.
+  \item The next sections build the toolbox: components, networks, protocols, defenses.
+\end{itemize}
+\end{takeawaybox}
+\end{frame}
+
+\closingframe
+
+\end{document}

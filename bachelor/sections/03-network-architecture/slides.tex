@@ -1,0 +1,266 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\courseSubtitle{Section 03 -- Industrial Network Architectures}
+\def\sectionNumber{03}
+\def\sectionTitle{Industrial Network Architectures}
+
+\input{../../../template/slides-preamble.tex}
+
+\begin{document}
+
+\sectionoverviewframe
+
+\learningobjectives{
+  \item Apply the Purdue Enterprise Reference Architecture.
+  \item Explain the role of the Industrial DMZ.
+  \item Compare common plant-floor topologies and their trade-offs.
+  \item Apply the IEC 62443 concept of zones and conduits.
+  \item Identify when to use a data diode or unidirectional gateway.
+}
+
+\section{Purdue Reference Model}
+
+\begin{frame}{The Purdue Enterprise Reference Architecture}
+\centering
+\begin{tikzpicture}[y=0.8cm]
+  \foreach \y/\lvl/\desc/\col in {
+    0/0/{Physical process (sensors, actuators)}/isOT,
+    1/1/{Basic control (PLCs, RTUs, DCS controllers)}/isPLC,
+    2/2/{Supervisory (SCADA, HMI)}/isSCADA,
+    3/3/{Site operations (Historian, MES, AV)}/isHMI,
+    4/{3.5}/{Industrial DMZ (jump host, patch, replicated historian)}/isAccent,
+    5/4/{Business planning \& logistics}/isIT,
+    6/5/{Enterprise (ERP, email, web)}/isIT}{
+    \node[level, fill=\col!15, draw=\col, anchor=west, minimum width=110mm] (L\y) at (0, \y) {\textbf{Level \lvl}\quad \desc};
+  }
+  \node[firewall, right=4mm of L4, minimum height=6mm, minimum width=10mm, font=\scriptsize] (fw1) {FW};
+  \node[firewall, right=4mm of L5, minimum height=6mm, minimum width=10mm, font=\scriptsize] (fw2) {FW};
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Why an Industrial DMZ?}
+\centering
+\begin{tikzpicture}[node distance=6mm]
+  \node[isbox, fill=isIT!12, draw=isIT, minimum width=30mm, minimum height=16mm] (it) {Enterprise};
+  \node[firewall, right=of it, minimum width=10mm] (fw1) {FW};
+  \node[isbox, fill=isAccent!12, draw=isAccent, minimum width=32mm, minimum height=16mm, right=of fw1, align=center, font=\small] (dmz) {iDMZ\\\scriptsize replica historian};
+  \node[firewall, right=of dmz, minimum width=10mm] (fw2) {FW};
+  \node[isbox, fill=isOT!12, draw=isOT, minimum width=30mm, minimum height=16mm, right=of fw2] (ot) {Control};
+  \draw[flow] (ot) -- node[above, font=\tiny] {push} (fw2);
+  \draw[flow] (fw2) -- (dmz);
+  \draw[flow] (it) -- node[above, font=\tiny] {pull} (fw1);
+  \draw[flow] (fw1) -- (dmz);
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{importantbox}{Iron rule}
+\textbf{No direct path} between IT and OT. Data \emph{lands} in the DMZ; consumers \emph{pull} from there.
+\end{importantbox}
+\end{frame}
+
+\section{Topologies}
+
+\begin{frame}{Plant-Floor Topologies}
+\centering
+\begin{tikzpicture}[node distance=6mm, scale=0.78, transform shape]
+  % star
+  \begin{scope}[shift={(0,0)}]
+    \node[switch] (s) at (0,0) {SW};
+    \foreach \a in {0,72,144,216,288}{\node[plc, minimum width=7mm, minimum height=4mm, font=\tiny] (n\a) at (\a:1.4) {PLC}; \draw[netline] (s)--(n\a);}
+    \node[font=\scriptsize, below=12mm of s] {Star};
+  \end{scope}
+  % ring
+  \begin{scope}[shift={(3.5,0)}]
+    \foreach \a/\i in {0/A,72/B,144/C,216/D,288/E}{
+      \node[plc, minimum width=7mm, minimum height=4mm, font=\tiny] (r\i) at (\a:1.0) {PLC};
+    }
+    \draw[netline] (rA)--(rB)--(rC)--(rD)--(rE)--(rA);
+    \node[font=\scriptsize, below=14mm of {(0,0)}] {Ring (HSR/MRP)};
+  \end{scope}
+  % bus
+  \begin{scope}[shift={(7,0)}]
+    \draw[netline] (-1.4,0) -- (1.4,0);
+    \foreach \x in {-1.3,-0.65,0,0.65,1.3}{
+      \draw[netline] (\x,0) -- (\x,-0.5);
+      \node[plc, minimum width=4mm, minimum height=3mm, font=\tiny] at (\x,-0.8) {PLC};
+    }
+    \node[font=\scriptsize, below=16mm of {(0,0)}] {Bus (Profibus)};
+  \end{scope}
+  % daisy
+  \begin{scope}[shift={(10.3,0)}]
+    \foreach \x/\i in {-1.0/1,-0.35/2,0.35/3,1.0/4}{
+      \node[plc, minimum width=5mm, minimum height=3mm, font=\tiny] (d\i) at (\x,0) {PLC};
+    }
+    \draw[netline] (d1)--(d2)--(d3)--(d4);
+    \node[font=\scriptsize, below=10mm of {(0,0)}] {Daisy (EtherCAT)};
+  \end{scope}
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{notebox}{Driver}
+Topology choice in OT is driven by \textbf{determinism} and \textbf{availability}, not security.
+\end{notebox}
+\end{frame}
+
+\section{Zones and Conduits}
+
+\begin{frame}{Zones and Conduits (IEC 62443)}
+\centering
+\begin{tikzpicture}[node distance=8mm, scale=0.8, transform shape]
+  \begin{scope}[on background layer]
+    \node[zone, fit={(0,0) (4.5,2.4)}, label={[font=\scriptsize, color=isOT]above:Zone A -- HMI (SL-T 2)}] {};
+    \node[zone, fit={(6.5,0) (11,2.4)}, label={[font=\scriptsize, color=isOT]above:Zone B -- Control (SL-T 3)}] {};
+    \node[zone, fit={(3,-2.4) (8,-1.4)}, label={[font=\scriptsize, color=isOT]below:Zone C -- Safety (SL-T 4)}] {};
+  \end{scope}
+  \node[hmi] (h1) at (1.0,1.2) {HMI 1};
+  \node[hmi] (h2) at (3.5,1.2) {HMI 2};
+  \node[plc] (p1) at (7.5,1.2) {PLC 1};
+  \node[plc] (p2) at (10.0,1.2) {PLC 2};
+  \node[plc, fill=isAttack!15, draw=isAttack] (s1) at (4.0,-1.9) {SIS 1};
+  \node[plc, fill=isAttack!15, draw=isAttack] (s2) at (7.0,-1.9) {SIS 2};
+  \draw[conduit] (h2.east) to[bend left=18] node[above, font=\tiny, sloped, fill=white, inner sep=1pt] {OPC UA} (p1.west);
+  \draw[conduit] (h1.east) -- (p2.west);
+  \draw[conduit] (p1.south) -- node[right, font=\tiny, fill=white, inner sep=1pt] {dry contact} (s1.north);
+  \draw[conduit] (p2.south) -- (s2.north);
+\end{tikzpicture}
+\par\vspace{1mm}
+{\footnotesize Zones group assets with similar security needs; conduits are the controlled channels between them.}
+\end{frame}
+
+\begin{frame}{Industrial Firewalls}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[server] (s) {SCADA};
+  \node[firewall, right=of s, minimum width=14mm] (fw) {iFW};
+  \node[plc, right=of fw] (p) {PLC};
+  \node[isbox, fill=isAccent!15, draw=isAccent, above=of fw, font=\scriptsize, align=center, minimum width=55mm]
+    {Modbus function-code allowlist\\read coils \checkmark{} \quad write multiple \texttimes{} (after-hours)};
+  \draw[flow] (s) -- (fw);
+  \draw[flow] (fw) -- (p);
+\end{tikzpicture}
+\par\vspace{3mm}
+\footnotesize Industrial firewalls do stateful inspection \emph{and} ICS protocol parsing. Often deployed transparently.
+\end{frame}
+
+\begin{frame}{Data Diode -- One-Way Egress}
+\centering
+\begin{tikzpicture}[node distance=12mm]
+  \node[isbox, fill=isOT!12, draw=isOT, minimum width=35mm] (ctrl) {Control network};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of ctrl, minimum width=22mm, font=\small\bfseries] (diode) {Data\\Diode};
+  \node[isbox, fill=isIT!12, draw=isIT, right=of diode, minimum width=35mm] (it) {IT historian replica};
+  \draw[flow, very thick] (ctrl) -- (diode);
+  \draw[flow, very thick] (diode) -- (it);
+  \draw[-{Stealth[length=3mm]}, very thick, isAttack, dashed] (it.south) to[bend left=45] node[below, font=\scriptsize] {hardware-blocked} (ctrl.south);
+\end{tikzpicture}
+\par\vspace{2mm}
+\footnotesize Physical fibre layout enforces the direction. Useful for safety-critical data egress.
+\end{frame}
+
+\begin{frame}{Wireless in OT}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[inetnode, fill=isAccent!10] (rf) {Radio};
+  \node[plc, below left=of rf] (g1) {Gateway 1};
+  \node[plc, below right=of rf] (g2) {Gateway 2};
+  \node[sensor, below=of g1] (s1) {WirelessHART};
+  \node[sensor, below=of g2] (s2) {LoRa};
+  \node[attacker, right=22mm of rf, align=center] (atk) {Jammer\\ Replay};
+  \draw[flow] (s1) -- (g1) -- (rf);
+  \draw[flow] (s2) -- (g2) -- (rf);
+  \draw[attack] (atk) -- (rf);
+\end{tikzpicture}
+\par\vspace{2mm}
+\footnotesize Convenience vs.\ attack surface. Never put safety-critical loops over uncontrolled wireless.
+\end{frame}
+
+\begin{frame}{VLANs in OT -- Useful, Not Sufficient}
+\centering
+\begin{tikzpicture}[node distance=6mm]
+  \node[switch] (sw) {Switch};
+  \node[plc, fill=isOT!12, above left=of sw] (v1) {VLAN 10};
+  \node[plc, fill=isPLC!12, above=of sw] (v2) {VLAN 20};
+  \node[plc, fill=isAccent!12, above right=of sw] (v3) {VLAN 30};
+  \foreach \n in {v1,v2,v3}{\draw[netline] (\n)--(sw);}
+\end{tikzpicture}
+\vspace{2mm}
+\begin{warnbox}{VLAN hopping is a real attack}
+A misconfigured trunk port (DTP enabled, native VLAN guessed) lets an attacker hop. Use VLANs for organisation; require a routed firewall for security boundaries.
+\end{warnbox}
+\end{frame}
+
+\begin{frame}{NAT in OT -- When Not to Use}
+\centering
+\begin{tikzpicture}[node distance=8mm]
+  \node[isbox, fill=isIT!12, draw=isIT, minimum width=40mm] (it) {IT 10.0.0.0/8};
+  \node[firewall, right=of it, minimum width=14mm] (nat) {NAT};
+  \node[isbox, fill=isOT!12, draw=isOT, minimum width=40mm, right=of nat] (ot) {OT 192.168.10.0/24};
+  \draw[flow] (it) -- (nat) -- (ot);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{importantbox}{NAT hides, it does not protect}
+NAT breaks end-to-end addressability -- useful for legacy duplicate networks, harmful for incident analysis. Prefer routed, segmented design with explicit firewall rules.
+\end{importantbox}
+\end{frame}
+
+\begin{frame}{Time Synchronisation in OT}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=36mm, font=\small] (gm) {Grandmaster clock};
+  \node[switch, right=14mm of gm, minimum width=24mm] (sw) {PTP-aware switch};
+  \node[plc, right=14mm of sw, minimum width=24mm] (s) {Slave clocks};
+  \draw[flow] (gm) -- (sw) -- (s);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{Why it matters for security}
+Without synchronised clocks, alarm logs and PCAPs are useless in forensics. PTP (IEEE 1588) gives sub-microsecond accuracy on the plant floor; NTP is enough for L3+.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{SPAN, TAP, and Visibility}
+\centering
+\begin{tikzpicture}[node distance=8mm]
+  \node[switch, minimum width=24mm] (sw) {Switch};
+  \node[plc, left=14mm of sw] (a) {PLC A};
+  \node[plc, right=14mm of sw] (b) {PLC B};
+  \node[isbox, fill=isAccent!15, draw=isAccent, below=14mm of sw, minimum width=36mm, font=\small] (ids) {IDS / PCAP collector};
+  \draw[netline] (a) -- (sw); \draw[netline] (sw) -- (b);
+  \draw[-{Stealth[length=2.5mm]}, dashed, thick] (sw) -- node[right=3pt, font=\tiny, fill=white, inner sep=2pt]{SPAN copy} (ids);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{SPAN vs hardware TAP}
+SPAN can drop packets under load and lets the switch see your collector. A hardware TAP is read-only by construction -- preferred for high-fidelity capture.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{Wireless Generations on the Plant}
+\centering
+\renewcommand{\arraystretch}{1.2}
+\footnotesize
+\begin{tabular}{|p{3cm}|p{2.6cm}|p{2.4cm}|p{3.8cm}|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Tech} & \textbf{Latency} & \textbf{Range} & \textbf{Typical use} \\
+\hline
+Wi-Fi 6 / 6E   & 1--10 ms & 10--100 m & Mobile HMI, video \\
+WirelessHART   & 250 ms   & 100 m     & Process sensors \\
+ISA-100.11a    & 250 ms   & 100 m     & Process sensors \\
+LoRaWAN        & seconds  & km        & Building automation \\
+NB-IoT / LTE-M & seconds  & km        & Remote telemetry \\
+Private 5G     & 1 ms     & 100--500 m & High-density factory \\
+\hline
+\end{tabular}
+\end{frame}
+
+\begin{frame}{Summary -- Section \sectionNumber}
+\begin{takeawaybox}{What to remember from this section}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item The Purdue model groups assets into layers; firewalls separate the layers.
+  \item The Industrial DMZ brokers all traffic between corporate IT and the plant.
+  \item Zones and conduits give a structured language for IEC 62443 design.
+  \item Hardware mediation (diodes, gateways) protects the most sensitive flows.
+\end{itemize}
+\end{takeawaybox}
+\end{frame}
+
+\closingframe
+
+\end{document}

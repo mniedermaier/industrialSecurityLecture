@@ -1,0 +1,114 @@
+# All-in-one lab stack for the Industrial Security (Bachelor) course.
+#
+# Bring everything up with:
+#   docker compose up -d
+#
+# Bring it all down with:
+#   docker compose down -v
+#
+# Services run on a private bridge network `is-lab` (172.28.0.0/16).
+# Host port-forwards are kept minimal -- exec into the `student` container
+# for most lab interactions so nothing leaks onto the host network.
+
+name: industrial-security-labs
+
+networks:
+  is-lab:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+services:
+
+  # --------------------------------------------------------------
+  # OpenPLC -- soft PLC with Modbus TCP on 502
+  # Used by labs 1, 2, and 6.
+  # --------------------------------------------------------------
+  openplc:
+    image: atripathy86/openplc-runtime:latest
+    platform: linux/amd64
+    container_name: is-openplc
+    restart: unless-stopped
+    networks:
+      is-lab:
+        ipv4_address: 172.28.0.10
+    ports:
+      - "127.0.0.1:18080:8080"   # OpenPLC web UI (localhost only)
+      - "127.0.0.1:5502:502"     # Modbus TCP exposed to host on 5502
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8080 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # --------------------------------------------------------------
+  # OPC UA server -- open62541 example
+  # Used by lab 4.
+  # --------------------------------------------------------------
+  opcua:
+    image: open62541/open62541:master
+    container_name: is-opcua
+    restart: unless-stopped
+    networks:
+      is-lab:
+        ipv4_address: 172.28.0.11
+    ports:
+      - "127.0.0.1:14840:4840"
+
+  # --------------------------------------------------------------
+  # MQTT broker -- Eclipse Mosquitto for IIoT discussion
+  # Used as a side-quest / demo, optional.
+  # --------------------------------------------------------------
+  mqtt:
+    image: eclipse-mosquitto:2
+    container_name: is-mqtt
+    restart: unless-stopped
+    networks:
+      is-lab:
+        ipv4_address: 172.28.0.12
+    ports:
+      - "127.0.0.1:1883:1883"
+    volumes:
+      - ./mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
+  # --------------------------------------------------------------
+  # Student workstation -- a small Linux image preloaded with the
+  # CLI tools needed for every lab: python3, pymodbus, nmap, tcpdump,
+  # tshark, curl. Use:
+  #   docker compose exec student bash
+  # --------------------------------------------------------------
+  student:
+    build: ./student
+    container_name: is-student
+    networks:
+      is-lab:
+        ipv4_address: 172.28.0.20
+    volumes:
+      - ./scripts:/labs/scripts:ro
+      - ./captures:/labs/captures      # persists PCAPs to the host
+    stdin_open: true
+    tty: true
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+
+  # --------------------------------------------------------------
+  # Zeek IDS -- passive sniffer on the lab network.
+  # Logs go to ./zeek-logs on the host.
+  # Used by lab 6.
+  # --------------------------------------------------------------
+  zeek:
+    image: zeek/zeek:latest
+    container_name: is-zeek
+    restart: unless-stopped
+    networks:
+      is-lab:
+        ipv4_address: 172.28.0.30
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - ./zeek-logs:/usr/local/zeek/logs
+      - ./zeek/local.zeek:/usr/local/zeek/share/zeek/site/local.zeek:ro
+    command: ["zeek", "-i", "eth0", "/usr/local/zeek/share/zeek/site/local.zeek"]

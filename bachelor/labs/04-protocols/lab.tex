@@ -1,0 +1,66 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\labNumber{04}
+\def\labTitle{Modbus and OPC UA -- See the Difference}
+\def\labSection{04}
+\def\labTime{45--60 min}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Read and write Modbus without authentication, then compare with an OPC UA connection. Conclude in plain language why one is fit for the open Internet and one is not.
+\end{goalbox}
+
+\section*{Part A -- Modbus}
+
+\begin{stepbox}{A1 -- Honest read}
+\begin{lstlisting}[language=bash]
+docker compose exec student python3 /labs/scripts/modbus_read.py
+\end{lstlisting}
+\end{stepbox}
+
+\begin{stepbox}{A2 -- Capture and decode}
+\begin{lstlisting}[language=bash]
+docker compose exec student tcpdump -i eth0 -w /labs/captures/lab04-mb.pcap port 502 &
+docker compose exec student python3 /labs/scripts/modbus_read.py
+docker compose exec student pkill tcpdump
+\end{lstlisting}
+On the host: \texttt{tshark -r bachelor/labs/\_stack/captures/lab04-mb.pcap -V -Y modbus | less}.
+\end{stepbox}
+
+\begin{stepbox}{A3 -- Inject without authentication}
+\begin{lstlisting}[language=bash]
+docker compose exec student python3 /labs/scripts/modbus_inject.py
+\end{lstlisting}
+Confirm in the OpenPLC \emph{Monitoring} page that the coil was written -- without any login.
+\end{stepbox}
+
+\section*{Part B -- OPC UA}
+
+\begin{stepbox}{B1 -- Browse the namespace}
+\begin{lstlisting}[language=bash]
+docker compose exec student python3 /labs/scripts/opcua_browse.py
+\end{lstlisting}
+\end{stepbox}
+
+\begin{stepbox}{B2 -- Capture the OPC UA handshake}
+\begin{lstlisting}[language=bash]
+docker compose exec student tcpdump -i eth0 -w /labs/captures/lab04-ua.pcap port 4840 &
+docker compose exec student python3 /labs/scripts/opcua_browse.py
+docker compose exec student pkill tcpdump
+\end{lstlisting}
+On the host: \texttt{tshark -r bachelor/labs/\_stack/captures/lab04-ua.pcap -V -Y opcua | less}.
+\end{stepbox}
+
+\begin{deliverbox}
+Hand in: both PCAPs, an annotated hex dump of one Modbus read, and a 1-page comparison (Modbus vs.\ OPC UA) across \emph{authentication, integrity, confidentiality, operational cost}.
+\end{deliverbox}
+
+\begin{warnbox}
+Lab containers only. The Modbus injection works because there is no authentication -- never run it against equipment you do not own.
+\end{warnbox}
+\end{document}

@@ -1,0 +1,44 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\sectionNumber{06}
+\def\sectionTitle{Vulnerabilities and Assessment}
+\def\sheetKind{Solution Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 6.1 -- Advisory Analysis (mark scheme)}
+Award marks for: correct CVE/CWE mapping (2), defensible environmental adjustments (3), realistic mitigation list including non-patch options (3), clear plain-language impact (2).
+\end{taskbox}
+
+\begin{taskbox}{Exercise 6.2 -- Lab Notes}
+Expected differences:
+\begin{itemize}
+  \item Passive captures only protocols actually used; misses silent devices.
+  \item Active scan may discover hidden services (\texttt{nmap -sV} reveals banners) but with higher risk of disturbing the PLC.
+  \item OUI lookups (\texttt{ieee.org} or \texttt{macaddress.io}) reveal vendor.
+\end{itemize}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 6.3 -- Mini Risk Register (sample)}
+\begin{tabular}{p{2.2cm} p{2.2cm} p{1.4cm} p{4.5cm} p{1cm} p{1.5cm}}
+\toprule
+\textbf{Asset} & \textbf{CVE} & \textbf{CVSS-E} & \textbf{Mitigation} & \textbf{Pri} & \textbf{Owner} \\
+\midrule
+PLC 12          & CVE-25-1001 & 8.6 & FW allowlist; firmware update in maint.\ window & P1 & OT \\
+HMI 03          & CVE-25-1002 & 6.5 & AppLocker, KB patch & P2 & OT \\
+Historian       & CVE-25-1003 & 9.0 & Network isolation; vendor hotfix             & P1 & IT \\
+Eng laptop      & CVE-25-1004 & 7.0 & MDM patch                                    & P2 & IT \\
+Jump host       & CVE-25-1005 & 9.1 & MFA enforce; immediate patch                  & P1 & IAM \\
+\bottomrule
+\end{tabular}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 6.4 -- CVSS Reasoning}
+With single-host reachability and MFA, modified attack vector drops from Network to Adjacent or Local, modified privileges required becomes High. The score can fall to $\sim$5.5--6.0. Whether that justifies P2 vs P1 depends on \emph{process consequence} -- if compromise leads to loss of safety view, treat as P1 regardless.
+\end{taskbox}
+
+\end{document}

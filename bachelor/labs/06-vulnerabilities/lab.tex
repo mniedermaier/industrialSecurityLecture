@@ -1,0 +1,44 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\labNumber{06}
+\def\labTitle{Real CVE Walk-Through}
+\def\labSection{06}
+\def\labTime{45 min}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Take a real, recent CISA ICS advisory and translate it for an asset owner: \emph{what it means, how bad it really is in their environment, what to do this week, and what to do this quarter.}
+\end{goalbox}
+
+\begin{stepbox}{1 -- Pick an advisory}
+Browse \url{https://www.cisa.gov/news-events/cybersecurity-advisories/ics-advisories} and pick one ICS advisory published in the last 60 days that affects a vendor you recognise.
+\end{stepbox}
+
+\begin{stepbox}{2 -- Decompose the advisory}
+Read it and answer in writing:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item Vendor / product / affected firmware range
+  \item CVSS v3.1 base score and full vector
+  \item Vulnerability class (CWE)
+  \item Pre-conditions for exploitation (network reachability, auth, user action)
+  \item Stated impact and known exploitation
+\end{itemize}
+\end{stepbox}
+
+\begin{stepbox}{3 -- Environmental scoring}
+For a small water utility with the affected product behind two firewalls and no Internet exposure: re-score with CVSS environmental modifiers and justify each change.
+\end{stepbox}
+
+\begin{stepbox}{4 -- Action list}
+Produce a 5-line action list separated into \emph{this week} (compensating controls) and \emph{this quarter} (firmware update, change windows).
+\end{stepbox}
+
+\begin{deliverbox}
+Hand in: a 1-page brief that a plant manager could read in 5 minutes -- summary, CVSS-E, this week, this quarter, residual risk.
+\end{deliverbox}
+\end{document}

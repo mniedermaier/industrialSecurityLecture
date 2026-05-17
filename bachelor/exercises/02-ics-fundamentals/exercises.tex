@@ -1,0 +1,58 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\sectionNumber{02}
+\def\sectionTitle{ICS and SCADA Fundamentals}
+\def\sheetKind{Exercise Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 2.1 -- Component Mapping}
+Map each function below to the most appropriate component: \textbf{PLC, RTU, DCS, SCADA, HMI, Historian, SIS}.
+\begin{enumerate}
+  \item Stores ten years of temperature readings at one-second resolution.
+  \item Brings a furnace to a safe state if pressure exceeds a threshold.
+  \item Runs ladder logic on the factory floor with a 10\,ms cycle.
+  \item Displays a plant overview with active alarms to a night-shift operator.
+  \item Polls a remote pump station over a leased serial line.
+  \item Coordinates 5\,000 control loops in a refinery from a unified vendor stack.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 2.2 -- Ladder Logic}
+Design a ladder rung satisfying \emph{all} of:
+\begin{itemize}
+  \item A conveyor motor runs only when both safety guards (\texttt{Guard1}, \texttt{Guard2}) are closed.
+  \item Pressing \texttt{Start} energises the motor; the motor latches.
+  \item Pressing \texttt{Stop} or opening either guard immediately stops the motor.
+  \item A pilot lamp lights whenever the motor is running.
+\end{itemize}
+Submit your solution as a ladder diagram with each contact labelled normally open (NO) or normally closed (NC).
+\end{taskbox}
+
+\begin{taskbox}{Exercise 2.3 -- Why an Independent SIS?}
+\begin{enumerate}
+  \item Explain in one paragraph why a Safety Instrumented System should be independent of the Basic Process Control System.
+  \item Sketch the TRITON attack from 2017: which system was targeted, what was the attacker's goal, why was the attack discovered?
+  \item List two design choices a vendor could make to harden a modern SIS against a TRITON-style attack.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 2.4 -- Lab: OpenPLC}
+Complete \texttt{labs/lab-01-openplc}.
+\begin{enumerate}
+  \item Install OpenPLC runtime + editor.
+  \item Implement the conveyor program from Exercise 2.2.
+  \item Connect a soft HMI (ScadaBR or Node-RED).
+  \item Trigger inputs and observe outputs.
+  \item Capture Modbus TCP traffic with Wireshark; identify the function codes.
+\end{enumerate}
+\begin{hintbox}
+Section 04 covers Modbus in detail; this lab will be referenced again then.
+\end{hintbox}
+\end{taskbox}
+
+\end{document}

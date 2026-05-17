@@ -1,0 +1,67 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\sectionNumber{05}
+\def\sectionTitle{Threat Landscape}
+\def\sheetKind{Exercise Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 5.1 -- ATT\&CK Mapping}
+Pick one case study: Stuxnet, Ukraine 2015, Industroyer, TRITON, Colonial, or CyberAv3ngers/Unitronics.
+\begin{enumerate}
+  \item Identify at least five MITRE ATT\&CK for ICS techniques used.
+  \item For each, propose one detection that a defender could implement.
+  \item Present the mapping as a three-column table: \emph{Tactic, Technique ID, Detection idea.}
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 5.2 -- Lab: Shodan Reconnaissance (ethical)}
+See \texttt{labs/lab-05-shodan}.
+\begin{enumerate}
+  \item Create a free Shodan account.
+  \item Search for \texttt{port:502 country:DE} and report what kinds of systems appear.
+  \item Repeat for \texttt{"Siemens" port:102} and \texttt{"Unitronics" port:20256}.
+  \item In 5--10 lines: why are these systems exposed, what should asset owners do, what should ISPs/CERTs do?
+\end{enumerate}
+\begin{warnbox}
+Read-only. Do \emph{not} connect to, log into, or scan any discovered system.
+\end{warnbox}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 5.3 -- Threat Modelling}
+For a small chemical plant with a single DCS and SIS:
+\begin{enumerate}
+  \item Identify five plausible threat actors. Rank them by likelihood for this asset.
+  \item For the top two, sketch an attack path from initial access to physical impact.
+  \item Identify the choke points where a defender could break the chain.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 5.4 -- Supply Chain Reasoning}
+A vendor announces a critical RCE CVE in their PLC runtime, fix available next quarter.
+\begin{enumerate}
+  \item What compensating controls can you deploy now?
+  \item Who in the organisation must be informed?
+  \item How would you communicate the residual risk to a non-technical executive sponsor?
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 5.5 -- PIPEDREAM \& Volt Typhoon}
+Read the Dragos PIPEDREAM/INCONTROLLER write-up \emph{and} the CISA Volt Typhoon advisory. Compare them in a 1-page brief:
+\begin{itemize}
+  \item Tooling -- is it custom malware or living-off-the-land?
+  \item Targets -- which sectors and which assets are in scope?
+  \item Detection -- which technique would surface each first in your environment?
+  \item Defensive priority -- which one should the OT team treat as more urgent, and why?
+\end{itemize}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 5.6 -- Initial Access Audit}
+For your own (or a fictional) plant, score each of the eight initial-access vectors from the slides (spearphish, vendor compromise, Internet-exposed PLC, USB, stolen credentials, vendor remote access, weak VPN, insider) on a 1--5 scale for \emph{exposure} (how easy is the door for an attacker) and \emph{detection} (how likely are we to notice). Pick the worst gap and propose one specific control.
+\end{taskbox}
+
+\end{document}

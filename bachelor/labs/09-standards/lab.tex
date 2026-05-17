@@ -1,0 +1,43 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\labNumber{09}
+\def\labTitle{Regulatory Gap Analysis}
+\def\labSection{09}
+\def\labTime{60 min}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+For a fictional mid-sized German water utility, identify the applicable laws and standards, score five obligations against the controls covered in this course, and recommend three concrete improvements.
+\end{goalbox}
+
+\begin{stepbox}{1 -- Map the regulatory surface}
+List the German and EU obligations that apply to a 600-thousand-customer water utility. Include:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item EU NIS2 (essential entity status)
+  \item KRITIS / IT-SiG 2.0 (BSI)
+  \item B3S Wasser/Abwasser (sectoral standard)
+  \item Any data-protection or product regulations (DSGVO, CRA)
+\end{itemize}
+\end{stepbox}
+
+\begin{stepbox}{2 -- Pick five obligations}
+Choose five concrete obligations (e.g.\ ``attack detection capability'', ``incident notification within 24 hours'') and assess current compliance: \emph{compliant / partial / non-compliant} with one-line justification each.
+\end{stepbox}
+
+\begin{stepbox}{3 -- Map to IEC 62443 and CSF}
+For each obligation, cite the matching IEC 62443 system requirement (SR) and the matching NIST CSF subcategory.
+\end{stepbox}
+
+\begin{stepbox}{4 -- Recommend improvements}
+Propose three concrete improvements with: \emph{rough cost, time horizon, owner.}
+\end{stepbox}
+
+\begin{deliverbox}
+Hand in: a 1-page gap-analysis table (Obligation, Status, 62443 SR, CSF, Action) plus the three recommendations.
+\end{deliverbox}
+\end{document}

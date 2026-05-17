@@ -1,0 +1,52 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\sectionNumber{06}
+\def\sectionTitle{Vulnerabilities and Assessment}
+\def\sheetKind{Exercise Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 6.1 -- Advisory Analysis}
+Pick a recent CISA ICS advisory and write a 1-page analysis covering:
+\begin{itemize}
+  \item Vendor, product, firmware range
+  \item Vulnerability class (CWE)
+  \item CVSS v3.1 base score and a \emph{justified} environmental score for a process plant
+  \item Exploitability and impact in plain language
+  \item Recommended mitigations (network, configuration, patch)
+\end{itemize}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 6.2 -- Lab: Passive Discovery}
+Using your OpenPLC + HMI setup from Lab 01:
+\begin{enumerate}
+  \item Configure a SPAN port (or use \texttt{tcpdump} on a hub-equivalent).
+  \item Run a passive collector (Malcolm, Zeek, or a Python sniffer).
+  \item Produce an inventory: IP, MAC, vendor (OUI), open ports observed, protocols.
+  \item Compare with a careful active scan. Document the differences.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 6.3 -- Build a Mini Risk Register}
+For five fictional assets (PLC, HMI, Historian, engineering laptop, vendor jump host):
+\begin{enumerate}
+  \item Invent a plausible CVE for each.
+  \item Score with CVSS environmental.
+  \item Recommend mitigations and priorities (P1--P4).
+  \item Present as a table: \emph{Asset, CVE, CVSS-E, Mitigation, Priority, Owner.}
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 6.4 -- CVSS Reasoning}
+A vendor advisory rates a vulnerability as CVSS 9.8. In your environment, the affected service is only reachable from a single jump host that requires MFA and is monitored.
+\begin{enumerate}
+  \item Adjust CVSS attack vector / privileges accordingly. What new score do you get?
+  \item Does the process-impact still warrant P1, or can you defer? Justify in 5 lines.
+\end{enumerate}
+\end{taskbox}
+
+\end{document}

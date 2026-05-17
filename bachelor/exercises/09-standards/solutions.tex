@@ -1,0 +1,52 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\sectionNumber{09}
+\def\sectionTitle{Standards, Compliance, Governance}
+\def\sheetKind{Solution Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 9.1 -- Control Mapping (sample rows)}
+\begin{tabular}{p{3.2cm} p{2.6cm} p{2.4cm} p{1.4cm} p{3.6cm}}
+\toprule
+\textbf{800-53} & \textbf{62443-3-3 SR} & \textbf{CSF} & \textbf{Feas.} & \textbf{Justification} \\
+\midrule
+AC-2 Account mgmt & SR 1.1 / 1.2 & PR.AC-1 & Mod & Some PLCs lack RBAC \\
+AU-2 Audit events & SR 2.8        & DE.CM-1 & Hard & Many PLCs lack syslog \\
+SC-7 Boundary protection & SR 5.1 & PR.AC-5 & Easy & Industrial firewalls available \\
+CM-2 Baseline cfg & SR 7.6        & PR.IP-1 & Mod & Engineering project as baseline \\
+IR-4 Incident handling & SR 5.4   & RS.AN-1 & Hard & OT IR maturity uneven \\
+\bottomrule
+\end{tabular}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 9.2 -- SL-T Assignment (sample)}
+\begin{tabular}{p{3cm} p{1.5cm} p{8cm}}
+\toprule
+\textbf{Zone} & \textbf{SL-T} & \textbf{Justification} \\
+\midrule
+Enterprise IT & 1 & Hacktivists / opportunists; loss has indirect impact \\
+iDMZ          & 2 & Internet-facing surface, simple resourced attackers \\
+SCADA / L3    & 3 & Sophisticated, targeted attackers; loss disrupts plant \\
+Control / L2  & 3 & Same as L3, plus direct safety implications \\
+Field / L0--1 & 2 & Physically constrained, but consequence is high \\
+\bottomrule
+\end{tabular}
+SL-T 4 (nation-state resistance) is normally disproportionate for a regional water utility.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 9.3 -- Gap Analysis (mark scheme)}
+Award marks for correctly identifying KRITIS thresholds, NIS2 essential-entity status, B3S sector standard; for credible compliance assessment of asset inventory, segmentation, incident reporting, AV/IR; for realistic improvement costs (EUR ranges, FTE estimates).
+\end{taskbox}
+
+\begin{taskbox}{Exercise 9.4 -- Programme Sketch (sample)}
+RACI: CISO accountable; OT Security Lead responsible; Plant Manager consulted; CFO informed.\\
+Year 1 priorities: complete asset inventory; segment IT$\leftrightarrow$OT with iDMZ; immutable backups; vendor remote-access broker; OT IDS; tabletop exercise.\\
+KPIs: \% assets in CMDB with firmware version; mean time to detect (MTTD) on OT alerts; \% critical CVEs mitigated within SLA.
+\end{taskbox}
+
+\end{document}

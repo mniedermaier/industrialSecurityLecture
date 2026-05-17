@@ -1,0 +1,58 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\sectionNumber{01}
+\def\sectionTitle{Introduction to Industrial Security}
+\def\sheetKind{Solution Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 1.1 -- Identify the System}
+\begin{enumerate}
+  \item \textbf{IT.} A billing database is a classic OLTP workload, no direct interaction with physical processes.
+  \item \textbf{Hybrid / IIoT.} The pitch controller is OT (real-time, safety-relevant), but it is coupled with an IT/cloud stack via MQTT. Convergence creates an attack surface that bridges both worlds.
+  \item \textbf{OT.} Direct control of a physical safety-relevant process. Failures can cause accidents.
+  \item \textbf{OT-adjacent / hybrid.} The workstation itself is a Windows host (IT), but it programs PLCs and is therefore a high-value target. Treat as OT for security purposes (Purdue level 2/3).
+  \item \textbf{IIoT.} A sensor publishing to a corporate data lake mixes OT data with an IT consumer.
+\end{enumerate}
+\end{taskbox}
+
+\begin{solutionbox}
+The key insight is that ``IT vs.\ OT'' is a spectrum. Anything that influences (or measures) a physical process should be evaluated as OT for risk purposes -- even when it speaks IT protocols.
+\end{solutionbox}
+
+\begin{taskbox}{Exercise 1.2 -- CIA Re-ordered}
+\begin{enumerate}
+  \item \emph{Confidentiality over safety.} A SCADA alarm is encrypted such that an operator cannot acknowledge it during a key-rotation failure. The operator loses view of a runaway exotherm.
+  \item \emph{Confidentiality still matters.} Pharma formulations, semiconductor process recipes, generator dispatch curves -- losing them harms competitiveness or enables targeted attack.
+  \item Sample policy statement: \emph{``In every plant we operate, the safety and continuous availability of the physical process takes precedence over the confidentiality of data. Cryptographic controls must fail in a way that preserves operator awareness and the ability to act on the process.''}
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 1.3 -- Group Discussion (sample answer)}
+\textbf{Sector: Water.}
+\begin{itemize}
+  \item Raw-water intake pumps -- loss can dry the works within minutes.
+  \item Coagulant dosing -- under/over-dosing causes turbidity excursions and health risk.
+  \item Filtration backwash -- loss reduces capacity; mis-sequencing can damage filters.
+  \item Disinfection (chlorine, UV) -- loss is a public-health emergency.
+  \item Distribution pressure -- loss collapses supply; over-pressure bursts mains.
+\end{itemize}
+The most dramatic worst case is loss of disinfection combined with contamination upstream -- compare Walkerton, ON (2000).
+\end{taskbox}
+
+\begin{taskbox}{Exercise 1.4 -- Research (sample outline for Stuxnet)}
+\begin{itemize}
+  \item \textbf{Attacker.} Likely joint US/Israeli operation (Olympic Games).
+  \item \textbf{Target.} Iranian uranium enrichment cascades at Natanz; specifically Siemens S7-315/417 PLCs controlling Vacon and Fararo Paya frequency converters.
+  \item \textbf{Initial vector.} USB-borne infection in the Natanz supply chain.
+  \item \textbf{Technical steps.} Spread via four Windows zero-days and stolen code-signing certs; hooked Siemens Step7 DLL; reprogrammed PLCs to manipulate centrifuge rotation rates; spoofed HMI values back to operators.
+  \item \textbf{Physical impact.} An estimated $\sim$1{,}000 centrifuges destroyed over months, with cover-up of the cause.
+  \item \textbf{Lessons.} Air gaps are not absolute; supply-chain trust is fragile; cyber-physical attacks can be subtle and patient; defenders must monitor PLC code integrity.
+\end{itemize}
+\end{taskbox}
+
+\end{document}

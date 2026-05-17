@@ -1,0 +1,87 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\sectionNumber{01}
+\def\sectionTitle{Introduction to Industrial Security}
+\def\sheetKind{Exercise Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\section*{Goal of this sheet}
+Practise placing systems in the IT/OT spectrum, articulating why industrial security is a distinct discipline, and exploring one historical incident in depth.
+
+\begin{taskbox}{Exercise 1.1 -- Identify the System}
+For each scenario, decide whether the system is primarily \textbf{IT}, \textbf{OT}, or a \textbf{hybrid (IIoT)}. Justify your answer in 2--3 sentences each.
+\begin{enumerate}
+  \item A SQL database storing customer billing records.
+  \item A wind-turbine pitch controller that streams telemetry over MQTT to a cloud broker.
+  \item A traffic-light controller at a busy intersection.
+  \item A workstation running engineering software used to program PLCs.
+  \item A vibration sensor on a pump that publishes to a corporate Kafka topic.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 1.2 -- CIA Re-ordered}
+The OT priority order is often written as $A \succ I \succ C$ rather than $C \succ I \succ A$.
+\begin{enumerate}
+  \item Give a concrete plant scenario where putting confidentiality first would harm safety.
+  \item Give a scenario where strong confidentiality is nonetheless important in OT (think trade secrets, recipes, formulations).
+  \item Sketch a short policy statement (3--5 lines) that an asset owner could put in writing to make the priority explicit to all parties.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 1.3 -- Group Discussion}
+In groups of four:
+\begin{enumerate}
+  \item Pick one critical-infrastructure sector (electricity, water, transport, food, healthcare).
+  \item List five physical processes within it that depend on digital control.
+  \item For each process, name the worst-case outcome of an availability incident.
+  \item Prepare a 3-minute pitch summarising your top concern.
+\end{enumerate}
+
+\begin{hintbox}
+Useful starting points: pumps and SCADA in water utilities, breakers and protection relays in substations, signalling in rail, sterilisation cycles in pharma.
+\end{hintbox}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 1.4 -- Research Mini-Project}
+Pick one historical incident and write a 1-page summary (about 400 words):
+\begin{itemize}
+  \item Maroochy Shire sewage (2000)
+  \item Stuxnet (2010)
+  \item Ukraine power grid -- BlackEnergy/Industroyer (2015 \& 2016)
+  \item TRITON / TRISIS (2017)
+  \item Norsk Hydro ransomware (2019)
+  \item Colonial Pipeline (2021)
+  \item Oldsmar water treatment (2021)
+  \item CyberAv3ngers / Unitronics (2023)
+\end{itemize}
+Your summary must cover: \emph{attacker, target, initial vector, technical steps, physical impact, defensive lessons.}
+Cite at least two sources (CISA advisory, vendor post-mortem, peer-reviewed paper).
+
+\begin{warnbox}
+Do not interact with or scan any real infrastructure. Use only published material.
+\end{warnbox}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 1.5 -- Cost of an Incident}
+For one of the four cost case studies in the slides (Colonial Pipeline, Norsk Hydro, Maersk/NotPetya, Stuxnet), find two public sources and reconstruct:
+\begin{enumerate}
+  \item The headline financial figure -- what is included (ransom, recovery, business interruption)?
+  \item One indirect cost often missed (regulatory fines, customer churn, insurance premium increase).
+  \item One non-financial cost (reputation, employee morale, safety culture).
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 1.6 -- Industry 4.0 Risk Tour}
+For your institution (or a fictional plant) list three Industry 4.0 / IIoT integrations on the roadmap (cloud analytics, digital twin, edge AI, mobile workforce). For each:
+\begin{itemize}
+  \item Identify one new attack vector it introduces.
+  \item Propose one compensating control.
+\end{itemize}
+\end{taskbox}
+
+\end{document}

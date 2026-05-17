@@ -1,0 +1,37 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\labNumber{03}
+\def\labTitle{Network Segmentation (Paper or GNS3)}
+\def\labSection{03}
+\def\labTime{45--60 min}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Produce a Purdue diagram for a small water-treatment plant and a per-conduit rule table that an iDMZ firewall could enforce.
+\end{goalbox}
+
+\begin{stepbox}{1 -- Draw}
+On a single sheet (or in \texttt{draw.io} / \texttt{excalidraw}) draw the architecture from Exercise 3.1 with every Purdue level labelled (L0--L5 and the iDMZ at L3.5).
+\end{stepbox}
+
+\begin{stepbox}{2 -- Conduit table}
+For every conduit, write a row: \emph{source, destination, protocol, port, direction}. Mark which conduit would benefit from a hardware data diode.
+\end{stepbox}
+
+\begin{stepbox}{3 -- Optional: build it}
+In GNS3 or EVE-NG: three switches (Enterprise / iDMZ / Control), one pfSense, three Linux clients. From the Enterprise host, run \texttt{nmap -Pn 192.168.10.10}: it must return 0 open ports.
+\end{stepbox}
+
+\begin{deliverbox}
+Hand in: the diagram and the conduit rule table. Screenshot of pfSense rules if you did the optional build.
+\end{deliverbox}
+
+\begin{warnbox}
+The Docker stack does not enforce L3 isolation -- this lab is intentionally design-focused.
+\end{warnbox}
+\end{document}

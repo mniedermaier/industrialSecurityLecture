@@ -1,0 +1,52 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\sectionNumber{03}
+\def\sectionTitle{Industrial Network Architectures}
+\def\sheetKind{Exercise Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 3.1 -- Draw a Purdue Diagram}
+A small water-treatment plant has:
+\begin{itemize}
+  \item 6 PLCs controlling pumps and valves
+  \item 2 HMI workstations in the control room
+  \item A SCADA server and a Historian
+  \item A patch/AV staging server
+  \item Office IT (email, ERP, web)
+  \item Vendor remote-support access
+\end{itemize}
+Draw the full Purdue diagram. Label every level. Show every firewall and the Industrial DMZ explicitly. Mark vendor remote-support clearly -- where does it terminate?
+\end{taskbox}
+
+\begin{taskbox}{Exercise 3.2 -- Zones and Conduits}
+Using your Exercise 3.1 diagram:
+\begin{enumerate}
+  \item Define at least four zones with target Security Levels (SL-T 1--4).
+  \item For every conduit between zones, list allowed protocols, source, destination, and direction (uni- or bi-directional).
+  \item Identify one conduit where a data diode would be appropriate. Justify why a stateful firewall is insufficient.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 3.3 -- Lab: Segmentation}
+See \texttt{labs/lab-03-segmentation}.
+\begin{enumerate}
+  \item In GNS3 or EVE-NG, build a virtual network with subnets Enterprise (10.0.0.0/24) and Control (192.168.10.0/24).
+  \item Place a firewall (pfSense or VyOS) between them, with a DMZ subnet.
+  \item Allow only Historian replication from Control to DMZ on TCP/5450, and Historian pull from Enterprise to DMZ.
+  \item Verify that a host in Enterprise cannot reach the Control subnet directly using \texttt{nmap}.
+\end{enumerate}
+\begin{warnbox}
+Lab only. Never run scans against systems you do not own.
+\end{warnbox}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 3.4 -- Topology Trade-Offs}
+Compare star vs.\ ring topologies on the plant floor in three rows: \emph{failure modes, recovery time, cabling cost}. Write 2--3 sentences per cell.
+\end{taskbox}
+
+\end{document}

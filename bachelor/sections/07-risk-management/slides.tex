@@ -1,0 +1,267 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\courseSubtitle{Section 07 -- Risk Management}
+\def\sectionNumber{07}
+\def\sectionTitle{Risk Management}
+
+\input{../../../template/slides-preamble.tex}
+
+\begin{document}
+
+\sectionoverviewframe
+
+\learningobjectives{
+  \item Construct and interpret a qualitative risk matrix for an industrial site.
+  \item Apply Cyber-HAZOP / Cyber-PHA techniques.
+  \item Distinguish IT risk from safety risk.
+  \item Recognise the Consequence-Driven Cyber-Informed Engineering (CCE) approach.
+}
+
+\section{Risk Fundamentals}
+
+\begin{frame}{Risk in Industrial Contexts}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=26mm, minimum height=14mm] (lik) {Likelihood};
+  \node[font=\Large\bfseries, right=2mm of lik] (mul) {$\times$};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=26mm, minimum height=14mm, right=2mm of mul] (cons) {Consequence};
+  \node[font=\Large\bfseries, right=2mm of cons] (eq) {$=$};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=26mm, minimum height=14mm, right=2mm of eq] (risk) {Risk};
+\end{tikzpicture}
+\vspace{3mm}
+\begin{notebox}{Consequence dimensions}
+\textbf{Safety}, environment, production loss, reputation, regulatory.\\
+Likelihood depends on adversary capability \emph{and} exploit difficulty.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{Risk Matrix (5$\times$5)}
+\vspace{4mm}
+\centering
+\begin{tikzpicture}[scale=0.75]
+  \foreach \r/\rlbl in {0/{Very Unlikely}, 1/{Unlikely}, 2/{Possible}, 3/{Likely}, 4/{Very Likely}}{
+    \node[font=\scriptsize, anchor=east] at (-0.05, \r+0.5) {\rlbl};
+  }
+  \foreach \c/\clbl in {0/{Negligible}, 1/{Minor}, 2/{Moderate}, 3/{Major}, 4/{Catastrophic}}{
+    \node[font=\scriptsize, anchor=west, rotate=45] at (\c+0.5, 5.15) {\clbl};
+  }
+  \foreach \r in {0,1,2,3,4}{
+    \foreach \c in {0,1,2,3,4}{
+      \pgfmathtruncatemacro{\score}{\r+\c}
+      \pgfmathtruncatemacro{\rr}{min(255, 80+\score*40)}
+      \pgfmathtruncatemacro{\gg}{max(0, 220-\score*45)}
+      \definecolor{rmcol}{RGB}{\rr,\gg,60}
+      \draw[fill=rmcol, draw=black!40] (\c,\r) rectangle ++(1,1);
+    }
+  }
+\end{tikzpicture}
+\par\vspace{2mm}
+\footnotesize Useful for quick communication; risk of false precision and gaming.
+\end{frame}
+
+\section{Methodologies}
+
+\begin{frame}{Bow-Tie Analysis}
+\centering
+\begin{tikzpicture}[node distance=12mm]
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=36mm, minimum height=16mm, align=center] (event) {Top event\\(loss of containment)};
+  \node[isbox, fill=isPLC!15, draw=isPLC, left=22mm of event] (c1) {Cause 1};
+  \node[isbox, fill=isPLC!15, draw=isPLC, above left=of event] (c2) {Cause 2};
+  \node[isbox, fill=isPLC!15, draw=isPLC, below left=of event] (c3) {Cause 3};
+  \node[isbox, fill=isNet!15, draw=isNet, right=22mm of event] (e1) {Conseq.\ 1};
+  \node[isbox, fill=isNet!15, draw=isNet, above right=of event] (e2) {Conseq.\ 2};
+  \node[isbox, fill=isNet!15, draw=isNet, below right=of event] (e3) {Conseq.\ 3};
+  \foreach \n in {c1,c2,c3}{\draw[flow] (\n) -- (event);}
+  \foreach \n in {e1,e2,e3}{\draw[flow] (event) -- (\n);}
+\end{tikzpicture}
+\par\vspace{2mm}
+\footnotesize Barriers on the left prevent causes; barriers on the right mitigate consequences.
+\end{frame}
+
+\begin{frame}{Cyber-PHA / Cyber-HAZOP}
+\centering
+\begin{tikzpicture}[node distance=6mm]
+  \node[isbox, fill=isOT!12, draw=isOT, minimum width=22mm, font=\scriptsize] (g1) {No};
+  \node[isbox, fill=isOT!12, draw=isOT, minimum width=22mm, font=\scriptsize, right=of g1] (g2) {More};
+  \node[isbox, fill=isOT!12, draw=isOT, minimum width=22mm, font=\scriptsize, right=of g2] (g3) {Less};
+  \node[isbox, fill=isOT!12, draw=isOT, minimum width=22mm, font=\scriptsize, right=of g3] (g4) {Reverse};
+  \node[isbox, fill=isOT!12, draw=isOT, minimum width=22mm, font=\scriptsize, right=of g4] (g5) {As well as};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, below=12mm of g3, align=left, font=\small]
+    (q)
+    {For each node, ask:\\
+     \quad ``What if an \textbf{attacker} caused the deviation \emph{[guide word] [parameter]}?''};
+  \node[isbox, fill=isAccent!12, draw=isAccent, minimum width=110mm, below=of q, align=left, font=\scriptsize]
+    (ex)
+    {\emph{Examples:} no flow $\to$ attacker closes inlet valve; high pressure $\to$ attacker disables relief actuator.};
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Layers of Protection (LOPA)}
+\centering
+\begin{tikzpicture}[y=0.7cm]
+  \foreach \r/\name/\col in {
+    0/{Process design}/isOT,
+    1/{BPCS control loops}/isPLC,
+    2/{Alarms and operator action}/isHMI,
+    3/{SIS interlocks}/isAttack,
+    4/{Physical protection}/isAccent,
+    5/{Plant emergency response}/isMute,
+    6/{Community emergency response}/isMute}{
+    \draw[fill=\col!15, draw=\col, thick] (0,\r) rectangle (10, \r+0.8);
+    \node[font=\small] at (5, \r+0.4) {\name};
+  }
+  \draw[-{Stealth[length=3mm]}, very thick, isAttack] (-0.6,6.4) -- (-0.6, 0.4);
+  \node[rotate=90, font=\scriptsize, anchor=south] at (-1.0, 3.4) {escalating consequence};
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Consequence-Driven Cyber-Informed Engineering (CCE)}
+\vspace{-3mm}
+\centering
+\begin{tikzpicture}[scale=0.7, transform shape]
+  \def\R{1.4}
+  \draw[thick] (0,0) circle (\R);
+  \node[font=\bfseries\small] at (0,0) {CCE};
+  \node[isbox, fill=isAttack!10, draw=isAttack, font=\scriptsize, align=center, minimum width=26mm]
+    at (90:\R+2.2) {1. Consequence\\prioritisation};
+  \node[isbox, fill=isAttack!10, draw=isAttack, font=\scriptsize, align=center, minimum width=26mm]
+    at (0:\R+2.6) {2. System-of-\\systems analysis};
+  \node[isbox, fill=isAttack!10, draw=isAttack, font=\scriptsize, align=center, minimum width=26mm]
+    at (270:\R+2.2) {3. Consequence-based\\targeting};
+  \node[isbox, fill=isAttack!10, draw=isAttack, font=\scriptsize, align=center, minimum width=26mm]
+    at (180:\R+2.6) {4. Mitigations \&\\protections};
+\end{tikzpicture}
+\vspace{-1mm}
+\begin{notebox}{INL methodology}
+``What would I do if I were the adversary?'' \ Engineer out the worst consequences.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{Risk Response Options}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isNet!15, draw=isNet, minimum width=26mm, minimum height=16mm, align=center] (av) {\textbf{Avoid}\\\scriptsize remove function};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=26mm, minimum height=16mm, align=center, right=of av] (mi) {\textbf{Mitigate}\\\scriptsize reduce L or C};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=26mm, minimum height=16mm, align=center, right=of mi] (tr) {\textbf{Transfer}\\\scriptsize insure / contract};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=26mm, minimum height=16mm, align=center, right=of tr] (ac) {\textbf{Accept}\\\scriptsize signed-off};
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{notebox}{Acceptance is legitimate}
+But it must be reviewed periodically -- threats evolve.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{FAIR -- Quantitative Cyber Risk}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=44mm, minimum height=14mm, align=center, font=\small] (lef) {Loss event frequency};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=44mm, minimum height=14mm, align=center, font=\small, right=of lef] (mag) {Loss magnitude};
+  \node[font=\Large\bfseries, right=2mm of lef] {$\times$};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=100mm, font=\small, below=10mm of mag, xshift=-25mm] (out) {= Annualised loss expectancy (ALE)};
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{When FAIR earns its keep}
+When the board asks ``how much does this risk actually cost us?'' -- and a heat-map is no longer enough.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{LOPA -- Independent Protection Layers}
+\centering
+\begin{tikzpicture}[y=0.6cm]
+  \foreach \r/\name/\col in {
+    0/{Process design (inherent safety)}/isOT,
+    1/{Basic process control (BPCS)}/isPLC,
+    2/{Alarms + operator action}/isHMI,
+    3/{Safety instrumented system (SIS)}/isAttack,
+    4/{Pressure relief / physical barriers}/isAccent,
+    5/{Plant emergency response}/isMute}{
+    \draw[fill=\col!15, draw=\col, thick] (0,\r) rectangle (9, \r+0.7);
+    \node[font=\scriptsize] at (4.5, \r+0.35) {\name};
+  }
+\end{tikzpicture}
+\vspace{1mm}
+\begin{notebox}{Independence is the value}
+Each layer must be \emph{independent of the next} -- otherwise one common-cause failure removes them all.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{Bow-Tie Example -- Loss of Containment}
+\centering
+\begin{tikzpicture}[node distance=8mm]
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=36mm, minimum height=12mm, align=center, font=\small] (e) {Top event};
+  \node[isbox, fill=isPLC!12, draw=isPLC, font=\scriptsize, left=22mm of e] (c1) {Overpressure};
+  \node[isbox, fill=isPLC!12, draw=isPLC, font=\scriptsize, above=of c1] (c2) {Valve failure};
+  \node[isbox, fill=isPLC!12, draw=isPLC, font=\scriptsize, below=of c1] (c3) {Cyber-induced ramp};
+  \node[isbox, fill=isNet!12, draw=isNet, font=\scriptsize, right=22mm of e] (k1) {Toxic release};
+  \node[isbox, fill=isNet!12, draw=isNet, font=\scriptsize, above=of k1] (k2) {Production halt};
+  \node[isbox, fill=isNet!12, draw=isNet, font=\scriptsize, below=of k1] (k3) {Regulatory fine};
+  \foreach \n in {c1,c2,c3}{\draw[flow] (\n) -- (e);}
+  \foreach \n in {k1,k2,k3}{\draw[flow] (e) -- (\n);}
+\end{tikzpicture}
+\par\vspace{1mm}
+{\footnotesize Barriers on the left prevent causes; barriers on the right mitigate consequences.}
+\end{frame}
+
+\begin{frame}{Qualitative vs.\ Quantitative}
+\centering
+\renewcommand{\arraystretch}{1.3}
+\footnotesize
+\begin{tabular}{|p{3cm}|p{4.2cm}|p{4.6cm}|}
+\hline
+\rowcolor{slidePanel}
+ & \textbf{Qualitative} & \textbf{Quantitative} \\
+\hline
+Speed       & Hours                       & Days to weeks \\
+Data needed & Workshop + expert judgement & Frequency \& impact data \\
+Output      & Heat map / risk matrix      & Loss curve in money \\
+Use cases   & Initial triage              & Board / insurance / capex \\
+Pitfalls    & False precision             & Garbage in $\Rightarrow$ garbage out \\
+\hline
+\end{tabular}
+\end{frame}
+
+\begin{frame}{Cyber Insurance -- What It Buys}
+\begin{itemize}
+  \item First-party: forensics, IR retainer, business interruption.
+  \item Third-party: liability, regulator response.
+  \item Typical exclusions: nation-state acts of war, unpatched known CVEs, missing MFA.
+  \item Insurers now drive a minimum control baseline (MFA, EDR, backups).
+\end{itemize}
+\begin{warnbox}
+Insurance is a backstop, not a control. Premiums rise sharply if your baseline is weak.
+\end{warnbox}
+\end{frame}
+
+\begin{frame}{Risk Register Example}
+\centering
+\renewcommand{\arraystretch}{1.15}
+\scriptsize
+\begin{tabular}{|p{2.0cm}|p{1.0cm}|p{1.2cm}|p{0.6cm}|p{3.8cm}|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Risk} & \textbf{L} & \textbf{Impact} & \textbf{Sc.} & \textbf{Mitigation} \\
+\hline
+Ransom.\ Hist.   & Likely    & Major        & H & Immutable backups, EDR \\
+SIS reprogram    & Unlikely  & Catastr.\    & H & Key-switch + signed dl \\
+Vendor abuse     & Possible  & Major        & H & MFA brokered access \\
+USB malware      & Likely    & Moderate     & M & USB block, allow-listing \\
+PLC firmware CVE & Possible  & Major        & M & Vendor patch / IPS rule \\
+\hline
+\end{tabular}
+\end{frame}
+
+\begin{frame}{Summary -- Section \sectionNumber}
+\begin{takeawaybox}{What to remember from this section}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Industrial risk has dimensions IT does not: safety, environment, regulatory.
+  \item Cyber-HAZOP integrates security into the language of process safety teams.
+  \item LOPA reminds us that several independent layers must fail for a disaster.
+  \item CCE asks: how would the adversary win? -- and re-engineers to remove the winning move.
+\end{itemize}
+\end{takeawaybox}
+\end{frame}
+
+\closingframe
+
+\end{document}

@@ -1,0 +1,101 @@
+% =====================================================================
+% Shared preamble for lab sheets.
+%
+% Caller must \documentclass{article} first, then define:
+%   \def\courseTitle{...}
+%   \def\labNumber{NN}
+%   \def\labTitle{...}
+%   \def\labTime{e.g. "30--45 min"}
+%   \def\labSection{e.g. "02"}
+% Then \input{../../template/lab-preamble.tex}
+% =====================================================================
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage[a4paper, margin=2cm]{geometry}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{tikz}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins, breakable}
+\usepackage{fontawesome5}
+
+\input{../../../template/tikz-styles.tex}
+
+\providecommand{\courseAuthor}{Industrial Security Lecture Series}
+
+\definecolor{labAccent}{HTML}{1F4E79}
+\definecolor{labSec}{HTML}{E08E0B}
+\definecolor{labCheck}{HTML}{2E7D32}
+\definecolor{labWarn}{HTML}{B23A48}
+
+\lstset{
+  backgroundcolor=\color{black!4},
+  basicstyle=\ttfamily\footnotesize,
+  breaklines=true,
+  frame=leftline,
+  framerule=2pt,
+  rulecolor=\color{labAccent},
+  numbers=left,
+  numberstyle=\tiny\color{black!50},
+  showstringspaces=false,
+  tabsize=2
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0.4pt}
+\lhead{\small \courseTitle{} -- Lab \labNumber}
+\rhead{\small Maps to Section \labSection}
+\cfoot{\thepage}
+
+\newtcolorbox{stepbox}[1]{
+  enhanced, breakable, arc=2pt, boxrule=0pt,
+  colback=labAccent!7, colframe=labAccent, leftrule=3pt,
+  fonttitle=\bfseries\small, coltitle=white,
+  colbacktitle=labAccent,
+  title={\faTools\ Step #1}
+}
+
+\newtcolorbox{warnbox}{
+  enhanced, breakable, arc=2pt, boxrule=0pt,
+  colback=labWarn!7, colframe=labWarn, leftrule=4pt,
+  fonttitle=\bfseries\small, coltitle=white, colbacktitle=labWarn,
+  title={\faExclamationTriangle\ Caution}
+}
+
+\newtcolorbox{goalbox}{
+  enhanced, breakable, arc=2pt, boxrule=0pt,
+  colback=labCheck!7, colframe=labCheck, leftrule=3pt,
+  fonttitle=\bfseries\small, coltitle=white, colbacktitle=labCheck,
+  title={\faBullseye\ Goal}
+}
+
+\newtcolorbox{deliverbox}{
+  enhanced, breakable, arc=2pt, boxrule=0pt,
+  colback=labSec!10, colframe=labSec, leftrule=3pt,
+  fonttitle=\bfseries\small, coltitle=white, colbacktitle=labSec,
+  title={\faClipboardList\ Deliverable}
+}
+
+\titleformat{\section}{\large\bfseries\color{labAccent}}{\thesection}{0.5em}{}
+
+\newcommand{\labheader}{%
+  \noindent
+  \begin{tikzpicture}
+    \fill[labAccent] (0,0) rectangle (\textwidth, -1.6cm);
+    \node[anchor=north west, text=white, font=\bfseries\large] at (0.6cm, -0.4cm) {Lab \labNumber{} -- \labTitle};
+    \node[anchor=south west, text=white, font=\small] at (0.6cm, -1.3cm) {\courseTitle{} \quad $\bullet$ \quad Maps to Section \labSection{} \quad $\bullet$ \quad \labTime};
+    \node[anchor=north east, fill=labSec, text=white, font=\bfseries, inner sep=4pt, rounded corners=2pt]
+      at ([xshift=-0.4cm, yshift=-0.4cm]\textwidth,0) {LAB \labNumber};
+  \end{tikzpicture}
+  \vspace{4mm}
+}

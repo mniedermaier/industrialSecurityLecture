@@ -1,0 +1,290 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\courseSubtitle{Section 02 -- ICS and SCADA Fundamentals}
+\def\sectionNumber{02}
+\def\sectionTitle{ICS and SCADA Fundamentals}
+
+\input{../../../template/slides-preamble.tex}
+
+\begin{document}
+
+\sectionoverviewframe
+
+\learningobjectives{
+  \item Identify the components of a typical industrial control loop.
+  \item Distinguish PLC, RTU, DCS, SCADA, HMI, Historian, and SIS.
+  \item Explain the scan cycle and determinism requirements of PLCs.
+  \item Read a simple ladder-logic program.
+  \item Recognise why Safety Instrumented Systems must remain independent.
+}
+
+\section{Control Loop and Field Devices}
+
+\begin{frame}{Anatomy of a Control Loop}
+\centering
+\begin{tikzpicture}[node distance=14mm]
+  \node[process, minimum width=28mm, font=\small] (proc) {Physical Process};
+  \node[sensor, below=of proc] (sens) {Sensor};
+  \node[plc, right=20mm of sens] (plc) {PLC};
+  \node[actuator, above=14mm of plc] (act) {Actuator};
+  \draw[flow] (proc.south) -- (sens.north) node[midway, left, font=\scriptsize] {measure};
+  \draw[flow] (sens.east) -- (plc.west) node[midway, above, font=\scriptsize] {signal};
+  \draw[flow] (plc.north) -- (act.south) node[midway, right, font=\scriptsize] {command};
+  \draw[flow] (act.north) -- ++(0,3mm) -| (proc.north);
+  \node[font=\scriptsize, above=1mm of proc.north, xshift=12mm] {actuate};
+  \node[isbox, fill=isAccent!10, draw=isAccent, right=14mm of plc, font=\scriptsize, align=left]
+    {Cycle:\\10\,$\mu$s -- 100\,ms\\Deterministic};
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Programmable Logic Controllers (PLCs)}
+\begin{columns}[T,onlytextwidth]
+\column{0.45\textwidth}
+\small
+\begin{itemize}
+  \item Ruggedised industrial computer
+  \item First model: Modicon 084 (1969)
+  \item Replaced relay logic in plants
+  \item IEC 61131-3 languages:
+    \begin{itemize}\scriptsize
+      \item Ladder Diagram (LD)
+      \item Structured Text (ST)
+      \item Function Block (FBD)
+      \item Sequential Function Chart
+      \item Instruction List
+    \end{itemize}
+\end{itemize}
+\column{0.55\textwidth}
+\centering
+\begin{tikzpicture}[node distance=1mm, scale=0.85, transform shape]
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=12mm, minimum height=32mm] (cpu) {\rotatebox{90}{Power}};
+  \node[isbox, fill=isPLC!25, draw=isPLC, minimum width=12mm, minimum height=32mm, right=of cpu] (psu) {\rotatebox{90}{CPU}};
+  \node[isbox, fill=white, draw=isPLC, minimum width=12mm, minimum height=32mm, right=of psu] (di) {\rotatebox{90}{DI/DO}};
+  \node[isbox, fill=white, draw=isPLC, minimum width=12mm, minimum height=32mm, right=of di] (ai) {\rotatebox{90}{AI/AO}};
+  \node[isbox, fill=white, draw=isPLC, minimum width=12mm, minimum height=32mm, right=of ai] (com) {\rotatebox{90}{Eth/Ser}};
+\end{tikzpicture}
+\end{columns}
+\end{frame}
+
+\begin{frame}{PLC Scan Cycle}
+\centering
+\begin{tikzpicture}
+  \def\R{2.0}
+  \draw[thick] (0,0) circle (\R);
+  \foreach \deg/\lbl/\col in {
+    90/{1. Read inputs}/isOT,
+    0/{2. Execute program}/isPLC,
+    -90/{3. Update outputs}/isAccent,
+    180/{4. Housekeeping}/isMute}{
+    \node[fill=\col!15, draw=\col, rounded corners=2pt, font=\scriptsize, align=center, inner sep=3pt]
+      at (\deg:\R+1.4) {\lbl};
+  }
+  \foreach \deg in {45,135,225,315}{
+    \draw[->, thick, isOT!70!black] (\deg-30:\R) arc (\deg-30:\deg+30:\R);
+  }
+  \node[font=\small\bfseries] at (0,0) {Scan cycle};
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}[fragile]{Ladder Logic --- A Motor Start/Stop}
+\centering
+\begin{tikzpicture}[x=8mm, y=8mm]
+  % power rails
+  \draw[thick] (0,3) -- (0,-2);
+  \draw[thick] (12,3) -- (12,-2);
+  % Rung 1: Start_Btn (NO) -- Stop_Btn (NC) -- Motor_Run coil
+  \draw[thick] (0,2) -- (2,2);
+  \node[font=\tiny, above=1mm] at (2.5,2) {Start};
+  \draw[thick] (2,2.3) -- (2,1.7); \draw[thick] (3,2.3) -- (3,1.7);
+  \draw[thick] (3,2) -- (5,2);
+  \node[font=\tiny, above=1mm] at (5.5,2) {Stop (NC)};
+  \draw[thick] (5,2.3) -- (5,1.7); \draw[thick] (6,2.3) -- (6,1.7);
+  \draw[thick] (5,2.3) -- (6,1.7);
+  \draw[thick] (6,2) -- (10,2);
+  \draw[thick] (10,2) circle (4pt);
+  \node[font=\tiny, above right=0mm and 1mm of {(10,2)}] {Motor\_Run};
+  \draw[thick] (10.1,2) -- (12,2);
+  % Rung 2: latch
+  \draw[thick] (0,0) -- (2,0);
+  \node[font=\tiny, above=1mm] at (2.5,0) {Motor\_Run};
+  \draw[thick] (2,0.3) -- (2,-0.3); \draw[thick] (3,0.3) -- (3,-0.3);
+  \draw[thick] (3,0) -- (5,0);
+  % Tie rung 2 into rung 1 (parallel/seal-in)
+  \draw[thick] (5,0) -- (5,2);
+\end{tikzpicture}
+\par\vspace{1mm}
+{\footnotesize Pressing \texttt{Start} energises the coil; rung 2 latches it. \texttt{Stop} (NC) breaks both paths.}
+\end{frame}
+
+\section{Plant-Wide Architectures}
+
+\begin{frame}{RTU vs.\ PLC vs.\ DCS}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[isbox, fill=isOT!10, draw=isOT, minimum width=38mm, minimum height=28mm, align=center] (rtu)
+    {\textbf{RTU}\\[2pt]\scriptsize Remote, low BW\\(pipelines, substations)};
+  \node[isbox, fill=isPLC!12, draw=isPLC, minimum width=38mm, minimum height=28mm, right=of rtu, align=center] (plc)
+    {\textbf{PLC}\\[2pt]\scriptsize Discrete / fast cycles\\(factory floor)};
+  \node[isbox, fill=isSCADA!12, draw=isSCADA, minimum width=38mm, minimum height=28mm, right=of plc, align=center] (dcs)
+    {\textbf{DCS}\\[2pt]\scriptsize Plant-wide continuous\\(refineries, power)};
+  \draw[<->, thick, isMute] (rtu) -- (plc);
+  \draw[<->, thick, isMute] (plc) -- (dcs);
+  \node[font=\scriptsize, below=2mm of plc] {The boundary blurs in modern systems.};
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{SCADA Architecture}
+\centering
+\begin{tikzpicture}[node distance=14mm]
+  \node[scada] (mtu) {SCADA Server (MTU)};
+  \node[hmi, above left=of mtu] (h1) {HMI};
+  \node[hmi, above=of mtu] (h2) {HMI};
+  \node[hmi, above right=of mtu] (h3) {HMI};
+  \node[server, right=of mtu] (hist) {Historian};
+  \node[switch, below=of mtu] (sw) {Field switch};
+  \node[plc, below left=14mm and 6mm of sw] (p1) {RTU 1};
+  \node[plc, below=14mm of sw] (p2) {RTU 2};
+  \node[plc, below right=14mm and 6mm of sw] (p3) {RTU 3};
+  \foreach \n in {h1,h2,h3}{\draw[netline] (\n) -- (mtu);}
+  \draw[netline] (mtu) -- (hist);
+  \draw[netline] (mtu) -- (sw);
+  \foreach \n in {p1,p2,p3}{\draw[netline] (sw) -- (\n);}
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{HMI -- Human Machine Interface}
+\centering
+\begin{tikzpicture}
+  \draw[thick, fill=black] (0,0) rectangle (10,5);
+  \draw[thick, fill=isLight] (0.2,0.2) rectangle (9.8,4.8);
+  % tank
+  \draw[thick, fill=isOT!20] (1,1) rectangle (3,3.8);
+  \node[font=\tiny] at (2,2.4) {Tank 01};
+  \node[font=\tiny] at (2,1.3) {72\%};
+  % valve
+  \draw[thick] (3.2,2.3) -- (4,2.3) -- (4,3);
+  \draw[thick, fill=isAccent] (3.8,2) rectangle (4.2,2.6);
+  \node[font=\tiny] at (4.6,2.3) {V-12};
+  % pump
+  \draw[thick, fill=isHMI!40] (5,1.5) circle (8pt);
+  \node[font=\tiny] at (5,1) {P-21 ON};
+  % trend
+  \draw[thick] (6,3.5) rectangle (9.5,4.5);
+  \draw[thick, isOT] (6.1,3.7) -- (6.6,4.1) -- (7.1,3.9) -- (7.6,4.3) -- (8.1,4.1) -- (8.6,4.2) -- (9.1,4.0);
+  \node[font=\tiny] at (7.7,4.65) {Trend P-21};
+  % alarm bar
+  \draw[thick, fill=isAttack!50] (5.5,0.4) rectangle (9.5,0.9);
+  \node[font=\tiny, white] at (7.5,0.65) {ALARM: T2 HIGH (5 min)};
+\end{tikzpicture}
+\par\vspace{2mm}
+{\footnotesize Mimic diagrams, trends, alarm bars. Bad HMI design $=$ accidents (Three Mile Island, 1979).}
+\end{frame}
+
+\begin{frame}{Historian -- Time-Series of the Plant}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[plc] (p1) {PLC};
+  \node[plc, below=of p1] (p2) {PLC};
+  \node[plc, below=of p2] (p3) {PLC};
+  \node[server, right=20mm of p2] (coll) {Collector};
+  \node[server, right=of coll, fill=isHMI!10, draw=isHMI] (hist) {Historian DB};
+  \node[isbox, above right=of hist, font=\scriptsize] (rep) {Reports};
+  \node[isbox, right=of hist, font=\scriptsize] (trend) {Trending};
+  \node[isbox, below right=of hist, font=\scriptsize] (ml) {ML / analytics};
+  \foreach \p in {p1,p2,p3}{\draw[flow] (\p) -- (coll);}
+  \draw[flow] (coll) -- (hist);
+  \foreach \n in {rep,trend,ml}{\draw[flow] (hist) -- (\n);}
+\end{tikzpicture}
+\par\vspace{1mm}
+{\footnotesize Historians bridge OT and IT; a frequent pivot point for attackers.}
+\end{frame}
+
+\section{Safety Layer}
+
+\begin{frame}{Safety Instrumented Systems (SIS)}
+\centering
+\begin{tikzpicture}[node distance=14mm]
+  \node[plc, fill=isPLC!15, align=center] (bpcs) {BPCS\\(PLC/DCS)};
+  \node[plc, fill=isAttack!15, draw=isAttack, align=center, right=22mm of bpcs] (sis) {SIS\\(SIL-rated)};
+  \node[process, minimum width=80mm, below=18mm of bpcs.south, xshift=14mm] (proc) {Process};
+  \draw[<->, thick, isPLC] (bpcs.south) -- (bpcs.south |- proc.north);
+  \draw[<->, thick, isAttack] (sis.south) -- (sis.south |- proc.north);
+  \draw[dashed, isAttack, thick] (bpcs.east) -- node[above=2pt, font=\scriptsize, isAttack, fill=white, inner sep=2pt]{must stay independent} (sis.west);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{Safety layer}
+The SIS brings the process to a safe state on demand. \textbf{IEC 61511 / 61508}, SIL 1--4.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{IEC 61131-3 -- PLC Programming Languages}
+\centering
+\begin{tikzpicture}[x=2.4cm]
+  \foreach \i/\code/\name/\col in {
+    0/LD/{Ladder Diagram}/isOT,
+    1/ST/{Structured Text}/isPLC,
+    2/FBD/{Function Block}/isAccent,
+    3/SFC/{Sequential FC}/isNet,
+    4/IL/{Instruction List}/isMute}{
+    \node[isbox, fill=\col!15, draw=\col, font=\scriptsize, minimum width=22mm, minimum height=18mm, align=center] at (\i,0)
+      {\textbf{\code}\\\name};
+  }
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{The big two in the wild}
+LD dominates discrete manufacturing; ST is the cross-vendor portable choice for new development.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{Engineering Workstation -- High-Value Target}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[workstation, minimum width=32mm] (ws) {Engineering WS};
+  \node[plc, right=of ws] (p1) {PLC 1};
+  \node[plc, right=of p1] (p2) {PLC 2};
+  \node[server, right=of p2, fill=isHMI!12] (sis) {SIS};
+  \draw[flow] (ws.east) -- (p1.west);
+  \draw[flow] (ws.north east) to[bend left=20] (p2.north);
+  \draw[flow] (ws.north east) to[bend left=30] (sis.north);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{warnbox}{Why attackers love it}
+The engineering WS holds the credentials, project files, and the ability to \emph{re-flash logic}. Treat it as the crown jewel of the plant.
+\end{warnbox}
+\end{frame}
+
+\begin{frame}{Process Types -- Batch, Continuous, Discrete}
+\centering
+\renewcommand{\arraystretch}{1.3}
+\footnotesize
+\begin{tabular}{|p{3cm}|p{3.5cm}|p{5cm}|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Type} & \textbf{Examples} & \textbf{Control system flavour} \\
+\hline
+Continuous & Refinery, power, water & DCS, tight feedback control \\
+Batch      & Pharma, food, chemicals & DCS + recipe management (ISA-88) \\
+Discrete   & Auto assembly, packaging & PLCs, fast cycle, ladder logic \\
+\hline
+\end{tabular}
+\vspace{2mm}
+\begin{notebox}{Why this matters for security}
+Different processes have different ``safe states'' -- shutdown is fine for discrete, may be catastrophic for continuous. IR plans must reflect that.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{Summary -- Section \sectionNumber}
+\begin{takeawaybox}{What to remember from this section}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Control loops close from sensors through PLC/DCS to actuators.
+  \item SCADA aggregates field data; HMIs deliver situational awareness.
+  \item Historians are the long-term memory and a common IT/OT bridge.
+  \item SIS must remain independent --- attacking it was TRITON's goal in 2017.
+\end{itemize}
+\end{takeawaybox}
+\end{frame}
+
+\closingframe
+
+\end{document}
