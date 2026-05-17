@@ -55,6 +55,9 @@ A breach has consequences in \emph{atoms}, not just in \emph{bits}.
   \draw[flow] ([yshift=2mm]proc.west) -- (sens.south);
 \end{tikzpicture}
 \end{columns}
+\note{
+  Frame this as ``computers controlling things you can break with a wrench.'' That tangibility hooks IT students who think of security as data confidentiality. The diagram on the right is the canonical sense-decide-act loop --- come back to it in every later section; the PLC, the sensor, the actuator and the physical process are the four nouns of this course. Pre-empt the misconception that this is ``just SCADA'' or ``just embedded systems'' --- it is the coupling to physics that makes the discipline distinct. Ask the room: ``What's the worst thing that could happen if your CRM goes down for a day versus your refinery?'' The productive disagreement that follows sets up the IT-vs-OT contrast on the next slide.
+}
 \end{frame}
 
 \begin{frame}{IT vs.\ OT --- Two Different Worlds}
@@ -78,6 +81,9 @@ A breach has consequences in \emph{atoms}, not just in \emph{bits}.
      \quad Failure cost: safety, lives};
   \draw[<->, very thick, isAttack, shorten <=2pt, shorten >=2pt] (it.east) -- (ot.west) node[midway, yshift=4pt, font=\scriptsize, fill=white, inner sep=2pt] {converge};
 \end{tikzpicture}
+\note{
+  The lifecycle row is the one that surprises students the most --- a Siemens S7-300 commissioned in 1996 may still be running a water treatment plant today, while their laptop is on a three-year refresh. Drive the patching point hard: in IT you reboot on Tuesday, in OT you schedule a shutdown two years in advance and budget six figures for the production loss. The ``hostile environment'' line means heat, vibration, dust, EMI --- not adversaries; clarify that explicitly because students conflate the two. The ``converge'' arrow is the whole reason this course exists: the worlds are colliding and neither side's playbook works alone. Ask: ``Whose responsibility is a patch on a PLC --- the IT team or the plant engineer?'' That question has no clean answer and that is the point.
+}
 \end{frame}
 
 \begin{frame}{The CIA Triad --- Inverted for OT}
@@ -104,6 +110,9 @@ A breach has consequences in \emph{atoms}, not just in \emph{bits}.
 \begin{importantbox}{Remember}
 In OT, \textbf{availability} and \textbf{safety} dominate the CIA triad. A blocked alarm can blind an operator to a runaway reactor.
 \end{importantbox}
+\note{
+  The flipped triangle is deliberately visual --- many students have memorised C-I-A in that order since their first security course and need a moment to accept that it is genuinely inverted here. The Bhopal-style anecdote works well: a denial-of-service against an alarm HMI is not an inconvenience, it is a path to a mass-casualty event. Note that \emph{safety} is a fourth letter many practitioners append (S as in AIC+S, or the IEC 62443 ``HSE'' framing). Pre-empt the misconception that confidentiality does not matter in OT --- it does, but only after the plant is still running and the readings are still trustworthy. Transition cue: ``Now that we know what we are protecting, let's see how we got here'' --- which leads into the history timeline.
+}
 \end{frame}
 
 % --------------------------------------------------------------
@@ -129,6 +138,9 @@ In OT, \textbf{availability} and \textbf{safety} dominate the CIA triad. A block
 \end{tikzpicture}
 \vspace{2mm}\par
 \small Each milestone made systems more capable -- and more reachable.
+\note{
+  Anchor the timeline with two human stories: Dick Morley building the first Modicon PLC in 1968 to replace relay logic on a GM assembly line, and the 2010 Stuxnet discovery by VirusBlokAda in Belarus. The 1990s Ethernet jump is the moment the air gap started leaking --- before that, plant networks spoke proprietary serial buses no IT engineer could touch. TRITON / TRISIS (Schneider Triconix safety controllers, Saudi petrochemical plant, 2017) is the one the room often hasn't heard of --- emphasise it is the first malware that targeted a Safety Instrumented System, i.e.\ the thing designed to prevent loss of life. Ask: ``Why did it take until 2010 for the first public ICS-targeted malware --- or did it?'' That opens the door to the ``we just don't see them'' counter-argument. This sets up why the threat picture today looks different.
+}
 \end{frame}
 
 \begin{frame}{Why Industrial Security Now?}
@@ -147,6 +159,9 @@ In OT, \textbf{availability} and \textbf{safety} dominate the CIA triad. A block
   \draw[flow]   (e.east) -- ([yshift=-18mm]target.west);
 \end{tikzpicture}
 \source{Dragos \emph{Year in Review 2024}: 23 active threat groups tracked, ICS ransomware up 87\% YoY \textbar{} Munich Re \emph{Cyber Insurance Risk Snapshot}, 2024.}
+\note{
+  The top three boxes are push factors --- attackers moving in --- and the bottom two are pull factors making defenders finally act. Name the regulations explicitly: NIS2 is the EU directive (transposition deadline was October 2024), KRITIS is the German implementation under the BSI, and CIRCIA is the US reporting law signed in 2022. Cyber insurance is doing more for OT hygiene than any regulator --- premiums double or coverage is refused if you cannot prove segmentation and asset inventory. Pre-empt the cynicism that ``regulation is just paperwork'' --- the NIS2 board-level liability provisions have genuinely changed who answers the security questions in industrial firms. Transition: ``So who actually has to deal with all of this in a plant?'' --- that leads into the stakeholder map.
+}
 \end{frame}
 
 \begin{frame}{Stakeholders}
@@ -166,6 +181,9 @@ In OT, \textbf{availability} and \textbf{safety} dominate the CIA triad. A block
 \end{tikzpicture}
 \vspace{2mm}\par
 \small Industrial security is a team sport across roles that rarely sat together historically.
+\note{
+  Spend time on the cultural gap: the control engineer wears safety boots and has signed off on a hazard analysis; the IT security analyst has never been on the plant floor and may not know what a relief valve looks like. The safety engineer is the one who can say ``no'' to anything --- they have legal authority under IEC 61511 that no one else in the room has, and a smart security programme aligns with them rather than around them. Vendors and integrators (Siemens, Rockwell, Schneider, ABB, Honeywell, Yokogawa) often hold the only credentials that can touch the controllers, which is a privileged-access problem on its own. Pre-empt the misconception that the OT security team owns everything --- realistically they are translators and facilitators across these other roles. Ask: ``Who in this list would you trust to approve a firmware update at 2am?'' --- the answer is rarely the security team.
+}
 \end{frame}
 
 % --------------------------------------------------------------
@@ -187,6 +205,9 @@ In OT, \textbf{availability} and \textbf{safety} dominate the CIA triad. A block
   \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small, below=of e] (f)
     {\textit{``Compliance equals security.''}};
 \end{tikzpicture}
+\note{
+  Walk through each line as a story rather than a refutation. Air-gap: Stuxnet crossed an air gap via USB sticks carried by contractors into Natanz --- and Shodan today lists tens of thousands of supposedly-air-gapped PLCs. Security-by-obscurity: Modbus, DNP3, S7comm and Profinet are now first-class Wireshark dissectors, and Claroty / Dragos / Nozomi all ship out-of-the-box parsers. ``Never been attacked'' usually means ``never detected'' --- most ICS environments have no logging worth the name. ``IT tools will fix it'': running a Nessus active scan against a Siemens S7-1200 has crashed PLCs in documented cases. Patching: many vendors only release advisories, not patches, and Windows-based HMIs may be on Windows XP for licensing reasons. Compliance: Target was PCI-compliant when it was breached in 2013. Transition: ``If those excuses don't hold, who is actually coming after us?'' --- which sets up the threat pyramid.
+}
 \end{frame}
 
 \begin{frame}{Threat Pyramid -- Who Targets ICS?}
@@ -209,6 +230,9 @@ In OT, \textbf{availability} and \textbf{safety} dominate the CIA triad. A block
 \end{tikzpicture}
 \vspace{2mm}\par
 \small Capability rises as we move up; volume of actors falls.
+\note{
+  Give each tier a face. Script kiddies: the Shodan-scanning teenager who finds an exposed VNC on a building automation system. Hacktivists: GhostSec / Anonymous publishing screenshots of Israeli and Iranian PLC web interfaces in 2022--2023. Cybercriminals: Conti, LockBit and Black Basta affiliates pivoting from IT into OT for leverage, as in JBS Foods 2021. Espionage: APT groups stealing recipes, set-points, and digital twins. Nation-state: Sandworm (GRU Unit 74455) behind Industroyer, Industroyer2, and the Ukraine grid attacks. Pre-empt the misconception that nation-state is the only thing worth defending against --- ransomware crews cause the most actual downtime today. Ask: ``Which tier are you most likely to face if you're a mid-size water utility in Bavaria?'' The answer is rarely nation-state and that matters for resource allocation. This motivates the cost slide next.
+}
 \end{frame}
 
 \begin{frame}{The Cost of ICS Incidents}
@@ -224,6 +248,9 @@ In OT, \textbf{availability} and \textbf{safety} dominate the CIA triad. A block
 Recovery costs typically exceed ransom by 5--10$\times$. The lasting damage is reputation and regulatory.
 \end{notebox}
 \source{Colonial: FBI 2021; Norsk Hydro Q1 2019 report; Maersk Q2 2017 interim report; Stuxnet centrifuge count: D.\ Albright et al., ISIS, 2010.}
+\note{
+  These four are the canonical case studies you will keep returning to all semester. Colonial Pipeline (May 2021, DarkSide ransomware) was an IT-side breach via a leaked VPN password --- the pipeline shut itself down because billing was on the IT network, which is itself a teaching moment about coupling. Norsk Hydro (March 2019, LockerGoga) is the gold-standard transparent-response case --- they refused to pay, briefed press daily, and Klaus Mittelsten became the de facto poster child for ``how to communicate during a breach.'' Maersk's NotPetya rebuild --- 4000 servers, 45000 PCs in ten days --- only worked because a domain controller in Ghana was offline due to a power cut. Stuxnet's centrifuge count comes from David Albright's ISIS analysis of IAEA inspection data; do not overstate it. Pre-empt ``ransoms are the real cost'' --- the recovery, the lost production, and the regulatory follow-on dwarf the ransom every time. Transition: ``So what is accelerating all of this?'' --- leading into Industry 4.0.
+}
 \end{frame}
 
 \begin{frame}{Industry 4.0 -- Convergence Pressure}
@@ -239,6 +266,9 @@ Recovery costs typically exceed ransom by 5--10$\times$. The lasting damage is r
 \begin{importantbox}{New attack surface}
 Every cloud connector is a new ingress -- and a new authentication challenge for legacy field devices.
 \end{importantbox}
+\note{
+  Industry 4.0 is the German-coined term for the chain on this slide; the US-equivalent buzzword is Industrial IoT. Concrete examples land better than buzzwords: Siemens MindSphere (now Insights Hub), AWS IoT SiteWise, Azure Digital Twins, GE Predix. Each box on the chain is a different security domain --- the PLC speaks Modbus, the edge gateway speaks MQTT, the cloud speaks REST with OAuth, and the ML layer ingests time-series with its own auth model. The legacy-auth point is concrete: a Siemens S7-300 has no notion of a user identity; bolting cloud-grade authentication onto it requires a gateway that becomes the trust anchor for the whole stack. Pre-empt the misconception that this is optional --- predictive maintenance ROI is real and the business will deploy these connectors with or without security input. Question to provoke: ``What does an attacker get from compromising the digital twin that they don't get from the plant itself?'' --- often a better map of the plant than the operator has.
+}
 \end{frame}
 
 \begin{frame}{Career Paths in Industrial Security}
@@ -253,6 +283,9 @@ Every cloud connector is a new ingress -- and a new authentication challenge for
 \begin{tipbox}{Demand}
 Headhunter reports consistently rank OT security in the top three hardest-to-fill cyber roles globally.
 \end{tipbox}
+\note{
+  This is the slide to make eye contact for. The realistic on-ramp for most of the room is OT security engineer at a plant operator (E.ON, RWE, BASF, Bosch, Siemens Energy), or junior consultant at one of the boutique shops (Dragos, Claroty, Nozomi Networks, Admeritia, Limes Security). The control-engineer-pivots-to-security path is genuinely shorter than the IT-pivots-to-OT path because the process knowledge is the hard part to acquire. Pen testing in ICS is a tiny market --- maybe a few hundred jobs globally --- and getting in usually requires demonstrated home-lab work; this is what our labs in this course are partly preparing you for. Pre-empt the assumption that you need to be a deep electrical engineer --- you need enough literacy to read a P\&ID and talk to one, not to design one. Ask: ``Who here has ever physically been inside a substation, a water plant, or a factory floor?'' --- the answer is usually ``almost nobody,'' and that is itself the opportunity. Transition: ``Here's the map of where we go from here.''
+}
 \end{frame}
 
 \begin{frame}{Section Roadmap}
@@ -272,6 +305,9 @@ Headhunter reports consistently rank OT security in the top three hardest-to-fil
     \node[font=\small, anchor=west] at (0.2, -\i+0.35) {\name};
   }
 \end{tikzpicture}
+\note{
+  Walk top-to-bottom and flag the labs that go with each row so students see the through-line. Sections 1--3 are the vocabulary --- if you cannot name a PLC, an HMI, a historian, an RTU, and Modbus / DNP3 / S7comm / OPC UA, the rest of the course is opaque. Sections 4--5 are where the room usually wakes up: real attacks, real CVEs, real shodan dorks. Section 6 (risk) is the one students underrate and practitioners rate highest --- it is what they will actually do for a living. Section 7 maps directly to IEC 62443 zones and conduits. Section 8 is the bureaucratic glue that pays the bills. Section 9 closes the loop with incident response, which is where everything from sections 1--8 gets tested under stress. Pre-empt the question ``why isn't AI / ML its own section?'' --- it is woven through threat detection in 4 and anomaly detection in 9 rather than carved out separately. Transition: ``Let's wrap up what we covered today.''
+}
 \end{frame}
 
 \begin{frame}{Summary -- Section \sectionNumber}
@@ -283,6 +319,9 @@ Headhunter reports consistently rank OT security in the top three hardest-to-fil
   \item The next sections build the toolbox: components, networks, protocols, defenses.
 \end{itemize}
 \end{takeawaybox}
+\note{
+  Close on the one sentence you want them to repeat to a friend at dinner: industrial security is the security of systems whose failure mode is measured in lives, kilowatts, or barrels --- not in records lost. Reinforce the inverted CIA triad as the single most portable concept from today --- it is the answer to ``why can't we just use our IT playbook?'' If you have time, name-check Stuxnet, Colonial, and Norsk Hydro once more so the case-study anchors stick. Pre-empt the ``this is hopeless'' mood that sometimes follows the threat slides --- the next section starts the constructive part of the course by opening up the ICS itself. Optional engagement: ask the room for the one thing from today that surprised them most --- the answers tell you which slide to lean into in next week's recap.
+}
 \end{frame}
 
 \referencesframe{

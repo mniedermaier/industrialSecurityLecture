@@ -10,42 +10,188 @@
 \begin{document}
 \sheetheader
 
-\begin{taskbox}{Exercise 6.1 -- Advisory Analysis}
-Pick a recent CISA ICS advisory and write a 1-page analysis covering:
-\begin{itemize}
-  \item Vendor, product, firmware range
-  \item Vulnerability class (CWE)
-  \item CVSS v3.1 base score and a \emph{justified} environmental score for a process plant
-  \item Exploitability and impact in plain language
-  \item Recommended mitigations (network, configuration, patch)
-\end{itemize}
-\end{taskbox}
+\noindent These exercises put you in the seat of an OT vulnerability analyst.
+Each question is scenario-driven: you must reason about advisories, tooling,
+scanning safety, and patch politics rather than recite definitions. Three to
+ten clear sentences (or a short table / command line) are enough per item.
+Cite vendors, tools, and standards by their real names.
 
-\begin{taskbox}{Exercise 6.2 -- Lab: Passive Discovery}
-Using your OpenPLC + HMI setup from Lab 01:
+\begin{taskbox}{Exercise 6.1 -- CVSS v3.1 Environmental Score}
+A vendor PSIRT publishes a critical advisory for a programmable logic
+controller (PLC) used in your plant. The base vector is
+\texttt{CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H} (base score~9.8).
+The affected PLC sits in cell zone L2, reachable only from the engineering
+VLAN through a stateful firewall that allows TCP/102 from two engineering
+workstations. The controller runs a non-safety dosing loop; an integrity
+loss would spoil a batch but cannot injure personnel.
+
 \begin{enumerate}
-  \item Configure a SPAN port (or use \texttt{tcpdump} on a hub-equivalent).
-  \item Run a passive collector (Malcolm, Zeek, or a Python sniffer).
-  \item Produce an inventory: IP, MAC, vendor (OUI), open ports observed, protocols.
-  \item Compare with a careful active scan. Document the differences.
+  \item State the base vector again and compute (or recall) the base score.
+  \item Choose justified environmental modifiers. Address at minimum
+        \texttt{MAV}, \texttt{MAC}, \texttt{MPR}, and the security
+        requirements \texttt{CR}, \texttt{IR}, \texttt{AR}. Briefly
+        justify each choice in one sentence.
+  \item Give the full environmental vector and the resulting score
+        (use the FIRST online calculator or show the formula step).
+  \item In two sentences: does the environmental score change your
+        patch priority compared to the base~9.8?
 \end{enumerate}
 \end{taskbox}
 
-\begin{taskbox}{Exercise 6.3 -- Build a Mini Risk Register}
-For five fictional assets (PLC, HMI, Historian, engineering laptop, vendor jump host):
+\begin{taskbox}{Exercise 6.2 -- 200 PLCs vs.\ CISA in 24 Hours}
+Your asset owner hands you a spreadsheet with 200 PLCs across four sites:
+columns are \emph{site, cell, vendor, model, firmware, IP, owner}. A new
+campaign of CISA ICS advisories drops overnight. You have one working
+day to tell management which devices are affected.
+
 \begin{enumerate}
-  \item Invent a plausible CVE for each.
-  \item Score with CVSS environmental.
-  \item Recommend mitigations and priorities (P1--P4).
-  \item Present as a table: \emph{Asset, CVE, CVSS-E, Mitigation, Priority, Owner.}
+  \item List the data fields you must have on each PLC \emph{before}
+        you can match against an advisory.
+  \item Name the feeds you would pull (CISA, vendor PSIRTs, NVD) and
+        the format in which each is published.
+  \item Sketch the tooling chain end-to-end. Real tool names only,
+        e.g.\ Claroty CTD, Nozomi Guardian, Dragos Platform,
+        Tenable.ot, Forescout SilentDefense, Microsoft Defender for
+        IoT, or a scripted pipeline using the NVD JSON API.
+  \item State two things that will go wrong on a first run and how
+        you mitigate them (firmware naming mismatches, EOL devices,
+        advisories without machine-readable affected ranges, \ldots).
 \end{enumerate}
 \end{taskbox}
 
-\begin{taskbox}{Exercise 6.4 -- CVSS Reasoning}
-A vendor advisory rates a vulnerability as CVSS 9.8. In your environment, the affected service is only reachable from a single jump host that requires MFA and is monitored.
+\begin{taskbox}{Exercise 6.3 -- When Active Scanning Wins}
+Passive monitoring (e.g.\ Nozomi Guardian on a SPAN port) is the
+production-safe default for an operating plant. Yet there are situations
+where an \emph{active} scan is the right call.
+
 \begin{enumerate}
-  \item Adjust CVSS attack vector / privileges accordingly. What new score do you get?
-  \item Does the process-impact still warrant P1, or can you defer? Justify in 5 lines.
+  \item Justify in three to five sentences why active scanning is
+        sometimes unavoidable for an accurate inventory or CVE match.
+  \item Give \emph{two} concrete scenarios where you would choose
+        active over passive (e.g.\ FAT/SAT on a new skid, post-incident
+        forensics on an isolated cell, firmware verification during a
+        planned outage). For each, state the safeguard that keeps the
+        scan from disturbing production.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 6.4 -- Annotated Safe-nmap Command}
+You have an isolated bench network with one test PLC at
+\texttt{192.168.10.10}. Write the \texttt{nmap} command line you would
+run, then annotate every flag in one short line.
+
+\begin{enumerate}
+  \item Provide the command (single line, all flags).
+  \item For each flag, state in one sentence \emph{what it does} and
+        \emph{why it matters for a PLC}.
+  \item Add one sentence on why the same command must \emph{not} run
+        on a production cell, even if you are sure of the IP range.
+\end{enumerate}
+Cover at minimum: scan technique, rate limit, scan delay, ping
+behaviour, port selection, and one NSE script appropriate for the
+target.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 6.5 -- Read a Real CISA Advisory}
+Pick one current CISA ICS advisory (any \texttt{ICSA-25-XXX-XX} or
+\texttt{ICSA-26-XXX-XX} from the CISA advisories archive). Extract and
+write down:
+
+\begin{enumerate}
+  \item Affected vendor, product family, and firmware range.
+  \item The CWE(s) cited and the CVSS v3.1 base vector and score.
+  \item Recommended mitigations, split into \emph{patch} and
+        \emph{non-patch} (network, configuration, monitoring).
+  \item Vendor patch availability: is fixed firmware shipping today,
+        and if not, what is the published timeline?
+  \item In two sentences: would you treat this advisory as urgent for
+        a small water utility versus a tier-1 chemical site, and why?
+\end{enumerate}
+Cite the advisory by its full ID and publication date.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 6.6 -- Spot the Misconception: Nessus on Tuesday}
+A junior consultant proposes running \emph{Nessus} ``safe checks''
+against the plant network next Tuesday afternoon, arguing that the
+safe-checks profile cannot harm devices.
+
+\begin{enumerate}
+  \item Give three concrete reasons this plan is dangerous in an OT
+        environment. Reference at least one real-world failure mode
+        (e.g.\ legacy stack crashes on unexpected TCP flags, broadcast
+        storms from credentialed scans, SCADA HMI lock-out from
+        repeated login probes).
+  \item Propose one alternative that achieves a comparable
+        inventory / vulnerability view without the risk. Name a
+        specific tool or method.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 6.7 -- Honeypots in OT}
+Conpot is the canonical open-source ICS honeypot. GasPot mimics a
+Veeder-Root tank gauge.
+
+\begin{enumerate}
+  \item In three to four sentences, describe what Conpot is and what
+        protocols it can emulate by default.
+  \item Where would you deploy it in a Purdue-segmented plant network
+        (which zone, which IP space) so that any hit on it is
+        unambiguously malicious?
+  \item Name two activities a Conpot deployment \emph{would} catch
+        and two it \emph{would not} catch (be specific about attacker
+        sophistication).
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 6.8 -- Patching Cadence: Schneider PLC, 8-Month Window}
+A critical CVE is published against a Schneider Electric Modicon PLC
+in your plant. The vendor patch ships within three weeks, but the next
+planned production outage that allows the affected cell to be taken
+offline is eight months away.
+
+\begin{enumerate}
+  \item Write a one-paragraph compensating-control proposal that
+        bridges the gap. Cover network, monitoring, and process
+        controls. Reference at least one specific control product or
+        technique (IPS rule, Tofino zone, firewall rule tightening,
+        EDR on engineering workstations, Claroty Continuous Threat
+        Detection alerting, \ldots).
+  \item Write a one-paragraph escalation argument you would deliver
+        to plant management \emph{if} those compensating controls
+        cannot be implemented in full. State what acceptance of
+        residual risk requires (who signs, against which standard).
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 6.9 -- Researcher Drops a 0-Day on You}
+A friendly independent researcher emails your security inbox with a
+working 0-day exploit against a Schneider EVlink charger used on your
+campus. They say they have \emph{not} notified Schneider PSIRT.
+
+\begin{enumerate}
+  \item Describe the next four steps you would take, in order, in
+        the first 48~hours.
+  \item For each step, state the rationale: who you involve, what
+        you avoid (e.g.\ do not run the exploit against production,
+        do not publish), and why.
+  \item Reference one published coordinated-disclosure framework that
+        guides this workflow (e.g.\ ISO/IEC 29147, CERT/CC guidance,
+        or FIRST PSIRT Services Framework).
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 6.10 -- CWE-798 Hard-Coded Credentials in the Wild}
+CWE-798 (use of hard-coded credentials) is consistently among the most
+common root causes in ICS advisories.
+
+\begin{enumerate}
+  \item Give \emph{three} concrete examples from real CISA advisories
+        or vendor PSIRTs (any vendor: Siemens, Rockwell, Schneider,
+        ABB, Mitsubishi, Moxa, \ldots). For each, name the product,
+        the advisory or CVE ID, and one sentence on the impact.
+  \item Propose \emph{one} organisation-level mitigation that reduces
+        the harm even before the vendor ships a patch. Be specific:
+        which zone, which control, which monitoring rule.
 \end{enumerate}
 \end{taskbox}
 

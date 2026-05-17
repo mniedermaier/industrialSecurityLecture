@@ -30,6 +30,9 @@
   \node[isbox, fill=isAttack!7, draw=isAttack, minimum width=110mm, below=of d] (e) {\textbf{Opportunists} -- script kiddies, Shodan hunters};
   \node[isbox, fill=isMute!10, draw=isMute, minimum width=110mm, below=of e] (f) {\textbf{Competitors} -- industrial espionage};
 \end{tikzpicture}
+\note{
+  Walk the ladder top-down and tie each tier to one named campaign the students will recognise later in the deck. For nation-state, pick Sandworm vs.\ Volt Typhoon as the contrast pair: Sandworm \emph{breaks} things (Ukraine, NotPetya), Volt Typhoon \emph{waits}. For ransomware, Colonial / DarkSide is the canonical OT-adjacent case. Hacktivists like CyberAv3ngers prove that low-skill actors with default credentials still take real water plants down. Stress that the categories are not exclusive --- a single incident often involves a state actor renting a criminal botnet or hiring out wiper development. Insiders remain the highest-trust, lowest-noise threat: Maroochy Shire is the example we return to in the cross-cutting section.
+}
 \end{frame}
 
 \begin{frame}{MITRE ATT\&CK for ICS Tactics}
@@ -58,98 +61,358 @@
 \begin{notebox}{Why this matters}
 ATT\&CK for ICS gives a shared vocabulary for techniques, detections, and incident discussion across teams and vendors.
 \end{notebox}
+\note{
+  Read the matrix left-to-right as an attacker's life cycle: get in, run code, stick, escalate, hide, look around, then move into the OT-specific bottom row --- Lateral Movement through ICS networks, Collection of process data, C\&C, then the three columns that distinguish ICS from enterprise ATT\&CK: \emph{Inhibit Response Function}, \emph{Impair Process Control}, and \emph{Impact}. Those last three are where safety and process engineering meet adversary tradecraft, and they are what the case studies later in this deck will keep landing in. Mention that ATT\&CK for ICS started life as a 2020 spin-off from enterprise ATT\&CK based on a 2018 Dragos technique catalogue. Tell the TA to push students to map each incident we cover onto two or three concrete techniques rather than just naming the tactic --- e.g.\ Stuxnet's HMI replay is T0856 ``Spoof Reporting Message'', not just ``Evasion''. Encourage referencing the live matrix on \texttt{attack.mitre.org/matrices/ics/} during exercises.
+}
 \end{frame}
 
-\section{Landmark Incidents}
+\section{Case Studies}
 
-\begin{frame}{Stuxnet (2010) -- Kill Chain}
+% --- Stuxnet (3 slides) ---------------------------------------------
+
+\begin{frame}{Stuxnet (2010) -- Target and Objective}
+\begin{columns}[T,onlytextwidth]
+\column{0.55\linewidth}
+\begin{itemize}\setlength{\itemsep}{1pt}\small
+  \item \textbf{Target:} Fuel Enrichment Plant, Natanz (Iran).
+  \item \textbf{Victim hardware:} IR-1 gas centrifuge cascades, driven by Siemens S7-315 / S7-417 PLCs and Vacon / Fararo Paya VFDs.
+  \item \textbf{Strategic goal:} delay Iranian uranium enrichment without overt military action.
+  \item \textbf{Effect (2009--2010):} an estimated $\sim$1\,000 of $\sim$8\,700 IR-1s decommissioned at Natanz; enrichment throughput visibly stalled.
+  \item \textbf{Attribution (widely reported):} joint US/Israel programme ``Olympic Games''.
+\end{itemize}
+\column{0.42\linewidth}
+\begin{defbox}{Cyber-physical weapon}
+Code that produces a \emph{physical} effect (mass, energy, motion) by acting on a control system -- distinct from data theft or denial of service.
+\end{defbox}
+\end{columns}
+\source{D.\ Albright, P.\ Brannan, C.\ Walrond, \emph{Did Stuxnet Take Out 1{,}000 Centrifuges at Natanz?}, ISIS, 22 Dec 2010 \textbar{} R.\ Langner, \emph{To Kill a Centrifuge}, 2013.}
+\note{
+  Frame this slide as the ``why'' before the ``how''. The strategic problem in 2007--2010 was that the diplomatic track on Iran's nuclear programme had stalled and an Israeli air-strike on Natanz was on the table. Stuxnet was the alternative. Make sure students grasp that the target was not Iran in general, not Natanz in general, but specifically the IR-1 cascade configuration --- the malware fingerprinted the exact number of centrifuges per cascade (164) before firing. The IR-1 itself is a 1970s Pakistani design (P-1), already at the edge of its mechanical envelope, which is what made small over-speed and under-speed excursions catastrophic. The ISIS estimate of $\sim$1\,000 decommissioned IR-1s is the most defensible number we have; avoid quoting higher figures that circulated in the press. Save ``Olympic Games'' attribution for the next slide if a student asks early.
+}
+\end{frame}
+
+\begin{frame}{Stuxnet -- Mechanism}
 \centering
 \begin{tikzpicture}[node distance=2mm]
-  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=16mm, font=\scriptsize] (a) {1. USB};
-  \node[isbox, fill=isAttack!10, draw=isAttack, right=of a, minimum width=18mm, font=\scriptsize] (b) {2. 0-days};
-  \node[isbox, fill=isAttack!10, draw=isAttack, right=of b, minimum width=18mm, font=\scriptsize] (c) {3. Step7};
-  \node[isbox, fill=isAttack!10, draw=isAttack, right=of c, minimum width=18mm, font=\scriptsize] (d) {4. PLC};
-  \node[isbox, fill=isAttack!10, draw=isAttack, right=of d, minimum width=20mm, font=\scriptsize] (e) {5. Centrifuge};
-  \node[isbox, fill=isAttack!10, draw=isAttack, right=of e, minimum width=20mm, font=\scriptsize] (f) {6. Spoof HMI};
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=15mm, font=\scriptsize] (a) {1. USB};
+  \node[isbox, fill=isAttack!10, draw=isAttack, right=of a, minimum width=17mm, font=\scriptsize] (b) {2. 4 0-days};
+  \node[isbox, fill=isAttack!10, draw=isAttack, right=of b, minimum width=18mm, font=\scriptsize] (c) {3. Stolen certs};
+  \node[isbox, fill=isAttack!10, draw=isAttack, right=of c, minimum width=16mm, font=\scriptsize] (d) {4. Step7};
+  \node[isbox, fill=isAttack!10, draw=isAttack, right=of d, minimum width=14mm, font=\scriptsize] (e) {5. PLC};
+  \node[isbox, fill=isAttack!10, draw=isAttack, right=of e, minimum width=20mm, font=\scriptsize] (f) {6. VFD sabotage};
+  \node[isbox, fill=isAttack!10, draw=isAttack, right=of f, minimum width=16mm, font=\scriptsize] (g) {7. HMI replay};
   \draw[attack] (a)--(b); \draw[attack] (b)--(c); \draw[attack] (c)--(d);
-  \draw[attack] (d)--(e); \draw[attack] (e)--(f);
+  \draw[attack] (d)--(e); \draw[attack] (e)--(f); \draw[attack] (f)--(g);
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{4 Windows zero-days} (LNK CVE-2010-2568, print-spooler, two privilege escalations) -- unprecedented for a single payload.
+  \item \textbf{Stolen code-signing certificates} from Realtek and JMicron used to sign kernel drivers.
+  \item \textbf{USB-borne propagation}, then lateral movement on engineering LANs; final stage hooks the Siemens Step7 / WinCC DLLs to inject custom ladder logic.
+  \item \textbf{Sabotage logic:} drove Fararo Paya / Vacon VFDs outside spec -- alternating $\sim$1\,410\,Hz and $\sim$2\,Hz bursts (normal: $\sim$807--1\,210\,Hz), stressing rotors over weeks.
+  \item \textbf{HMI deception:} 21 seconds of \emph{recorded normal} sensor data played back during attacks -- operators saw a healthy plant.
+\end{itemize}
+\source{N.\ Falliere, L.\ Murchu, E.\ Chien, \emph{W32.Stuxnet Dossier} v1.4, Symantec, Feb 2011 \textbar{} R.\ Langner, \emph{To Kill a Centrifuge}, The Langner Group, Nov 2013.}
+\note{
+  Stress the operational genius of the recorded-replay trick: it is a worm that knew when to lie. Operators at Natanz reported nothing unusual for months while the centrifuges were dying. The 21-second replay window is documented in the Symantec dossier and is the detail that converted Stuxnet from ``a worm'' into ``a weapon.'' Walk them through why the four zero-days mattered together --- LNK got you onto the engineering station, the spooler bug let you spread, the two priv-esc bugs got you SYSTEM. Pre-empt the romantic narrative: this was not a clever hacker, this was a multi-year, multi-agency programme with the kind of intel a research team could not assemble alone. Note that the worm was discovered only because a buggy replication routine caused it to spread far beyond Natanz; VirusBlokAda in Belarus filed the first sample in June 2010 after Iranian customer machines kept bluescreening. Transition: ``so what does it take to find something like this in your network?''
+}
+\end{frame}
+
+\begin{frame}{Stuxnet -- Lessons}
+\begin{takeawaybox}{Why Stuxnet still matters}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item \textbf{Air gap is not a control.} USB sticks, engineer laptops, and vendor service notebooks cross it routinely. Treat it as a hurdle, not a boundary.
+  \item \textbf{Supply chain matters.} Stolen vendor certificates defeated driver-signing checks. Trust placed in suppliers is trust placed in their security.
+  \item \textbf{PLCs run unverified code.} S7 PLCs accepted any signed Step7 download; no firmware-level integrity check on logic blocks. Most PLCs still do.
+  \item \textbf{The HMI is not ground truth.} A compromised controller can fake telemetry. Independent measurement (process tags, safety I/O, physical inspection) matters.
+\end{itemize}
+\end{takeawaybox}
+\source{R.\ Langner, \emph{To Kill a Centrifuge}, 2013 \textbar{} K.\ Zetter, \emph{Countdown to Zero Day}, Crown, 2014.}
+\note{
+  Use this slide to push back on three comforting myths students walk in with. Myth one --- ``we are air-gapped, so this cannot happen''. Reply: every PLC programmer plugs a laptop into the engineering port; every vendor service tech brings a USB stick; the gap is permeable by design. Myth two --- ``signed code is safe code''. Reply: Stuxnet's drivers were signed by Realtek and JMicron, both real Taiwanese vendors whose certificates were stolen, and Windows happily loaded them. Myth three --- ``the HMI shows what is happening''. Reply: the HMI shows what the PLC says is happening, and the PLC was lying. Land the closing point about firmware integrity: most S7-300/400 deployments today still cannot tell you whether the running OB1 is the OB1 engineering committed. Zetter's \emph{Countdown to Zero Day} is the most accessible long-form source if a student wants more.
+}
+\end{frame}
+
+% --- Ukraine 2015 (2 slides) ----------------------------------------
+
+\begin{frame}{Ukraine 2015 -- BlackEnergy and the First Blackout}
+\begin{itemize}\setlength{\itemsep}{1pt}\small
+  \item \textbf{When:} 23 December 2015, $\sim$15:35 local time.
+  \item \textbf{Who hit:} three regional distribution companies (oblenergos) -- Prykarpattyaoblenergo, Chernivtsioblenergo, Kyivoblenergo.
+  \item \textbf{Impact:} $\sim$225\,000 customers lost power; outages 1--6 hours; restoration required \emph{manual} switching at substations because remote control was destroyed.
+  \item \textbf{Aftermath:} weeks of degraded SCADA -- operators ran the grid by phone and clipboard.
+\end{itemize}
+\begin{notebox}{First confirmed cyber-induced power outage}
+Ukraine 2015 demonstrated that a remote actor could move from corporate IT to the SCADA HMI of a distribution operator and switch the lights off -- in production, against three utilities, in coordinated fashion.
+\end{notebox}
+\source{R.\ M.\ Lee, M.\ J.\ Assante, T.\ Conway, \emph{Analysis of the Cyber Attack on the Ukrainian Power Grid}, SANS/E-ISAC, 18 Mar 2016.}
+\note{
+  Ground the story in the date: this is the first winter after Russia's annexation of Crimea and the start of the Donbas war, so the geopolitical frame is hot and the targeting is not random. Three utilities, hit within roughly half an hour of each other, is the part to emphasise --- this was a coordinated operation, not a smash-and-grab. The restoration detail is the lesson worth lingering on: Ukrainian engineers drove to substations and threw switches by hand, which is only possible because Ukrainian distribution still kept manual fall-back. Ask the room: could your local DSO run for a week without SCADA? The SANS/E-ISAC report by Lee, Assante and Conway is the canonical source; the US ICS-CERT alert IR-ALERT-H-16-056-01 is the official confirmation. Mention that BlackEnergy is the same toolkit family Sandworm had been refining since 2007.
+}
+\end{frame}
+
+\begin{frame}{Ukraine 2015 -- Tactics}
+\centering
+\begin{tikzpicture}[node distance=4mm, every node/.style={font=\scriptsize}]
+  \node[isbox, fill=isAttack!12, draw=isAttack, minimum width=24mm] (ph)
+    {1. Spearphish\\Word + macro};
+  \node[isbox, fill=isAttack!12, draw=isAttack, right=of ph, minimum width=24mm] (be)
+    {2. BlackEnergy3\\$\rightarrow$ VPN creds};
+  \node[isbox, fill=isAttack!12, draw=isAttack, right=of be, minimum width=24mm] (hmi)
+    {3. Login to SCADA\\HMI (legitimate)};
+  \node[isbox, fill=isAttack!12, draw=isAttack, right=of hmi, minimum width=24mm] (open)
+    {4. Open breakers\\one by one};
+  \node[isbox, fill=isAttack!12, draw=isAttack, below=of be, minimum width=24mm] (kd)
+    {5. KillDisk on\\workstations};
+  \node[isbox, fill=isAttack!12, draw=isAttack, right=of kd, minimum width=24mm] (sce)
+    {6. Brick serial$\rightarrow$Eth\\converters};
+  \node[isbox, fill=isAttack!12, draw=isAttack, right=of sce, minimum width=24mm] (tdos)
+    {7. TDoS the\\call centres};
+  \draw[attack] (ph)--(be); \draw[attack] (be)--(hmi); \draw[attack] (hmi)--(open);
+  \draw[attack] (be) |- (kd); \draw[attack] (kd)--(sce); \draw[attack] (sce)--(tdos);
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{importantbox}{The human-in-the-loop attack}
+Operators reportedly watched their own mouse cursors move and breakers trip -- and were locked out when they tried to intervene. The destruction of serial-to-Ethernet converters and the telephony DoS were not for damage: they delayed \emph{restoration}.
+\end{importantbox}
+\source{R.\ M.\ Lee et al., SANS/E-ISAC, Mar 2016 \textbar{} ICS-CERT \emph{IR-ALERT-H-16-056-01}, 25 Feb 2016.}
+\note{
+  This is the slide where students realise the attackers did not use exotic malware to open breakers --- they used the operators' own HMI clients, logged in with stolen VPN credentials, after six months of quiet reconnaissance. Walk left-to-right and stop on step three: this is hands-on-keyboard, human attackers driving SCADA software live. Then highlight the post-impact moves, because they are the genuinely novel part. Bricking the serial-to-Ethernet converters at the substations meant that even when IT was restored, operators could not remote-command the breakers --- they had to physically travel. The telephony denial-of-service against the call centres meant customers could not report outages, slowing situational awareness. Together those are an attack on the \emph{response} capability, which is exactly the ATT\&CK for ICS ``Inhibit Response Function'' tactic. If asked about the phishing lure --- it was a malicious Excel macro carried by a Word doc impersonating the Rada (parliament).
+}
+\end{frame}
+
+% --- Ukraine 2016 / Industroyer (2 slides) --------------------------
+
+\begin{frame}{Ukraine 2016 -- Industroyer / CrashOverride}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item \textbf{When:} 17 December 2016, just before midnight.
+  \item \textbf{Where:} Pivnichna 330\,kV transmission substation, north of Kyiv.
+  \item \textbf{Impact:} $\sim$200\,MW dropped; $\sim$1 hour outage in parts of Kyiv. Smaller than 2015 in scope -- but qualitatively different.
+  \item \textbf{Why it stands out:} the first known malware framework \emph{purpose-built} to speak grid protocols, with swappable payload modules.
+\end{itemize}
+\vspace{1mm}
+\centering
+\begin{tikzpicture}[node distance=3mm, every node/.style={font=\scriptsize}]
+  \node[isbox, fill=isAttack!12, draw=isAttack, minimum width=20mm] (core) {Core +\\launcher};
+  \node[isbox, fill=isAttack!12, draw=isAttack, right=8mm of core, minimum width=18mm] (m1) {IEC 60870-5-101};
+  \node[isbox, fill=isAttack!12, draw=isAttack, right=of m1, minimum width=18mm] (m2) {IEC 60870-5-104};
+  \node[isbox, fill=isAttack!12, draw=isAttack, right=of m2, minimum width=18mm] (m3) {IEC 61850\\MMS};
+  \node[isbox, fill=isAttack!12, draw=isAttack, right=of m3, minimum width=14mm] (m4) {OPC DA};
+  \node[isbox, fill=isAttack!12, draw=isAttack, below=4mm of m2, minimum width=42mm] (sip) {SIPROTEC DoS exploit (CVE-2015-5374)};
+  \node[isbox, fill=isAttack!12, draw=isAttack, right=4mm of sip, minimum width=22mm] (wp) {Data wiper};
+  \draw[attack] (core)--(m1);
+  \draw[attack] (core.east) -- ++(2mm,0) |- (m2.west);
+  \draw[attack] (core.east) -- ++(2mm,0) |- (m3.west);
+  \draw[attack] (core.east) -- ++(2mm,0) |- (m4.west);
+\end{tikzpicture}
+\source{A.\ Cherepanov, \emph{Win32/Industroyer: A new threat for industrial control systems}, ESET, 12 Jun 2017 \textbar{} Dragos, \emph{CRASHOVERRIDE: Analysis of the Threat to Electric Grid Operations}, 2017.}
+\note{
+  Contrast immediately with 2015: a year later, the same actor came back, but this time the attack ran itself. No operator in the loop; the malware spoke IEC 60870-5-101 (serial), 101's TCP cousin 104, IEC 61850 MMS, and OPC DA --- the four protocols you need to operate a European or Ukrainian substation. Anatoly Cherepanov of ESET and Dragos's Joe Slowik / Robert Lee published the parallel analyses in June 2017; ESET named it Industroyer, Dragos named it CRASHOVERRIDE, and the community now uses both. Use the diagram to make the framework point concrete: \emph{core + launcher + protocol module} mirrors a Metasploit-style architecture. Mention that the SIPROTEC CVE-2015-5374 module crashed Siemens protection relays with a single malformed UDP packet --- a deliberate attempt to take the safety layer down before tripping breakers, so reclosing would cause damage. The outage itself was modest in scope, but the message was strategic.
+}
+\end{frame}
+
+\begin{frame}{Industroyer -- Significance and Attribution}
+\begin{columns}[T,onlytextwidth]
+\column{0.52\linewidth}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Earlier ICS malware (Stuxnet, Havex) was \emph{target-specific}. Industroyer is a \emph{framework} -- swap a payload, hit a different protocol.
+  \item Built-in protocol handlers send legitimate-looking control commands; defenders see normal SCADA traffic.
+  \item The SIPROTEC DoS module attempted to take protective relays \emph{offline} ahead of the breaker operations -- a deliberate attack on the safety layer.
+  \item Attributed to \textbf{Sandworm} (Russian GRU Unit 74455).
+\end{itemize}
+\column{0.46\linewidth}
+\begin{warningbox}{Reusable grid weaponry}
+With Industroyer, ICS attack tooling crossed the line from bespoke ordnance to a \emph{platform}. Subsequent variants (Industroyer2, 2022) reused the architecture against a Ukrainian substation -- and were stopped before impact.
+\end{warningbox}
+\end{columns}
+\source{A.\ Cherepanov, ESET, 2017 \textbar{} Dragos, \emph{CRASHOVERRIDE}, 2017 \textbar{} ESET \& CERT-UA, \emph{Industroyer2}, 12 Apr 2022.}
+\note{
+  Attribution to Sandworm / GRU Unit 74455 holds up because the same group's infrastructure, code overlaps, and operational tempo connect Industroyer to BlackEnergy, NotPetya, the 2018 Olympic Destroyer false-flag, and Industroyer2 in 2022. The 2020 US DoJ indictment of six GRU officers named the unit explicitly. The Industroyer2 episode is worth telling: in April 2022, six weeks into the full-scale invasion of Ukraine, ESET and CERT-UA caught a hard-coded Industroyer2 binary aimed at a Ukrainian high-voltage substation; CERT-UA, working with ESET and Microsoft, stopped it before execution. The lesson for students is that ICS attack tooling now has a development lineage --- frameworks get versioned, modularised, and re-used. The takeaway box should land hard: defenders should expect future ICS malware to look more like Industroyer than like Stuxnet.
+}
+\end{frame}
+
+% --- TRITON (2 slides) ----------------------------------------------
+
+\begin{frame}{TRITON / TRISIS / HatMan (2017) -- Target}
+\begin{columns}[T,onlytextwidth]
+\column{0.42\linewidth}
+\centering
+\begin{tikzpicture}[node distance=4mm, transform shape, scale=0.85]
+  \node[process, minimum width=18mm, font=\scriptsize] (proc) {Petrochemical\\process};
+  \node[plc, above left=3mm and 1mm of proc, font=\scriptsize, minimum width=12mm] (bpcs) {BPCS};
+  \node[plc, above right=3mm and 1mm of proc, fill=isAttack!25, draw=isAttack, font=\scriptsize, minimum width=14mm] (sis) {Triconex\\SIS};
+  \node[attacker, above=10mm of sis, font=\scriptsize\bfseries, minimum width=14mm] (atk) {Attacker};
+  \draw[flow] (bpcs) -- (proc); \draw[flow] (sis) -- (proc);
+  \draw[attack] (atk) -- node[right=2pt, font=\tiny, align=center, fill=white, inner sep=1pt]{TriStation\\(UDP/1502)} (sis);
+\end{tikzpicture}
+\column{0.55\linewidth}
+\begin{itemize}\setlength{\itemsep}{1pt}\small
+  \item \textbf{Where:} Saudi petrochemical plant (Tasnee/Sadara reported), Aug 2017.
+  \item \textbf{Hit:} Schneider \textbf{Triconex} SIS -- the last-resort trip-to-safe layer.
+  \item \textbf{Goal:} disable SIS so a separate process attack could cause a release, fire, or explosion.
+  \item \textbf{Outcome:} payload logic error caused SIS to fail-safe trip -- shutting the plant down and exposing the operation.
+\end{itemize}
+\end{columns}
+\source{Dragos, \emph{TRISIS Malware Analysis}, Dec 2017 \textbar{} Mandiant/FireEye, \emph{Attackers Deploy New ICS Attack Framework ``TRITON''}, 14 Dec 2017.}
+\note{
+  Set the scene first: a petrochemical plant has at least two independent control layers, the BPCS (Basic Process Control System) that runs the process day-to-day and the SIS (Safety Instrumented System) that exists only to trip the plant to a safe state if the BPCS or the process itself fails. Schneider's Triconex is a triple-redundant SIS used in tens of thousands of high-hazard facilities worldwide. The attacker did not want to break the SIS for its own sake --- they wanted to \emph{neutralise} it so a separate, future attack on the BPCS could push the process past a dangerous limit without any trip. That is the part that makes responders' blood run cold. The operation was outed only because the payload contained a logic bug that caused two Triconex controllers to fail-safe and shut the plant in August 2017. Without that bug, we might not know about TRITON yet. Saudi attribution of the site (Tasnee or Petro Rabigh / Sadara) comes from reporting by Nicole Perlroth (NYT, 2018).
+}
+\end{frame}
+
+\begin{frame}{TRITON -- Mechanism and Why It Matters}
+\begin{itemize}\setlength{\itemsep}{1pt}\small
+  \item Attackers reached an engineering workstation with TriStation software, then pivoted onto the SIS network.
+  \item Payload (\texttt{trilog.exe} + \texttt{library.zip}) spoke the proprietary \textbf{TriStation} protocol; exploited a Triconex weakness (CVE-2018-7522) to inject malicious \emph{ladder logic} into the safety controller's RAM.
+  \item Once resident, the implant could rewrite SIS logic -- including \emph{neutralising} trip set-points -- and restore the original on demand.
+  \item Attribution: \textbf{TEMP.Veles} / Xenotime (FSU-linked); US Treasury sanctioned TsNIIKhM in 2020.
+\end{itemize}
+\begin{importantbox}{First public attack on a safety layer}
+TRITON crossed a long-assumed red line: targeting the SIS deliberately, with intent to disable the layer that prevents loss of life. Subsequent victim discoveries (Schneider, 2019) showed the framework was not a one-off.
+\end{importantbox}
+\source{Mandiant, \emph{TRITON Attribution: Russian Government Research Institute Connected to the Attacks}, 23 Oct 2018 \textbar{} U.S.\ Treasury OFAC press release, 23 Oct 2020.}
+\note{
+  This is the most technically dense case study in the deck --- slow down. The implant's value is that it can read, write, and \emph{revert} safety logic on the Triconex MP3008 main processor, all over the proprietary TriStation UDP/1502 protocol that Schneider never published. Reverse-engineering that protocol is what made the Mandiant and Dragos analyses landmark publications. Attribution is unusually solid: Mandiant traced infrastructure and tooling back to TsNIIKhM, the Central Scientific Research Institute of Chemistry and Mechanics in Moscow, and the US Treasury sanctioned TsNIIKhM by name in October 2020 --- one of the very few times a state research institute has been publicly named for an ICS attack. Mention the follow-on Schneider discovery in 2019 (a second victim, never named publicly) which proved TRITON was a programme, not a one-shot. Close by pointing forward to PIPEDREAM: same modular pattern, broader vendor coverage, caught even earlier.
+}
+\end{frame}
+
+% --- NotPetya + Colonial (2 slides) ---------------------------------
+
+\begin{frame}{NotPetya (2017) -- Supply-Chain Wiper}
+\begin{itemize}\setlength{\itemsep}{1pt}\small
+  \item \textbf{Initial vector:} compromised update of \textbf{M.E.Doc}, a Ukrainian tax-accounting product used by virtually every company doing business in Ukraine.
+  \item \textbf{Spread:} EternalBlue (MS17-010) + Mimikatz + WMI/PsExec -- minutes to ravage a flat Windows domain.
+  \item \textbf{Pseudo-ransomware:} encrypted the MFT, demanded \$300 BTC, but ``decryption IDs'' were random. Intent was destruction.
+  \item \textbf{OT-adjacent impact (IT outage took OT down):}
+    \begin{itemize}\setlength{\itemsep}{0pt}
+      \item \textbf{Maersk:} $\sim$\$300\,M; rebuilt 4\,000 servers, 45\,000 PCs in 10 days; container terminals halted.
+      \item \textbf{Merck:} $\sim$\$870\,M; vaccine production disrupted.
+      \item \textbf{Mondel\=ez, FedEx/TNT, Reckitt, Saint-Gobain:} hundreds of millions each.
+    \end{itemize}
+  \item Total damage estimated at \$10\,B+; attributed by US/UK/EU to \textbf{Sandworm} (GRU).
+\end{itemize}
+\source{A.\ Greenberg, \emph{Sandworm}, Doubleday, 2019 \textbar{} White House attribution statement, 15 Feb 2018 \textbar{} CISA \emph{TA17-181A}, 1 Jul 2017.}
+\note{
+  Open by killing the ``ransomware'' framing: the ransom note was theatre. The encryption was one-way; the ``personal installation key'' shown to victims was random bytes. NotPetya was a wiper dressed as ransomware to muddy attribution and discourage immediate state response. The supply-chain vector matters: M.E.Doc was the Ukrainian equivalent of TurboTax for businesses, so by trojanising one update server the GRU achieved near-total coverage of Ukrainian corporate IT. The collateral was the lesson: Maersk, Merck, FedEx/TNT, Mondel\=ez, Reckitt, Saint-Gobain were not the target, they were bystanders connected to Ukrainian subsidiaries. Andy Greenberg's \emph{Sandworm} has the Maersk recovery story in detail --- the entire domain controller fleet was wiped, and a single surviving DC in Ghana (offline during the attack for an unrelated power outage) was the only seed left to rebuild from. Use this slide to introduce the section's recurring theme: OT can be lost without OT being touched, if the IT it depends on is wiped.
+}
+\end{frame}
+
+\begin{frame}{Colonial Pipeline (2021) -- IT/OT Coupling}
+\centering
+\begin{tikzpicture}[node distance=4mm, every node/.style={font=\scriptsize}, transform shape, scale=0.95]
+  \node[attacker, font=\scriptsize\bfseries, minimum width=16mm] (atk) {DarkSide};
+  \node[server, right=of atk, minimum width=16mm] (vpn) {VPN\\no MFA};
+  \node[server, right=of vpn, minimum width=16mm] (it) {IT \&\\billing};
+  \node[isbox, fill=isAttack!20, draw=isAttack, right=of it, minimum width=18mm] (enc) {Ransomware\\encryption};
+  \node[isbox, fill=isAccent!20, draw=isAccent, below=7mm of it, minimum width=36mm] (shut) {Operator shuts down OT};
+  \node[isbox, fill=isAttack!10, draw=isAttack, right=4mm of shut, minimum width=36mm] (impact) {5-day US east-coast fuel outage};
+  \draw[attack] (atk) -- (vpn) -- (it) -- (enc);
+  \draw[flow] (enc.south) |- (shut.east); \draw[flow] (shut) -- (impact);
+\end{tikzpicture}
+\begin{itemize}\setlength{\itemsep}{0pt}\footnotesize
+  \item \textbf{7 May 2021:} DarkSide affiliate enters via a reused VPN password; no MFA.
+  \item OT was \emph{not} compromised. Colonial halted the 8\,850\,km pipeline because billing/dispatch IT was down.
+  \item \$4.4\,M ransom paid; $\sim$half later recovered by the FBI; fuel shortages in 17 states.
+\end{itemize}
+\begin{takeawaybox}{IT/OT dependencies cut both ways}
+You can shut down OT without touching it -- if the IT it depends on goes down.
+\end{takeawaybox}
+\source{FBI, \emph{Statement on Colonial Pipeline}, 10 May 2021 \textbar{} GAO-22-104746, 2022.}
+\note{
+  This is the case study to use when an executive asks ``why do we care about OT security if the attack only hits IT?'' The answer is in the takeaway box: Colonial chose to halt the pipeline. The decision was driven by their billing and dispatch systems being encrypted --- they could move fuel but they could not invoice for it, and they could not be sure the OT network had not been touched, so they shut down. That is a perfectly rational business decision that produced a five-day fuel crisis on the US east coast and panic-buying as far inland as Tennessee. The initial-access detail is unglamorous and important: one legacy VPN account, no MFA, password found in a previously leaked credential dump. Mandiant did the IR. The FBI recovered roughly half of the \$4.4\,M ransom (about 63.7 BTC) by tracing the DarkSide wallet --- a rare positive note. The DHS/TSA response was the first binding cybersecurity directive on US pipeline operators (SD Pipeline-2021-01 and -02).
+}
+\end{frame}
+
+% --- PIPEDREAM (1 slide) --------------------------------------------
+
+\begin{frame}{PIPEDREAM / INCONTROLLER (2022)}
+\centering
+\begin{tikzpicture}[node distance=8mm]
+  \node[attacker] (atk) {CHERNOVITE\\toolkit};
+  \node[plc, fill=isAttack!15, draw=isAttack, above right=2mm and 14mm of atk, minimum width=28mm, font=\scriptsize] (s1) {Schneider M580 / M340\\(\textsc{evilscholar})};
+  \node[plc, fill=isAttack!15, draw=isAttack, right=14mm of atk, minimum width=28mm, font=\scriptsize] (om) {Omron NX / NJ\\(\textsc{badomen})};
+  \node[plc, fill=isAttack!15, draw=isAttack, below right=2mm and 14mm of atk, minimum width=28mm, font=\scriptsize] (o) {OPC UA servers\\(\textsc{mousehole})};
+  \node[plc, fill=isAttack!15, draw=isAttack, right=14mm of om, minimum width=28mm, font=\scriptsize] (cdo) {CODESYS runtime\\(\textsc{lazycargo})};
+  \draw[attack] (atk.east) -- (s1.west);
+  \draw[attack] (atk.east) -- (om.west);
+  \draw[attack] (atk.east) -- (o.west);
+  \draw[attack] (om.east) -- (cdo.west);
 \end{tikzpicture}
 \vspace{1mm}
-\begin{notebox}{Natanz, 2010}
-Four zero-days, two stolen code-signing certificates. Subtly destroyed an estimated $\sim$1\,000 centrifuges over months while feeding the HMI \emph{normal-looking} data. The first widely-known cyber-physical weapon.
-\end{notebox}
-\source{N.\ Falliere, L.\ Murchu, E.\ Chien, \emph{W32.Stuxnet Dossier} v1.4, Symantec, 2011 \textbar{} D.\ Albright et al., ISIS report, 2010.}
+\begin{importantbox}{Caught before deployment}
+PIPEDREAM is the first modular ICS attack framework discovered \emph{before any victim impact}. Pre-built modules for Schneider, Omron and OPC UA; capable of scanning, parameter changes, logic upload, and denial of control. Interdicted via early reporting by a partner.
+\end{importantbox}
+\source{CISA \emph{AA22-103A}, ``APT Cyber Tools Targeting ICS/SCADA Devices'', 13 Apr 2022 \textbar{} Dragos, \emph{PIPEDREAM/CHERNOVITE} report, Apr 2022 \textbar{} Mandiant, \emph{INCONTROLLER}, Apr 2022.}
+\note{
+  The headline is in the importantbox: this is the first ICS-specific attack framework we found \emph{before} it was used in anger. Dragos calls the toolkit PIPEDREAM and the actor CHERNOVITE; Mandiant uses INCONTROLLER; the joint CISA/DOE/NSA/FBI advisory AA22-103A is the official wrapper. The modules are vendor-specific: \textsc{evilscholar} targets Schneider M580/M340 Modicon controllers, \textsc{badomen} targets Omron NX/NJ (and can drop a custom agent on the controller), \textsc{mousehole} abuses OPC UA servers as an OT-to-OT pivot, and \textsc{lazycargo} drops a vulnerable signed driver to gain kernel access on the engineering workstation. Stress the OPC UA module --- because OPC UA is the lingua franca of modern ICS data exchange, a framework that speaks it natively is vendor-agnostic by construction. Attribution is still public-officially undisclosed; Dragos's analysis leans Russia-state, which fits the February 2022 timing. Pivot into the next slide: low-skill actors do not need this kind of toolkit because default credentials still work.
+}
 \end{frame}
 
-\begin{frame}{Ukraine 2015 \& 2016}
-\centering
-\begin{tikzpicture}[x=1.3cm]
-  \draw[axisline] (0,0) -- (9,0);
-  \foreach \x/\year/\label in {
-    0/{Spring 2015}/{Spearphish DSO\\HR depts},
-    1.6/{Jun 2015}/{BlackEnergy3\\foothold},
-    3.0/{Dec 23 2015}/{Manual SCADA\\actions; KillDisk},
-    4.5/{2015}/{225k customers\\dark},
-    6.0/{Dec 17 2016}/{Industroyer\\IEC 104},
-    7.6/{2016}/{Kyiv substation\\1 hr outage}}{
-    \draw[thick] (\x,-1mm) -- (\x,1mm);
-    \node[font=\tiny, below=1mm] at (\x,0) {\year};
-    \node[font=\tiny, above=1mm, align=center] at (\x,0) {\label};
-  }
-\end{tikzpicture}
-\par\vspace{3mm}
-{\footnotesize Sandworm (GRU). Industroyer was the first malware framework with built-in grid protocol modules.}
-\source{R.\ M.\ Lee, M.\ J.\ Assante, T.\ Conway, \emph{Analysis of the Cyber Attack on the Ukrainian Power Grid}, SANS/E-ISAC, 2016 \textbar{} A.\ Cherepanov, \emph{Win32/Industroyer}, ESET, 2017.}
-\end{frame}
-
-\begin{frame}{TRITON / TRISIS (2017)}
-\centering
-\begin{tikzpicture}[node distance=12mm]
-  \node[process] (proc) {Petrochemical\\process};
-  \node[plc, above left=of proc] (bpcs) {BPCS};
-  \node[plc, above right=of proc, fill=isAttack!25, draw=isAttack] (sis) {Triconex\\SIS};
-  \node[attacker, above=18mm of sis] (atk) {Attacker};
-  \draw[flow] (bpcs) -- (proc); \draw[flow] (sis) -- (proc);
-  \draw[attack] (atk) -- node[right=3pt, font=\tiny, align=center, fill=white, inner sep=2pt]{TriStation\\proprietary} (sis);
-\end{tikzpicture}
-\par\vspace{1mm}
-{\footnotesize First publicly known attack on a Safety Instrumented System. A programming error in the malware tripped the plant and exposed the operation. Watershed moment: attackers reached the safety layer.}
-\source{Dragos, \emph{TRISIS Malware Analysis}, 2017 \textbar{} Mandiant/FireEye, \emph{Attackers Deploy New ICS Attack Framework ``TRITON''}, 2017.}
-\end{frame}
-
-\begin{frame}{Colonial Pipeline (2021)}
-\centering
-\begin{tikzpicture}[node distance=10mm]
-  \node[attacker] (atk) {DarkSide\\ransomware};
-  \node[server, right=of atk] (vpn) {Legacy VPN\\(no MFA)};
-  \node[server, right=of vpn] (it) {IT \&\\billing};
-  \node[isbox, fill=isAttack!20, draw=isAttack, right=of it, minimum width=22mm] (enc) {Encryption};
-  \node[isbox, fill=isAccent!20, draw=isAccent, below=14mm of enc, minimum width=42mm] (shut) {Operator shuts down OT};
-  \node[isbox, fill=isAttack!10, draw=isAttack, below=of shut, minimum width=42mm] (impact) {5-day fuel outage};
-  \draw[attack] (atk) -- (vpn) -- (it) -- (enc);
-  \draw[flow] (enc) -- (shut) -- (impact);
-\end{tikzpicture}
-\par\vspace{1mm}
-{\footnotesize IT compromise; the operator pre-emptively halted OT. Highlights IT/OT interdependence and the physical impact of ransomware.}
-\source{FBI, \emph{Statement on Colonial Pipeline}, May 2021 \textbar{} GAO-22-104746, 2022.}
-\end{frame}
+% --- CyberAv3ngers (1 slide) ----------------------------------------
 
 \begin{frame}{CyberAv3ngers / Unitronics (2023)}
-\begin{warningbox}{Lessons that keep coming back}
-\textbf{Default credentials} and \textbf{direct Internet exposure} of PLCs are still common -- and still get exploited by low-skill actors at scale.
+\begin{warningbox}{The basics still get exploited}
+\textbf{Default credentials} (\texttt{1111}) and \textbf{direct Internet exposure} of PLCs are still common -- and still get exploited by low-skill actors at scale.
 \end{warningbox}
 \vspace{1mm}
 \centering
-\begin{tikzpicture}[node distance=10mm]
-  \node[attacker] (atk) {Hacktivist};
+\begin{tikzpicture}[node distance=8mm]
+  \node[attacker] (atk) {CyberAv3ngers\\(IRGC-linked)};
   \node[inetnode, fill=isAttack!10, right=of atk] (inet) {Internet};
-  \node[plc, fill=isAttack!15, draw=isAttack, right=of inet] (plc) {Unitronics PLC\\\scriptsize port 20256 open\\default pwd \texttt{1111}};
-  \node[isbox, fill=isAttack!10, draw=isAttack, right=of plc] (def) {HMI defaced};
+  \node[plc, fill=isAttack!15, draw=isAttack, right=of inet, font=\scriptsize] (plc) {Unitronics Vision\\PCOM tcp/20256\\pwd \texttt{1111}};
+  \node[isbox, fill=isAttack!10, draw=isAttack, right=of plc] (def) {HMI defaced\\``Down with Israel''};
   \draw[attack] (atk) -- (inet) -- (plc) -- (def);
 \end{tikzpicture}
+\par\vspace{1mm}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{25 Nov 2023:} Municipal Water Authority of Aliquippa, PA -- booster station PLC defaced, manual fallback used; no contamination.
+  \item Same actor hit \emph{multiple} US water utilities and other CNI sites using identical access pattern: scan, log in with default password, deface, optionally wipe.
+  \item No process damage observed -- but with engineering access to a Vision PLC, the attacker \emph{could} have manipulated setpoints.
+\end{itemize}
+\source{CISA \emph{AA23-335A}, ``IRGC-Affiliated Cyber Actors Exploiting PLCs in Multiple Sectors, Including U.S.\ Water and Wastewater Systems Facilities'', 1 Dec 2023.}
+\note{
+  Use this as the deliberate anti-climax after PIPEDREAM. CyberAv3ngers --- an IRGC-linked persona that emerged after 7 October 2023 --- did not need zero-days or custom frameworks. They scanned the Internet for Unitronics Vision PLCs (an Israeli-made line), connected on TCP/20256 (PCOM), and tried the factory-default password \texttt{1111}. That worked at the Aliquippa, PA water authority and at municipal and small industrial sites across at least half a dozen US states. The defacement was symbolic, but the underlying access let them push arbitrary ladder logic. Aliquippa fell back to manual operation within hours; no contamination occurred. The lesson for students is not glamorous but it is the most actionable in the entire deck: an Internet-exposed PLC with a default password is the most common ICS vulnerability in the world, and the cost to fix it is zero. CISA's AA23-335A is the authoritative reference.
+}
+\end{frame}
+
+% --- Volt Typhoon (2 slides, moved from later) ----------------------
+
+\begin{frame}{Volt Typhoon (2023--2024) -- Pre-positioning}
+\begin{itemize}\setlength{\itemsep}{1pt}\small
+  \item Suspected PRC-linked APT, active since at least 2021.
+  \item Targets: US critical infrastructure -- communications, energy, water, transportation -- with emphasis on assets serving \textbf{Guam} and the US west coast.
+  \item Apparent objective: \emph{pre-position} for disruptive or destructive action against OT during a future geopolitical crisis (e.g.\ Taiwan contingency).
+  \item Dwell time before discovery in several victims: \textbf{five years or more}.
+\end{itemize}
+\begin{warnbox}{From espionage to pre-positioning}
+Volt Typhoon's target list (water, power, ports) and its persistence in OT-adjacent environments are consistent with preparation to \emph{disrupt}, not to spy -- a notable shift in intent.
+\end{warnbox}
+\source{CISA \emph{AA24-038A}, 7 Feb 2024 \textbar{} Microsoft Threat Intelligence, \emph{Volt Typhoon targets US critical infrastructure with living-off-the-land techniques}, 24 May 2023.}
+\note{
+  Frame Volt Typhoon as a strategic shift, not just another APT. Microsoft Threat Intelligence published the first public profile on 24 May 2023; the joint CISA/NSA/FBI advisory AA24-038A in February 2024 added the multi-victim picture and the five-year dwell-time figure --- read that one slowly to the room. The target set is the giveaway: water, electricity, ports, and communications, with a striking overconcentration on Guam, which would be a logistics hub in any Pacific contingency. That mix is not consistent with espionage, which would prioritise R\&D or political targets, and it is consistent with preparing the battlefield. FBI Director Wray testified to Congress in early 2024 calling this exactly that --- pre-positioning for disruptive effects against US CNI in a crisis. Mention that ``Volt Typhoon'' is Microsoft's naming; Mandiant tracks much of the same activity as ``Voltzite'', Dragos as ``Voltzite'' as well. Pivot into the next slide on \emph{how} they stay hidden.
+}
+\end{frame}
+
+\begin{frame}{Volt Typhoon -- Living off the Land}
+\centering
+\begin{tikzpicture}[node distance=4mm, every node/.style={font=\scriptsize}]
+  \node[isbox, fill=isAttack!12, draw=isAttack, minimum width=30mm] (edge) {SOHO router / VPN\\edge device (Fortinet, Cisco)};
+  \node[isbox, fill=isAttack!12, draw=isAttack, right=8mm of edge, minimum width=28mm] (lol) {LOLBins: \texttt{wmic},\\\texttt{ntdsutil}, PowerShell};
+  \node[isbox, fill=isAttack!12, draw=isAttack, right=of lol, minimum width=24mm] (cred) {NTDS.dit dump,\\Kerberoasting};
+  \node[isbox, fill=isAttack!12, draw=isAttack, below=of lol, minimum width=28mm] (rdp) {RDP / SMB to OT\\jump hosts};
+  \node[isbox, fill=isAttack!12, draw=isAttack, right=of rdp, minimum width=24mm] (recon) {Recon of HMIs,\\historians};
+  \draw[attack] (edge) -- (lol); \draw[attack] (lol) -- (cred);
+  \draw[attack] (lol) -- (rdp); \draw[attack] (rdp) -- (recon);
+\end{tikzpicture}
 \par\vspace{2mm}
-{\footnotesize No process damage, but trivially exploited at multiple water utilities. \textbf{Reminder:} never expose OT to the Internet, always change defaults.}
-\source{CISA \emph{AA23-335A}, ``IRGC-Affiliated Cyber Actors Exploit PLCs in Multiple Sectors'', 1 Dec 2023.}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Initial access:} CVEs in Internet-facing Fortinet, Ivanti, Cisco appliances; or stolen creds.
+  \item \textbf{Living off the land:} almost no custom malware -- built-in Windows tools, signed binaries, multi-hop proxying through compromised SOHO routers (the ``KV-botnet'').
+  \item \textbf{Behaviour, not signatures:} the hardest threat to detect is the one that looks like a normal admin task.
+\end{itemize}
+\source{CISA \emph{AA24-038A}, 7 Feb 2024 \textbar{} Lumen Black Lotus Labs, \emph{KV-botnet}, Dec 2023 \textbar{} Microsoft, May 2023.}
+\note{
+  ``Living off the land'' means the operator carries no malware; they use what is already on the box. That is \texttt{wmic} for remote execution, \texttt{ntdsutil} to dump the domain database, \texttt{netsh} for port-forwarding, PowerShell for everything else --- all signed Microsoft binaries that no anti-virus will block. Detection has to be \emph{behavioural}: who normally runs \texttt{ntdsutil ifm create full} at 3am? The KV-botnet detail is worth telling: Lumen Black Lotus Labs in December 2023 documented hundreds of compromised Cisco RV-series and Netgear ProSAFE SOHO routers in the US that were being used as proxy hops to obscure the actor's true origin. The FBI took the botnet down by court order in late January 2024 --- one of the few overt counter-strikes against this actor. Close the slide with the doctrinal point: anti-malware does not detect Volt Typhoon. Identity monitoring, EDR behavioural rules, and aggressive credential hygiene do. This is also why the OT/IT boundary matters --- once they have domain admin, an OT jump host with cached IT credentials is the doorway.
+}
 \end{frame}
 
 \section{Cross-Cutting Risks}
@@ -167,6 +430,9 @@ Four zero-days, two stolen code-signing certificates. Subtly destroyed an estima
   \node[font=\scriptsize, below=10mm of upd]
     {SolarWinds, 3CX, MOVEit -- and OT-relevant cases such as Codesys runtime CVEs (\emph{CoDe16}).};
 \end{tikzpicture}
+\note{
+  Use this as the bridge from named incidents to systemic risk. Three IT-world supply-chain cases are useful anchors --- SolarWinds Orion (2020, trojanised build pipeline pushed signed updates to 18\,000 organisations), 3CX (2023, a double supply-chain compromise where a trojanised X\textsubscript{TRADER} app from Trading Technologies infected a 3CX developer who in turn shipped a backdoored softphone), and MOVEit (2023, Clop's mass-exploitation of a managed-file-transfer SQL-injection bug). The OT-relevant case is \emph{CoDe16} (Microsoft / Team82 Claroty, 2022): sixteen CVEs in the CODESYS V3 runtime, which is OEM'd into PLCs from dozens of vendors --- one bug, hundreds of product lines affected. The point for the room: in OT you do not just trust your vendor, you trust the dozen upstream component vendors they trust. SBOM is not a checkbox here, it is the only way to answer ``am I affected'' inside a normal change window.
+}
 \end{frame}
 
 \begin{frame}{Insider Threat}
@@ -181,39 +447,9 @@ Four zero-days, two stolen code-signing certificates. Subtly destroyed an estima
     {Maroochy Shire (2000): ex-contractor with a stolen radio modem released sewage 46 times.};
 \end{tikzpicture}
 \source{J.\ Slay \& M.\ Miller, ``Lessons learned from the Maroochy Water breach'', \emph{Critical Infrastructure Protection}, IFIP, 2008.}
-\end{frame}
-
-\begin{frame}{INCONTROLLER / PIPEDREAM (2022)}
-\centering
-\begin{tikzpicture}[node distance=10mm]
-  \node[attacker] (atk) {APT toolkit};
-  \node[plc, fill=isAttack!15, draw=isAttack, above right=4mm and 14mm of atk, minimum width=24mm, font=\scriptsize] (s1) {Schneider};
-  \node[plc, fill=isAttack!15, draw=isAttack, right=14mm of atk, minimum width=24mm, font=\scriptsize] (om) {Omron};
-  \node[plc, fill=isAttack!15, draw=isAttack, below right=4mm and 14mm of atk, minimum width=24mm, font=\scriptsize] (o) {OPC UA};
-  \node[plc, fill=isAttack!15, draw=isAttack, right=14mm of om, minimum width=24mm, font=\scriptsize] (cdo) {CodeSys};
-  \draw[attack] (atk.east) -- (s1.west);
-  \draw[attack] (atk.east) -- (om.west);
-  \draw[attack] (atk.east) -- (o.west);
-  \draw[attack] (om.east) -- (cdo.west);
-\end{tikzpicture}
-\vspace{2mm}
-\begin{importantbox}{First multi-target ICS framework}
-PIPEDREAM is the first modular framework with pre-built modules for several vendors at once -- captured before it was used in anger.
-\end{importantbox}
-\source{CISA \emph{AA22-103A}, ``APT Cyber Tools Targeting ICS/SCADA Devices'', 13 Apr 2022 \textbar{} Dragos, \emph{PIPEDREAM/CHERNOVITE} report, 2022 \textbar{} Mandiant, \emph{INCONTROLLER}, 2022.}
-\end{frame}
-
-\begin{frame}{Volt Typhoon -- Living off the Land in OT}
-\begin{itemize}
-  \item Suspected China-linked APT, active since at least 2021.
-  \item Targets US critical infrastructure: telecoms, water, energy.
-  \item Uses \emph{built-in tools} (PowerShell, WMI, native Windows) -- minimal new malware.
-  \item Apparent goal: pre-positioning for disruptive action during conflict.
-\end{itemize}
-\begin{warnbox}
-The hardest threat to detect is the one that looks like a normal admin task. Behavioural analytics matter more than signatures.
-\end{warnbox}
-\source{CISA \mbox{\emph{AA24-038A}}, ``PRC State-Sponsored Actors Compromise and Maintain Persistent Access to U.S.\ Critical Infrastructure'', 7 Feb 2024 \textbar{} Microsoft, \emph{Volt Typhoon}, May 2023.}
+\note{
+  Maroochy Shire (Queensland, Australia, 2000) is the canonical ICS insider case and the easiest one to remember. Vitek Boden had worked for the contractor that installed the Hunter Watertech radio-controlled SCADA at 142 pumping stations; after being refused a council job he kept the company laptop and a stolen radio modem, drove around the shire, and impersonated pumping station 4. Over two months, between January and April 2000, he triggered 46 separate sewage releases into parks, waterways and a Hyatt Regency hotel grounds before being caught with the gear in his car. He was sentenced to two years. Use this to make three points: insiders bring \emph{authentic} credentials, they know the topology, and they know what is monitored. Standard perimeter controls do nothing against them. Slay \& Miller's IFIP paper is the academic write-up; the original prosecution narrative is in \emph{R v Boden} (2002) QCA 164 if a student wants the legal record.
+}
 \end{frame}
 
 \begin{frame}{Common Initial Access Vectors in ICS}
@@ -229,35 +465,54 @@ The hardest threat to detect is the one that looks like a normal admin task. Beh
   \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, text width=24mm, minimum height=12mm, align=center, inner sep=2pt] at (3,-1) {Insider with physical access};
 \end{tikzpicture}
 \source{Dragos \emph{Year in Review 2024} -- initial access vectors observed across 23 OT-targeting groups.}
+\note{
+  This is the slide to tie the case studies back into a defender's prioritisation list. Map each tile to a case the students have just seen: spearphish-corporate-IT $\rightarrow$ Ukraine 2015; compromised-vendor $\rightarrow$ NotPetya via M.E.Doc; Internet-exposed PLC $\rightarrow$ CyberAv3ngers; USB $\rightarrow$ Stuxnet; stolen/shared credentials $\rightarrow$ Colonial; vendor remote access $\rightarrow$ Volt Typhoon's edge appliances; VPN without MFA $\rightarrow$ Colonial again; insider with physical access $\rightarrow$ Maroochy. The Dragos \emph{Year in Review} is the best public data set for relative frequency --- in their 2024 numbers, exploitation of Internet-facing services and abuse of valid accounts dominate. Ask the room which of these their own organisation would catch in detection, which in prevention, and which in response. Then close: the rest of the course is the toolkit for answering that question.
+}
 \end{frame}
 
 \begin{frame}{Summary -- Section \sectionNumber}
 \begin{takeawaybox}{What to remember from this section}
-\begin{itemize}\setlength{\itemsep}{2pt}
-  \item Threat actors range from script kiddies to nation-state APTs, each with different capabilities.
+\begin{itemize}\setlength{\itemsep}{0pt}\footnotesize
+  \item Threat actors range from script kiddies to nation-state APTs, each with different capabilities and intent.
   \item MITRE ATT\&CK for ICS provides a shared vocabulary for techniques and detections.
-  \item Stuxnet $\rightarrow$ Ukraine $\rightarrow$ TRITON shows an escalating willingness to harm.
-  \item Supply chain and insider risk demand controls beyond the perimeter.
+  \item Stuxnet $\rightarrow$ Ukraine 2015 $\rightarrow$ Industroyer $\rightarrow$ TRITON $\rightarrow$ PIPEDREAM shows escalating capability and willingness to harm.
+  \item NotPetya and Colonial Pipeline show that IT/OT coupling can take OT down without any OT compromise.
+  \item Volt Typhoon shows that pre-positioning inside CNI -- not espionage -- is now an explicit objective.
+  \item Supply chain and insider risk demand controls beyond the network perimeter.
 \end{itemize}
 \end{takeawaybox}
+\note{
+  Recap by tracing the capability curve in one breath: Stuxnet (2010) was a bespoke cyber-physical weapon requiring nation-state resources; Ukraine 2015 was hands-on-keyboard SCADA operation; Industroyer (2016) was the first reusable grid framework; TRITON (2017) crossed the SIS red line; PIPEDREAM (2022) is a vendor-agnostic toolkit caught pre-deployment; CyberAv3ngers (2023) proves low-skill actors still succeed with defaults; Volt Typhoon (2023--24) shifts the goal from spying to pre-positioning. The NotPetya / Colonial pair is the orthogonal lesson: OT can be lost without being touched. End with the question this section sets up for the rest of the course: \emph{given this threat landscape, what controls actually move the needle?} That is the bridge into Sections 6 onward.
+}
 \end{frame}
 
 \referencesframe{
   \item Falliere, N., Murchu, L., Chien, E. \emph{W32.Stuxnet Dossier}, v1.4. Symantec, Feb 2011.
   \item Langner, R. \emph{To Kill a Centrifuge}, The Langner Group, Nov 2013.
-  \item Albright, D. et al. \emph{Did Stuxnet take out 1{,}000 centrifuges at Natanz?} ISIS, 22 Dec 2010.
+  \item Albright, D., Brannan, P., Walrond, C. \emph{Did Stuxnet take out 1{,}000 centrifuges at Natanz?} ISIS, 22 Dec 2010.
+  \item Zetter, K. \emph{Countdown to Zero Day: Stuxnet and the Launch of the World's First Digital Weapon.} Crown, 2014.
   \item Lee, R.M., Assante, M.J., Conway, T. \emph{Analysis of the Cyber Attack on the Ukrainian Power Grid}, SANS/E-ISAC, 18 Mar 2016.
-  \item Cherepanov, A. \emph{Win32/Industroyer}, ESET, June 2017.
-  \item Dragos. \emph{TRISIS Malware Analysis}, Dec 2017.
-  \item Mandiant/FireEye. \emph{Attackers Deploy New ICS Attack Framework ``TRITON''}, Dec 2017.
-  \item FBI. \emph{Statement on the Colonial Pipeline attack}, May 2021.
+  \item ICS-CERT. \emph{IR-ALERT-H-16-056-01: Cyber-Attack Against Ukrainian Critical Infrastructure}, 25 Feb 2016.
+  \item Cherepanov, A. \emph{Win32/Industroyer: A new threat for industrial control systems}, ESET, 12 Jun 2017.
+  \item Dragos. \emph{CRASHOVERRIDE: Analysis of the Threat to Electric Grid Operations}, 2017.
+  \item ESET and CERT-UA. \emph{Industroyer2: Industroyer reloaded}, 12 Apr 2022.
+  \item Dragos. \emph{TRISIS Malware Analysis of Safety System Targeted Malware}, Dec 2017.
+  \item Mandiant/FireEye. \emph{Attackers Deploy New ICS Attack Framework ``TRITON''}, 14 Dec 2017.
+  \item Mandiant. \emph{TRITON Attribution: Russian Government Research Institute Connected to the Attacks}, 23 Oct 2018.
+  \item U.S.\ Treasury OFAC. Press release on TsNIIKhM sanctions (TRITON), 23 Oct 2020.
+  \item CISA \emph{TA17-181A}. ``Petya Ransomware'', 1 Jul 2017.
+  \item White House. Statement attributing NotPetya to the Russian Government, 15 Feb 2018.
+  \item Greenberg, A. \emph{Sandworm: A New Era of Cyberwar and the Hunt for the Kremlin's Most Dangerous Hackers.} Doubleday, 2019.
+  \item FBI. \emph{Statement on the Colonial Pipeline attack}, 10 May 2021.
   \item GAO-22-104746. \emph{Critical Infrastructure Protection: Federal Authorities -- Colonial Pipeline Response}, 2022.
+  \item TSA. \emph{Security Directive Pipeline-2021-01}, May 2021.
   \item CISA \emph{AA22-103A}. ``APT Cyber Tools Targeting ICS/SCADA Devices'' (PIPEDREAM/INCONTROLLER), 13 Apr 2022.
   \item Mandiant. \emph{INCONTROLLER: New State-Sponsored Cyber Attack Tools}, Apr 2022.
-  \item Dragos. \emph{PIPEDREAM/CHERNOVITE}, 2022.
-  \item CISA \emph{AA23-335A}. ``IRGC-Affiliated Cyber Actors Exploit PLCs in Multiple Sectors'', 1 Dec 2023.
+  \item Dragos. \emph{PIPEDREAM/CHERNOVITE}, Apr 2022.
+  \item CISA \emph{AA23-335A}. ``IRGC-Affiliated Cyber Actors Exploiting PLCs in Multiple Sectors'', 1 Dec 2023.
   \item CISA \emph{AA24-038A}. ``PRC State-Sponsored Actors Compromise and Maintain Persistent Access to U.S.\ Critical Infrastructure'' (Volt Typhoon), 7 Feb 2024.
-  \item Microsoft Threat Intelligence. \emph{Volt Typhoon targets US critical infrastructure with living-off-the-land techniques}, May 2023.
+  \item Microsoft Threat Intelligence. \emph{Volt Typhoon targets US critical infrastructure with living-off-the-land techniques}, 24 May 2023.
+  \item Lumen Black Lotus Labs. \emph{KV-botnet: Don't call it a comeback}, Dec 2023.
   \item Slay, J., Miller, M. ``Lessons learned from the Maroochy Water breach.'' In \emph{Critical Infrastructure Protection}, IFIP, 2008.
   \item MITRE. \emph{ATT\&CK for ICS}, knowledge base, \url{https://attack.mitre.org/matrices/ics/}.
   \item Dragos. \emph{Year in Review}, annual reports.

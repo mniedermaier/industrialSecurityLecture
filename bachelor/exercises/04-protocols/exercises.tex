@@ -10,50 +10,127 @@
 \begin{document}
 \sheetheader
 
-\begin{taskbox}{Exercise 4.1 -- Decode a Modbus Frame}
-Given the Modbus TCP frame in hex:
+\noindent\textbf{Goal.}
+These scenarios put you in front of real wire formats and real plant misconfigurations.
+You should leave the sheet able to read a Modbus frame at the byte level, recognise the
+failure mode of each major industrial protocol, and choose the correct compensating
+control when the protocol itself offers none. Every answer should refer to a concrete
+mechanism on the wire or in a config file, not a generic ``apply security'' statement.
+
+\vspace{0.6em}
+
+\begin{taskbox}{Exercise 4.1 -- Decode a Modbus TCP Request}
+Capture the following 12-byte Modbus TCP request off the wire:
 \begin{center}\ttfamily
-00 01 \ 00 00 \ 00 06 \ 01 \ 03 \ 00 00 \ 00 0A
+00 01 \ 00 00 \ 00 06 \ 11 \ 03 \ 00 6B \ 00 03
 \end{center}
 \begin{enumerate}
-  \item Identify each MBAP header field and its value.
-  \item Identify the function code and its meaning.
-  \item Which register range is requested and how many?
-  \item Write the expected response if all registers contain \texttt{0x0000}.
+  \item Name every MBAP header field and give its value.
+  \item Identify the function code and state in one sentence what it does.
+  \item What is the unit identifier and which register range is being read?
+  \item Compute the expected length (in bytes) of a successful response,
+        and the value the \texttt{Length} field of that response must carry.
 \end{enumerate}
 \end{taskbox}
 
-\begin{taskbox}{Exercise 4.2 -- Lab: Sniffing and Injection}
-See \texttt{labs/lab-02-modbus}.
-\begin{enumerate}
-  \item Start an OpenPLC instance with Modbus TCP enabled.
-  \item Use \texttt{pymodbus} to poll holding registers.
-  \item Capture traffic in Wireshark and confirm your Exercise 4.1 decoding.
-  \item Without authenticating, write \texttt{0xFFFF} to coil 1 using a Python script.
-  \item Explain in 5--7 lines why this works and what mitigations exist.
-\end{enumerate}
-\begin{warnbox}
-Lab environment only. Targeting real PLCs is illegal without authorisation.
-\end{warnbox}
+\begin{taskbox}{Exercise 4.2 -- EtherNet/IP Scan Took the Line Down}
+A blue-team engineer accidentally allowed an EtherNet/IP \texttt{ListIdentity}
+scan from the IT side through the IDMZ firewall. Three minutes later the
+ControlLogix PLC at the end of the conduit stopped responding and operators
+hit the emergency stop. List the \emph{three} most plausible root causes for
+the PLC freeze and, for each, describe what you would look for in the
+Wireshark PCAP to confirm or rule it out (one to two sentences per cause).
 \end{taskbox}
 
-\begin{taskbox}{Exercise 4.3 -- OPC UA Modes}
-See \texttt{labs/lab-04-opcua}.
+\begin{taskbox}{Exercise 4.3 -- Hardening a Mosquitto Broker}
+An IIoT pilot ships with a Mosquitto broker listening on the default
+\texttt{1883/tcp} with anonymous publish and subscribe enabled. Write the
+\emph{four} lines you would add to \texttt{mosquitto.conf} to bring it to a
+minimum-acceptable security baseline. For each line, explain in one sentence
+why it matters. Assume you already have a CA, a server certificate, and a
+password file generated with \texttt{mosquitto\_passwd}.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 4.4 -- ``Use OPC UA, It Is Secure''}
+A vendor proposes OPC UA for a greenfield line and tells the project manager
+``it is secure, you do not have to worry''. List the \emph{four}
+configuration choices that decide whether an OPC UA deployment is actually
+secure or only nominally so. For each choice, name the insecure default that
+real-world deployments are repeatedly caught using.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 4.5 -- Why Modbus Has No Authentication}
+Modbus was published in 1979 and is still ubiquitous in 2026. Explain in
+three to five sentences:
 \begin{enumerate}
-  \item Install an OPC UA server (open62541 or Prosys).
-  \item Connect with UAExpert in three modes: anonymous, username/password, certificate.
-  \item Capture each handshake in Wireshark.
-  \item Write a 1-page comparison vs.\ the Modbus exercise: \emph{authentication, integrity, confidentiality, operational overhead.}
+  \item the historical reason there is no authentication, integrity, or
+        confidentiality in the protocol;
+  \item the modern compensating-control pattern that real plants use to live
+        with this gap (name the layers involved, not just ``a firewall'').
 \end{enumerate}
 \end{taskbox}
 
-\begin{taskbox}{Exercise 4.4 -- Protocol Selection}
-For each scenario, recommend a protocol and justify your choice:
+\begin{taskbox}{Exercise 4.6 -- Reading a DNP3 Trace}
+You are handed a PCAP slice from a substation. The first frame shows TCP
+port \texttt{20000}, DNP3 start bytes \texttt{05 64}, direction bit
+indicating outstation-to-master, source address \texttt{5}, destination
+\texttt{1}, application function code \texttt{0x82} (\emph{Unsolicited
+Response}) and an object header for class 1 events. Five further frames of
+the same shape follow within 50\,ms, all from address \texttt{5}.
 \begin{enumerate}
-  \item A new greenfield substation needing IEC 61850-compliant device messaging.
-  \item A retrofitted 1990s motor drive that must report runtime to a corporate dashboard.
-  \item An IIoT prototype where 200 vibration sensors stream to a cloud analytics platform.
+  \item Interpret what this traffic is in operational terms.
+  \item Identify one anomaly worth investigating and explain how you would
+        confirm whether it is benign or hostile.
 \end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 4.7 -- Profinet vs.\ Modbus: Fail-Closed?}
+On the same Ethernet segment you have a Profinet RT cyclic exchange between
+a controller and an IO device (cycle time 4\,ms) and a Modbus TCP poll
+between an HMI and a PLC (poll interval 500\,ms). A switch port flaps for
+800\,ms.
+\begin{enumerate}
+  \item Which exchange fails closed first, and why? Tie your answer to
+        the timing and the protocol's watchdog behaviour.
+  \item Give one safety implication on the plant floor.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 4.8 -- Compensating for Unauthenticated GOOSE}
+IEC 61850 GOOSE messages trip breakers in under 4\,ms and carry no
+authentication by default. List \emph{three} compensating controls you can
+deploy, ranked from \emph{lowest cost / least intrusive} to \emph{highest
+cost / most intrusive}. For each, state one drawback the protection engineer
+will raise.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 4.9 -- Spot the Bug in a Modbus Client}
+The following pseudocode polls a PLC every 100\,ms:
+\begin{center}\ttfamily
+loop forever:\\
+\ \ s = socket(); s.connect((plc, 502));\\
+\ \ s.send(read\_holding\_registers(0, 10));\\
+\ \ data = s.recv(); s.close();\\
+\ \ sleep(0.1)
+\end{center}
+\begin{enumerate}
+  \item Describe the impact on the PLC under sustained polling. Be specific
+        about the PLC-side resource that is exhausted and the symptom an
+        operator will see.
+  \item State the standard fix and why it is also recommended by the
+        Modbus Organization.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 4.10 -- Three Security Models Side by Side}
+Build a comparison table with one row per dimension and one column per
+protocol. Rows: \emph{Authentication}, \emph{Integrity},
+\emph{Confidentiality}, \emph{Key management}. Columns: \emph{OPC UA
+(\texttt{Basic256Sha256})}, \emph{MQTT over TLS}, \emph{Profinet Security
+(IEC 62443-aligned profile)}. Fill every cell with the concrete mechanism
+(e.g.\ \texttt{X.509 mutual}, \texttt{HMAC-SHA256}, \texttt{AES-GCM},
+\texttt{PKI with GDS}). Below the table, write three to four sentences on
+which model is hardest to operate at scale and why.
 \end{taskbox}
 
 \end{document}

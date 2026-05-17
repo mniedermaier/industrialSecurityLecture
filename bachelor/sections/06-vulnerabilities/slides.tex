@@ -31,6 +31,9 @@
   \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=110mm, below=14mm of {$(cisa.south)!0.5!(dragos.south)$}, font=\small] (you) {Your vulnerability programme};
   \foreach \n in {cisa,psirt,nvd,claroty,dragos}{\draw[flow] (\n.south) -- (\n.south |- you.north);}
 \end{tikzpicture}
+\note{
+  Walk the room through the feed landscape: CISA ICSA advisories are the single most useful free feed, but they trail the vendor PSIRTs by weeks. Stress that nobody can rely on one source --- Team82 (Claroty), Dragos, Nozomi Labs, and Forescout Vedere Labs all surface bugs that never make it into NVD on the day of disclosure. Make the point that a vulnerability programme is a \emph{pipeline}, not a website you visit when you remember. Ask students which of these feeds they think publishes the most ICS-specific content per year, then reveal that CISA and the vendor PSIRTs together dwarf NVD for OT relevance.
+}
 \end{frame}
 
 \begin{frame}{Anatomy of a CVE Advisory}
@@ -49,6 +52,9 @@
   \node[isbox, fill=isLight, draw=isOT, minimum width=110mm, align=left, font=\scriptsize, below=of e] (f)
     {\textbf{Timeline:} Reported 2024-11; patched 2025-02; advisory 2025-05};
 \end{tikzpicture}
+\note{
+  Walk the advisory top-to-bottom and explain each field --- the ICSA-ID encodes year and day-of-year, the affected firmware band is what the asset inventory must match against, and the CVSS vector is more informative than the headline score. Highlight the six-month gap between report and advisory --- that is normal in OT and explains why threat intel beats public feeds. Note that CWE-798 (hard-coded credentials) is the single most common root cause across PLCs in the last decade. Ask the TA to have students open a real CISA advisory on the lab laptops and read the same fields aloud --- it makes the structure stick.
+}
 \end{frame}
 
 \begin{frame}{CVSS for ICS -- Caveats}
@@ -63,6 +69,9 @@
 \par\vspace{1mm}
 {\footnotesize Base alone is misleading. ``Low Availability'' in IT may equal \emph{plant shutdown} in OT. Always combine with process consequence.}
 \source{FIRST, \emph{CVSS v3.1 Specification Document}, 2019.}
+\note{
+  Show CVSS in its honest light: a base score of 9.8 on a PLC behind a one-way data diode is a different risk from the same 9.8 on a perimeter HMI. CISA started publishing environmental guidance for ICS because of exactly this issue. Pre-empt the IT mindset that a high CVSS means immediate patching --- in OT, patching is a project, not a sprint. The third row is the one CVSS does not capture at all: a low-availability bug that drops a safety interlock is plant-stop territory, not a ticket. Ask the room: if a vendor releases a critical patch but the next maintenance window is in six months, what compensating controls would they propose?
+}
 \end{frame}
 
 \section{Asset Inventory and Scanning}
@@ -81,6 +90,9 @@
 \end{tikzpicture}
 \par\vspace{2mm}
 \footnotesize ``You can't protect what you don't know you have.'' Firmware version is required to match CVEs.
+\note{
+  Drive home that everything downstream --- CVE matching, segmentation, incident response --- collapses without an accurate inventory. The dirty secret is that most plants discover 20--40\% more devices the first time they deploy a passive tool like Claroty CTD, Nozomi Guardian, or Microsoft Defender for IoT. Stress the four-input model on the slide: engineering files for what \emph{should} be there, config backups for ground truth, passive sniffing for what is actually talking, and walk-downs for the analogue gear that never appears on the wire. Firmware version is the load-bearing field --- without it you cannot answer ``are we affected?'' for any advisory. War story to share: a plant we visited had three undocumented Modbus gateways feeding a historian; passive scan found them in an afternoon.
+}
 \end{frame}
 
 \begin{frame}{Passive vs.\ Active Scanning}
@@ -102,6 +114,9 @@
        $-$ Bench / maint.\ window};
   \draw[<->, very thick, isMute] (p) -- node[above=3pt, font=\small\bfseries, fill=white, inner sep=2pt]{combine} (a);
 \end{tikzpicture}
+\note{
+  Demolish the myth that ``passive is always safe'' --- it is mostly safe, but a misconfigured SPAN port can cause switch CPU spikes, and some passive tools do send the occasional active probe (read the manual). Tell the war story: a junior consultant ran an \texttt{nmap -sS} sweep against a live cement plant and bricked two 1990s-vintage PLCs that crashed on any unexpected TCP flag combination --- four-hour outage, vendor flew in, the consultant did not come back. The lesson is not ``never scan'' but ``never scan production without a documented bench result for that exact model.'' Tools like Tenable.ot, Forescout, and Armis advertise ``safe active'' modes but they still require vendor sign-off in regulated plants. Bridge to the next slide: even on a bench, you tune \texttt{nmap} to crawl, not sprint.
+}
 \end{frame}
 
 \begin{frame}[fragile]{Safe \texttt{nmap} Against a Test PLC}
@@ -121,6 +136,9 @@ nmap -sT -p 102,502,20000,44818,20256 \
 nmap -p 102 --script s7-info       192.168.10.10
 nmap -p 502 --script modbus-discover 192.168.10.10
 \end{lstlisting}
+\note{
+  Explain every flag: \texttt{-sT} avoids the half-open SYN scan that some legacy stacks mis-handle, \texttt{--max-rate 5} keeps the device from drowning, \texttt{--scan-delay 200ms} gives slow CPUs time to breathe, and \texttt{-Pn} skips the ICMP ping because many PLCs reply oddly. The port list covers the usual ICS suspects: 102 Siemens S7, 502 Modbus/TCP, 20000 DNP3, 44818 EtherNet/IP, 20256 PCWorx. Hammer home the comment on line one --- ``bench only.'' Even with these settings, the Nmap NSE scripts (\texttt{s7-info}, \texttt{modbus-discover}) send protocol-specific queries that can confuse some firmware versions. If a student asks ``can I try this at my internship?'', the answer is ``not without written approval and a tested rollback.''
+}
 \end{frame}
 
 \section{Vulnerability Management Workflow}
@@ -143,6 +161,9 @@ nmap -p 502 --script modbus-discover 192.168.10.10
     \draw[-{Stealth[length=2.5mm]}, isOT, thick] (n-\a) to[bend left=14] (n-\b);
   }
 \end{tikzpicture}
+\note{
+  Treat this as the spine of the rest of the lecture: every later concept (advisories, scanning, patching) plugs into one of the six wedges. The two wedges students under-estimate are \emph{Document} and \emph{Re-assess after change} --- both are where audits live or die. The triage wedge is where CVSS environmental modifiers actually get applied; pair it back to the earlier slide. Mention that NIST SP 800-82 Rev.\ 3 (2023) formalises this loop and explicitly tells you not to skip re-assessment after a firmware update. Ask the room: which wedge do they think breaks first in a small plant with no dedicated security staff? --- the usual answer is \emph{match}, because nobody keeps the asset inventory current.
+}
 \end{frame}
 
 \begin{frame}{Vendor Disclosure Practices}
@@ -156,6 +177,9 @@ nmap -p 502 --script modbus-discover 192.168.10.10
 \begin{notebox}{Why ICS lags}
 Vendor patch cycles average \textbf{90--180 days}; many critical CVEs are released without code. Always check the security advisory page weekly, not the homepage.
 \end{notebox}
+\note{
+  Coordinated disclosure is the gold standard: researcher reports privately, vendor patches, advisory drops together --- this is how Siemens ProductCERT and Rockwell PSIRT operate. Bug bounties are still rare in OT but Schneider Electric and ABB have programmes worth knowing about. The ugly category is silent fix --- a vendor patches a bug in a firmware changelog entry that reads ``stability improvements''; this happens more than the industry admits. War story: a major drive vendor took 18 months between researcher report and shipping firmware for a critical RCE, because every customer in three regulated industries needed to schedule a maintenance window. Tell students to bookmark the security advisory subpages of the vendors they actually use, and to set RSS or email alerts --- the homepage will never tell them.
+}
 \end{frame}
 
 \begin{frame}{Common ICS Weakness Patterns}
@@ -171,6 +195,9 @@ Vendor patch cycles average \textbf{90--180 days}; many critical CVEs are releas
 Once you have read 50 ICS advisories you will start to recognise the same weaknesses across vendors.
 \end{tipbox}
 \source{MITRE, \emph{Common Weakness Enumeration} (CWE), \url{https://cwe.mitre.org}.}
+\note{
+  These six CWEs cover the majority of ICS advisories from the last five years --- Claroty's Team82 half-yearly reports back this up. Hard-coded credentials (CWE-798) are the embarrassment that keeps repeating because of debug accounts left in shipping firmware. The protocol-parser bugs (CWE-787) are the dangerous ones --- a single malformed Modbus or EtherNet/IP packet crashing the stack means anyone on the cell network can DoS a controller. Push back on the ``we have antivirus'' reflex: antivirus on the engineering workstation does nothing for a buffer overflow in the PLC's TCP stack itself, because the PLC has no agent and no patch until the vendor ships firmware. Encourage students to read raw advisories in the lab --- pattern recognition is the only way to triage 50 new CVEs a week.
+}
 \end{frame}
 
 \begin{frame}{Honeypots and Deception}
@@ -186,6 +213,9 @@ Once you have read 50 ICS advisories you will start to recognise the same weakne
 \begin{notebox}{Examples}
 \texttt{conpot} (open-source), GasPot, Cymmetria; sector-tailored ICS honeypots from MITRE Caldera and Dragos.
 \end{notebox}
+\note{
+  Honeypots in OT are useful as an \emph{intelligence} tool, not a defence: any traffic hitting a fake Honey-PLC inside the cell network is by definition unwanted and worth alerting on. The catch is realism --- \texttt{conpot} fools casual Shodan crawlers but not a targeted attacker who tries to read a real-looking ladder programme. Stress the alert pipeline at the bottom of the diagram: without immediate routing into the SOC, a honeypot is just a logfile nobody reads. Real-world note: a sector-CERT in Europe runs a federated honeypot grid that has caught early stages of ransomware-affiliate scanning weeks before any victim went public. Briefly mention deception platforms like Acalvio and Illusive that go beyond a single fake host.
+}
 \end{frame}
 
 \begin{frame}{Asset Criticality Classification}
@@ -200,6 +230,9 @@ Once you have read 50 ICS advisories you will start to recognise the same weakne
 \begin{notebox}{Drives priority}
 The classification determines patch SLA, monitoring depth, and acceptable downtime.
 \end{notebox}
+\note{
+  Classification is the lever that turns an asset inventory into a risk-managed programme --- without it, every CVE looks equally urgent and the team burns out. Walk through the four tiers and note that SIS (safety instrumented systems) live in their own world: any change requires functional-safety re-validation under IEC 61511, often months of work. Stress that the boundary between High and Critical is where most plant arguments happen --- operators want to call everything critical, security wants tighter scope. The classification also feeds the patch cadence table on the next slide: critical assets get the longest lead time, not the shortest, because the safety re-validation cost dominates. Encourage TAs to ask students which tier they would put a wireless field gateway in --- the answer depends entirely on what it controls.
+}
 \end{frame}
 
 \begin{frame}{Patching Cadence -- IT vs OT}
@@ -221,6 +254,9 @@ Rollback plan       & Standard              & Mandatory + tested \\
 \begin{importantbox}{Compensating controls}
 When you cannot patch quickly, deploy a virtual patch (IPS rule) or tighten the firewall around the affected service.
 \end{importantbox}
+\note{
+  The right-hand column is the single biggest culture shock for students coming from IT. Patch Tuesday does not exist in OT --- a ``critical'' patch may take 30 to 90 days simply because the vendor requires regression testing on the customer's exact firmware band before authorising deployment. The mandatory rollback row is not optional: if a patched controller refuses to come back up, a half-staffed Sunday night shift cannot improvise. War story to land: a refinery sat on a critical EtherNet/IP CVE for 18 months because the annual turnaround was the only opportunity to take the affected cell offline --- they bridged the gap with a Tofino IPS rule that dropped the malformed packet upstream. That virtual patch was the only thing standing between them and CVE exposure for a year and a half.
+}
 \end{frame}
 
 \begin{frame}{Summary -- Section \sectionNumber}
@@ -232,6 +268,9 @@ When you cannot patch quickly, deploy a virtual patch (IPS rule) or tighten the 
   \item Active scans only on test benches; passive sniffing is the production-safe default.
 \end{itemize}
 \end{takeawaybox}
+\note{
+  Recap the four pillars: feeds, inventory, environmental scoring, and scanning hygiene --- if students forget everything else, these four keep them from making the worst mistakes. Re-emphasise that the OT vulnerability programme is measured in months and years, not hours and days, and that compensating controls are a first-class deliverable, not a failure mode. Tease the next section: with vulnerabilities catalogued and prioritised, the natural next question is how attackers chain them into incidents --- which is the threat-modelling and attack-path material. Optional closing question for the room: ``Name one thing you will do differently when you read your next CVE advisory.'' Their answers tell the TA whether the environmental-modifier message landed.
+}
 \end{frame}
 
 \referencesframe{

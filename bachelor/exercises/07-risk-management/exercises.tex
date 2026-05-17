@@ -10,56 +10,192 @@
 \begin{document}
 \sheetheader
 
-\begin{taskbox}{Exercise 7.1 -- Build a Risk Matrix}
-For a fictional gas compressor station:
+\noindent\textbf{Goal.} Practise the risk-management toolkit from Section~07 on small but
+realistic OT scenarios. Each task is deliberately scoped so that a single
+student can answer it in 3--10 sentences (or one small diagram / table).
+Use real frameworks where named: IEC~61511, IEC~61882 (HAZOP),
+ISA~TR84.00.09, NIST~SP~800-30~R1, AIChE/CCPS LOPA, INL CCE
+(Bochman \& Freeman), and FAIR (Jones \& Freund). Cite figures honestly --
+``I~estimated'' is fine, ``the vendor told me'' must say so.
+
+\vspace{0.6em}
+
+\begin{taskbox}{Exercise 7.1 -- Build a 5$\times$5 Risk Matrix (Water-Treatment Plant)}
+You are the security engineer at a small municipal water-treatment plant
+(50{,}000 residents served, one chlorine dosing skid, one SCADA HMI,
+two remote pumping stations on cellular routers).
 \begin{enumerate}
-  \item Define five-point likelihood and consequence scales tailored to a midstream gas operator.
-  \item Brainstorm ten cyber risks and place each in the matrix.
-  \item Highlight the top three risks. Propose at least one mitigation per risk.
+  \item Sketch a 5$\times$5 risk matrix with axes \emph{Likelihood}
+        (Very Unlikely $\to$ Very Likely) and \emph{Consequence}
+        (Negligible $\to$ Catastrophic). Use a green / yellow / orange / red
+        colour band of your choice and write down the policy rule
+        (which cells are which colour).
+  \item Place the following five risks on the matrix and justify the colour
+        assignment for each in 1--2 sentences:
+        (a)~ransomware on the historian VM,
+        (b)~spoofed Modbus write to the chlorine dosing setpoint,
+        (c)~stolen maintenance laptop with cached HMI password,
+        (d)~loss of cellular link to the south pumping station for 30~min,
+        (e)~vendor remote-support session left open over the weekend.
 \end{enumerate}
+Reference: NIST~SP~800-30~R1, App.~I (likelihood / impact scales);
+IEC~62443-3-2 zones \& conduits for the consequence side.
 \end{taskbox}
 
-\begin{taskbox}{Exercise 7.2 -- Cyber-HAZOP Mini-Workshop}
-The instructor provides a P\&ID node (e.g.\ a heat exchanger). In groups of four:
+\begin{taskbox}{Exercise 7.2 -- Bow-Tie: Unauthorised Setpoint Modification}
+Top event: \emph{``unauthorised modification of the chlorine residual setpoint
+on the dosing PLC''} (the value that decides how much chlorine is injected).
 \begin{enumerate}
-  \item Apply HAZOP guide words (No, More, Less, Reverse, As well as, Part of, Other than).
-  \item For each meaningful deviation, brainstorm a plausible \emph{cyber} cause.
-  \item Identify existing safeguards and gaps.
-  \item Document findings in a HAZOP worksheet (one row per guide-word $\times$ parameter combination).
+  \item List \textbf{three plausible causes} on the left side of the bow-tie
+        (mix at least one cyber and one human-error cause).
+  \item List \textbf{three consequences} on the right side, covering
+        \emph{at least two} of the OT dimensions (safety, environment,
+        production, reputation, regulatory).
+  \item Place \textbf{two preventive barriers} on the left and
+        \textbf{two mitigating barriers} on the right. For each barrier, name
+        whether it is procedural, technical, or physical.
 \end{enumerate}
+A hand sketch (photo / scan) is acceptable; do not over-engineer the diagram.
 \end{taskbox}
 
-\begin{taskbox}{Exercise 7.3 -- CCE Mini-Exercise}
-For the water-treatment plant from Section 03:
+\begin{taskbox}{Exercise 7.3 -- Cyber-HAZOP on Pump P-101}
+Process node: pump \texttt{P-101} feeds reactor \texttt{R-201} with cooling
+water. Flow setpoint is written by the BPCS over Modbus/TCP; an alarm is
+configured at $\pm 20\%$ deviation; no SIS is installed on this loop.
+Walk the five core HAZOP guide words from a \emph{cyber} perspective:
 \begin{enumerate}
-  \item List the top three ``worst-day'' consequences (think public health, environmental release, downstream impact).
-  \item For each, identify the minimum set of assets that must fail simultaneously to realise it.
-  \item Propose one \emph{engineering} change (not an IT control) that eliminates or radically reduces one of those consequences.
+  \item \textbf{No}~flow -- name one cyber-induced cause and the consequence.
+  \item \textbf{More}~flow.
+  \item \textbf{Less}~flow.
+  \item \textbf{Reverse}~flow.
+  \item \textbf{As well as} (an unintended additional substance / signal).
 \end{enumerate}
+For each, write one sentence on the cyber cause and one sentence on the
+consequence to \texttt{R-201}. Cite IEC~61882:2016 for the guide-word set
+and ISA~TR84.00.09:2017 for the cyber adaptation.
 \end{taskbox}
 
-\begin{taskbox}{Exercise 7.4 -- Risk Response Choice}
-For each, choose Avoid / Mitigate / Transfer / Accept and justify:
+\begin{taskbox}{Exercise 7.4 -- LOPA Calculation}
+Hazard scenario: \emph{runaway exotherm in reactor \texttt{R-201} caused by
+loss of cooling-water flow}. Initiating-event frequency
+$f_i = 0.1/\text{year}$ (one failure of \texttt{P-101} expected every
+ten years, taken from the maintenance log).
 \begin{enumerate}
-  \item Legacy fax line into the order-entry system used by two customers per year.
-  \item OPC Classic (DCOM) link from L3 to L4, behind two firewalls.
-  \item Vendor remote-support tunnel using vendor-managed accounts.
-  \item Internet-exposed HMI used by a single offshore operator.
+  \item Decide which of the following layers you would credit as
+        \emph{independent protection layers (IPLs)} per CCPS LOPA, and assign
+        a realistic PFD to each:
+        BPCS flow-control loop, high-temperature alarm with operator
+        response, SIS SIL-2 trip, mechanical pressure relief valve.
+  \item Compute the residual (mitigated) frequency
+        $f_\text{mit} = f_i \cdot \prod \text{PFD}_k$.
+  \item State one assumption that, if wrong, invalidates the result
+        (think \emph{independence}).
 \end{enumerate}
+PFD ranges to use: BPCS loop $\approx 10^{-1}$, alarm + operator
+$\approx 10^{-1}$, SIS SIL-2 $\approx 10^{-2}$ (SIL-3 $\approx 10^{-3}$),
+PSV $\approx 10^{-2}$ (CCPS, AIChE, 2001).
 \end{taskbox}
 
-\begin{taskbox}{Exercise 7.5 -- FAIR for the Board}
-Translate one risk from your matrix in Exercise 7.1 into a FAIR sketch:
+\begin{taskbox}{Exercise 7.5 -- CCE Step 1: Consequence Prioritisation}
+You are the new plant manager of a mid-sized speciality-chemicals site
+(batch reactors, two storage tanks of a toxic intermediate, one rail-loading
+spur, $\sim$~400~staff). Following INL's Consequence-Driven Cyber-Informed
+Engineering (CCE) methodology, perform \emph{Phase~1} only.
+\begin{enumerate}
+  \item Name the \textbf{top three} ``unacceptable'' outcomes the business
+        cannot survive (think existential, not annoying).
+  \item Rank them \textbf{1, 2, 3} and explain the ranking rationale in 2--3
+        sentences (criteria: loss of life, regulatory licence to operate,
+        irreversible environmental damage, weeks of lost production, etc.).
+  \item Note which CCE \emph{Phase} comes next and what it produces.
+\end{enumerate}
+Reference: A.~Bochman \& S.~Freeman, \emph{Countering Cyber Sabotage},
+INL/CRC Press, 2021.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 7.6 -- Risk Response: When Each Choice Is Wrong}
+For each of the four ISO~31000:2018 risk responses, give:
 \begin{itemize}
-  \item Estimate loss-event frequency (low / most likely / high, per year).
-  \item Estimate loss magnitude (low / most likely / high, in EUR).
-  \item Compute a rough Annualised Loss Expectancy range.
-  \item Write a 3-sentence summary for the board that includes the ALE and the residual risk after one investment.
+  \item one concrete OT example where the response is the
+        \emph{right} choice, and
+  \item one situation where the same response would be the
+        \emph{wrong} choice (and what should be done instead).
 \end{itemize}
+The four responses: \textbf{Transfer}, \textbf{Accept}, \textbf{Mitigate},
+\textbf{Avoid}. Keep each bullet to 1--2 sentences; the trap is treating
+``Accept'' as a default or ``Transfer'' as risk reduction.
 \end{taskbox}
 
-\begin{taskbox}{Exercise 7.6 -- Insurance Baseline}
-Pick a cyber-insurance carrier and find the minimum control baseline they publish (MFA, EDR, backups, etc.). For each control on the list, mark whether a typical mid-sized water utility meets it. Identify the three biggest gaps and propose a closing roadmap.
+\begin{taskbox}{Exercise 7.7 -- Cyber Insurance and the War Exclusion}
+Read a short summary of \emph{Merck \& Co.\ v.\ Ace American Insurance Co.}
+(Superior Court of New Jersey, Appellate Division, 2022) -- the case
+arose from the 2017 NotPetya wiper that caused USD~1.4~bn of damage at Merck.
+\begin{enumerate}
+  \item In your own words (2--3 sentences) summarise why the insurer
+        invoked the ``hostile or warlike action'' exclusion, and why
+        the court held that the exclusion did \emph{not} apply.
+  \item State two practical consequences for an OT operator buying
+        cyber insurance in 2026 (think: policy wording, sub-limits,
+        attribution clauses).
+  \item Why is ``insurance'' \emph{not} a substitute for mitigation when
+        the consequence dimension is safety?
+\end{enumerate}
+Reference: Merck v.\ Ace American, A-1879-21, NJ App.\ Div., 2022.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 7.8 -- Quantitative FAIR Estimate}
+Scenario: ransomware encrypts the plant historian (Wonderware / AVEVA),
+forcing the operations team to fall back to paper logs for several days
+while the VM is rebuilt from offline backup. No production stop, but
+regulatory reporting is delayed and a third-party forensic team is engaged.
+Compute a FAIR-style \emph{loss exposure} (per Jones \& Freund, 2014):
+\begin{enumerate}
+  \item Estimate the \textbf{Threat Event Frequency (TEF)} per year
+        (how often does a ransomware actor reach the historian VM?).
+  \item Estimate the \textbf{Vulnerability} (probability that the action
+        succeeds given current controls -- EDR, segmentation, backups).
+  \item Estimate \textbf{Loss Magnitude (LM)} in EUR -- primary
+        (response, recovery, lost productivity) plus secondary
+        (regulatory, reputational).
+  \item Compute
+        $\text{Loss Exposure} = \text{TEF} \times \text{Vuln} \times \text{LM}$
+        and show the arithmetic. State the single biggest source of
+        uncertainty in your estimate.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 7.9 -- Risk Register Row}
+Write \textbf{one complete row} of a risk register for a real risk in the
+university lab (or the sample plant used in your project group). Use the
+following columns and fill every cell:
+\begin{itemize}
+  \item \textbf{ID} (e.g.\ \texttt{R-OT-014})
+  \item \textbf{Description} (1 sentence; threat $\to$ vulnerability $\to$ impact)
+  \item \textbf{Likelihood} (qualitative, 5-point) and \textbf{Consequence}
+        (qualitative, 5-point) with a one-line rationale
+  \item \textbf{Owner} (named role, not ``IT'')
+  \item \textbf{Treatment} (avoid / mitigate / transfer / accept + control)
+  \item \textbf{Residual rating} after treatment
+  \item \textbf{Review date} (a real date in 2026 or 2027)
+\end{itemize}
+Format as a small table or a labelled list. Avoid pseudo-precision
+(no ``risk score 7.42''); see Exercise~7.10.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 7.10 -- Spot the False Precision}
+A vendor demo tool reports a \textbf{``risk score of 8.42 / 10''} for one of
+your PLCs and offers to ``reduce it to 4.10'' if you buy their hardening
+package.
+\begin{enumerate}
+  \item Name three things that are methodologically wrong with a
+        two-decimal score on a 10-point qualitative scale.
+  \item List four questions you would ask the vendor before quoting
+        that number to your management (think: input data, weighting,
+        independence of factors, calibration).
+  \item Suggest one defensible alternative the vendor could offer instead
+        (hint: NIST~SP~800-30 semi-quantitative bands, or a FAIR range
+        with a stated confidence interval).
+\end{enumerate}
 \end{taskbox}
 
 \end{document}

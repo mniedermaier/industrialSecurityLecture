@@ -11,77 +11,87 @@
 \sheetheader
 
 \section*{Goal of this sheet}
-Practise placing systems in the IT/OT spectrum, articulating why industrial security is a distinct discipline, and exploring one historical incident in depth.
+These exercises ask you to \emph{reason} about real plants, real incidents, and real trade-offs --- not to recite definitions. Work through them in your tutorial group; most answers fit in 3--10 sentences or a short paragraph plus a small list.
 
-\begin{taskbox}{Exercise 1.1 -- Identify the System}
-For each scenario, decide whether the system is primarily \textbf{IT}, \textbf{OT}, or a \textbf{hybrid (IIoT)}. Justify your answer in 2--3 sentences each.
+\begin{taskbox}{Exercise 1.1 -- Classify the System}
+For each of the following systems, decide whether it is primarily \textbf{IT}, \textbf{OT}, or \textbf{hybrid (IIoT)}. Justify your choice in 2--3 sentences, and name the criterion (real-time behaviour, coupling to a physical process, lifecycle, failure mode) that swung your decision.
 \begin{enumerate}
-  \item A SQL database storing customer billing records.
-  \item A wind-turbine pitch controller that streams telemetry over MQTT to a cloud broker.
-  \item A traffic-light controller at a busy intersection.
-  \item A workstation running engineering software used to program PLCs.
-  \item A vibration sensor on a pump that publishes to a corporate Kafka topic.
+  \item A SQL database in the corporate datacentre holding 12 months of customer billing records.
+  \item A wind-turbine pitch controller that streams 50\,Hz telemetry to an AWS MQTT broker.
+  \item An engineering workstation running TIA Portal, used twice a year to download new logic to a Siemens S7-1500.
+  \item A vibration sensor on a centrifugal pump that publishes to a corporate Kafka topic feeding a predictive-maintenance model.
+  \item A modern hospital infusion pump that adjusts dosing based on a barcode-driven medication record and a wireless drug library.
 \end{enumerate}
 \end{taskbox}
 
-\begin{taskbox}{Exercise 1.2 -- CIA Re-ordered}
-The OT priority order is often written as $A \succ I \succ C$ rather than $C \succ I \succ A$.
+\begin{taskbox}{Exercise 1.2 -- CIA Re-ordered, Concretely}
+The standard IT priority is $C \succ I \succ A$; in OT it is usually written $A \succ I \succ C$.
 \begin{enumerate}
-  \item Give a concrete plant scenario where putting confidentiality first would harm safety.
-  \item Give a scenario where strong confidentiality is nonetheless important in OT (think trade secrets, recipes, formulations).
-  \item Sketch a short policy statement (3--5 lines) that an asset owner could put in writing to make the priority explicit to all parties.
+  \item Give \emph{one} concrete plant scenario where strict enforcement of \textbf{confidentiality} would directly harm \textbf{safety or availability}. Name the system, the control, and the failure mode.
+  \item Give \emph{one} concrete OT scenario where confidentiality is nonetheless first-class (e.g.\ trade secret, formulation, dispatch curve).
+  \item In 4--5 lines, draft a policy sentence an asset owner could put in a plant security charter that makes the OT priority order explicit \emph{and} non-trivial (i.e.\ not just ``availability matters most'').
 \end{enumerate}
 \end{taskbox}
 
-\begin{taskbox}{Exercise 1.3 -- Group Discussion}
-In groups of four:
-\begin{enumerate}
-  \item Pick one critical-infrastructure sector (electricity, water, transport, food, healthcare).
-  \item List five physical processes within it that depend on digital control.
-  \item For each process, name the worst-case outcome of an availability incident.
-  \item Prepare a 3-minute pitch summarising your top concern.
-\end{enumerate}
+\begin{taskbox}{Exercise 1.3 -- ``Just Install Antivirus on the PLC''}
+A new IT auditor visits your brewery and writes the following finding: \emph{``Critical PLCs on the bottling line have no endpoint protection. Install Microsoft Defender or equivalent on every PLC within 30 days.''} You are the OT security engineer who has to reply.
 
-\begin{hintbox}
-Useful starting points: pumps and SCADA in water utilities, breakers and protection relays in substations, signalling in rail, sterilisation cycles in pharma.
-\end{hintbox}
+In 4--6 sentences, explain to the auditor why this finding is technically wrong \emph{and} propose two compensating controls that achieve the underlying intent (catching malicious code on the bottling line). Be specific --- name the type of device, the kind of control, and where in the network it sits.
 \end{taskbox}
 
-\begin{taskbox}{Exercise 1.4 -- Research Mini-Project}
-Pick one historical incident and write a 1-page summary (about 400 words):
-\begin{itemize}
-  \item Maroochy Shire sewage (2000)
-  \item Stuxnet (2010)
-  \item Ukraine power grid -- BlackEnergy/Industroyer (2015 \& 2016)
-  \item TRITON / TRISIS (2017)
-  \item Norsk Hydro ransomware (2019)
-  \item Colonial Pipeline (2021)
-  \item Oldsmar water treatment (2021)
-  \item CyberAv3ngers / Unitronics (2023)
-\end{itemize}
-Your summary must cover: \emph{attacker, target, initial vector, technical steps, physical impact, defensive lessons.}
-Cite at least two sources (CISA advisory, vendor post-mortem, peer-reviewed paper).
-
-\begin{warnbox}
-Do not interact with or scan any real infrastructure. Use only published material.
-\end{warnbox}
-\end{taskbox}
-
-\begin{taskbox}{Exercise 1.5 -- Cost of an Incident}
-For one of the four cost case studies in the slides (Colonial Pipeline, Norsk Hydro, Maersk/NotPetya, Stuxnet), find two public sources and reconstruct:
+\begin{taskbox}{Exercise 1.4 -- Read an Advisory: AA22-103A}
+Open the joint CISA / NSA / FBI / DOE advisory \textbf{AA22-103A} (``APT Cyber Tools Targeting ICS/SCADA Devices'', 13 April 2022).
 \begin{enumerate}
-  \item The headline financial figure -- what is included (ransom, recovery, business interruption)?
-  \item One indirect cost often missed (regulatory fines, customer churn, insurance premium increase).
-  \item One non-financial cost (reputation, employee morale, safety culture).
+  \item List the three ICS device families that the advisory names as targeted by the custom toolset.
+  \item Name the safety-system vendor and the family whose workstation is specifically called out (hint: a separate but companion vulnerability).
+  \item In two sentences, explain why this advisory was unusual at the time of publication (think about what was disclosed versus what is normally disclosed).
 \end{enumerate}
 \end{taskbox}
 
-\begin{taskbox}{Exercise 1.6 -- Industry 4.0 Risk Tour}
-For your institution (or a fictional plant) list three Industry 4.0 / IIoT integrations on the roadmap (cloud analytics, digital twin, edge AI, mobile workforce). For each:
-\begin{itemize}
-  \item Identify one new attack vector it introduces.
-  \item Propose one compensating control.
-\end{itemize}
+\begin{taskbox}{Exercise 1.5 -- Brewery CISO: 30 Minutes In}
+You are the brand-new CISO at a mid-size German brewery (annual revenue $\approx$\,\texteuro 180\,M). On day one, the plant manager tells you the SCADA HMI in the brewhouse has been ``acting funny'' for two days: occasional black screens, one spurious tank-level reading, and a CIP (clean-in-place) cycle that started on its own at 03:47 last night.
+
+In 6--8 sentences:
+\begin{enumerate}
+  \item State the first three concrete actions you take in the next 30 minutes, in order, and the reason for each.
+  \item Identify one action you would explicitly \emph{not} take, and explain why doing it would make the situation worse.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 1.6 -- Compensating Controls Under Constraint}
+A plant manager refuses to allow a firmware patch on a 2008-vintage Schneider Modicon Quantum PLC controlling a primary clarifier at a wastewater plant. Reasons given: (i) no maintenance window for the next 14 months, (ii) the vendor will not certify the patched firmware against the existing safety case, (iii) the plant is under a consent decree that penalises any unplanned downtime.
+
+Write a one-paragraph proposal (6--8 sentences) of \textbf{three layered compensating controls} that reduce the risk of the unpatched CVE being exploited from the corporate network. For each control, name a concrete technology or product category (not a brand), where it sits in the Purdue model, and which threat actor tier it raises the bar against.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 1.7 -- Compare Two Incidents}
+Pick \textbf{Maroochy Shire (2000)} and \textbf{Colonial Pipeline (2021)}.
+
+In a short table or bullet list, compare them on five dimensions: \emph{(a)} attacker profile and motive, \emph{(b)} initial access vector, \emph{(c)} where the harm landed (IT, OT, or the physical process), \emph{(d)} whether the OT environment was directly attacked, and \emph{(e)} the single most important defensive lesson the case carries for a present-day operator. Cite at least one primary source per incident (e.g.\ Queensland Parliament report, CISA advisory, US Senate hearing transcript).
+\end{taskbox}
+
+\begin{taskbox}{Exercise 1.8 -- Spot the Misconception}
+For each of the following statements, name the misconception, then refute it in 2--3 sentences with one concrete piece of evidence (incident, advisory, or technical fact). \emph{Do not just say ``this is wrong'' --- name what the speaker is missing.}
+\begin{enumerate}
+  \item ``Our plant is air-gapped, so we don't need network monitoring.''
+  \item ``We've never had an incident, so our controls are working.''
+  \item ``We're using Modbus over a private serial loop. Nobody knows that protocol.''
+  \item ``We're ISO 27001 certified. We're secure.''
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 1.9 -- You Inherit an Undocumented Plant}
+You start as the OT security lead at a 30-year-old chemical plant. There is no asset inventory, no network diagram, no patch register, and the previous engineer left without a handover. The plant manager gives you exactly one hour with her on day one.
+
+List the \textbf{first five questions} you will ask --- in priority order --- and for each one explain in one sentence why the answer changes what you do next. Aim for questions whose answer steers a major investment decision, not questions whose answer is a single number.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 1.10 -- Cost Reasoning: NotPetya at Maersk}
+The June 2017 NotPetya outbreak cost A.P.\ M{\o}ller--Maersk a publicly disclosed US\$\,250--300\,M (Q2 2017 interim report). The initial malicious payload was a backdoored update to M.E.Doc, a Ukrainian tax-accounting package used by one Maersk subsidiary.
+\begin{enumerate}
+  \item In 3--4 sentences, explain how a single compromised tax-software update in Kyiv ended up shutting down container terminals in Rotterdam, Los Angeles, and Mumbai. Identify the two architectural properties that made the blast radius so large.
+  \item Estimate (with one sentence of reasoning) the ratio of \emph{direct ransom cost} to \emph{total disclosed loss} in this case, and contrast it with Colonial Pipeline 2021. What does that ratio tell a board about where to spend the next security euro?
+\end{enumerate}
 \end{taskbox}
 
 \end{document}
