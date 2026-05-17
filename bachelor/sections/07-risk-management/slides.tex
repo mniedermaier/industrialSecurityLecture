@@ -95,6 +95,7 @@ Likelihood depends on adversary capability \emph{and} exploit difficulty.
     (ex)
     {\emph{Examples:} no flow $\to$ attacker closes inlet valve; high pressure $\to$ attacker disables relief actuator.};
 \end{tikzpicture}
+\source{IEC 61882:2016 (HAZOP) \textbar{} ISA TR84.00.09 (Cybersecurity for SIS).}
 \end{frame}
 
 \begin{frame}{Layers of Protection (LOPA)}
@@ -117,9 +118,9 @@ Likelihood depends on adversary capability \emph{and} exploit difficulty.
 \end{frame}
 
 \begin{frame}{Consequence-Driven Cyber-Informed Engineering (CCE)}
-\vspace{-3mm}
+\vspace{-4mm}
 \centering
-\begin{tikzpicture}[scale=0.7, transform shape]
+\begin{tikzpicture}[scale=0.62, transform shape]
   \def\R{1.4}
   \draw[thick] (0,0) circle (\R);
   \node[font=\bfseries\small] at (0,0) {CCE};
@@ -136,6 +137,7 @@ Likelihood depends on adversary capability \emph{and} exploit difficulty.
 \begin{notebox}{INL methodology}
 ``What would I do if I were the adversary?'' \ Engineer out the worst consequences.
 \end{notebox}
+\source{A.\ Bochman, S.\ Freeman, \emph{Countering Cyber Sabotage}, INL/CRC Press, 2021.}
 \end{frame}
 
 \begin{frame}{Risk Response Options}
@@ -164,6 +166,7 @@ But it must be reviewed periodically -- threats evolve.
 \begin{notebox}{When FAIR earns its keep}
 When the board asks ``how much does this risk actually cost us?'' -- and a heat-map is no longer enough.
 \end{notebox}
+\source{The Open Group, \emph{Risk Analysis (O-RA) Standard} (FAIR), C20A:2021 \textbar{} J.\ Jones \& J.\ Freund, \emph{Measuring and Managing Information Risk}, 2014.}
 \end{frame}
 
 \begin{frame}{LOPA -- Independent Protection Layers}
@@ -184,6 +187,7 @@ When the board asks ``how much does this risk actually cost us?'' -- and a heat-
 \begin{notebox}{Independence is the value}
 Each layer must be \emph{independent of the next} -- otherwise one common-cause failure removes them all.
 \end{notebox}
+\source{CCPS, \emph{Layer of Protection Analysis: Simplified Process Risk Assessment}, AIChE, 2001.}
 \end{frame}
 
 \begin{frame}{Bow-Tie Example -- Loss of Containment}
@@ -234,21 +238,15 @@ Insurance is a backstop, not a control. Premiums rise sharply if your baseline i
 \end{frame}
 
 \begin{frame}{Risk Register Example}
-\centering
-\renewcommand{\arraystretch}{1.15}
-\scriptsize
-\begin{tabular}{|p{2.0cm}|p{1.0cm}|p{1.2cm}|p{0.6cm}|p{3.8cm}|}
-\hline
-\rowcolor{slidePanel}
-\textbf{Risk} & \textbf{L} & \textbf{Impact} & \textbf{Sc.} & \textbf{Mitigation} \\
-\hline
-Ransom.\ Hist.   & Likely    & Major        & H & Immutable backups, EDR \\
-SIS reprogram    & Unlikely  & Catastr.\    & H & Key-switch + signed dl \\
-Vendor abuse     & Possible  & Major        & H & MFA brokered access \\
-USB malware      & Likely    & Moderate     & M & USB block, allow-listing \\
-PLC firmware CVE & Possible  & Major        & M & Vendor patch / IPS rule \\
-\hline
-\end{tabular}
+\footnotesize
+\setlength{\itemsep}{2pt}
+\begin{itemize}
+  \item \textbf{Ransomware on Historian} -- Likely / Major / \textcolor{calImportant}{\bfseries H}: immutable backups, EDR.
+  \item \textbf{SIS reprogrammed by attacker} -- Unlikely / Catastrophic / \textcolor{calImportant}{\bfseries H}: key-switch + signed downloads.
+  \item \textbf{Vendor account abuse} -- Possible / Major / \textcolor{calImportant}{\bfseries H}: MFA, brokered remote access, session recording.
+  \item \textbf{USB-borne malware} -- Likely / Moderate / \textcolor{calWarning}{\bfseries M}: USB allow-listing, kiosk scanner.
+  \item \textbf{PLC firmware CVE} -- Possible / Major / \textcolor{calWarning}{\bfseries M}: vendor patch in maintenance window; virtual patch on IPS meanwhile.
+\end{itemize}
 \end{frame}
 
 \begin{frame}{Summary -- Section \sectionNumber}

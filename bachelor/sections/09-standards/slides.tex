@@ -30,6 +30,7 @@
   \node[isbox, fill=isOT!10, draw=isOT, below=14mm of root, xshift=42mm, minimum width=26mm, font=\scriptsize, align=center] (c) {4-x\\Component};
   \foreach \n in {g,p,s,c}{\draw[flow] (root.south) -- (\n.north);}
 \end{tikzpicture}
+\source{IEC 62443 series (joint with ISA/IEC) \textbar{} ISA-99 committee, ongoing.}
 \end{frame}
 
 \begin{frame}{IEC 62443 Security Levels}
@@ -69,8 +70,9 @@ Each zone gets a target SL (SL-T) chosen by \emph{consequence} and the expected 
   \draw[thick, isMute, dashed] (0,0) circle (\R+1.2);
   \node[font=\scriptsize\bfseries] at (0,0) {CSF 2.0};
 \end{tikzpicture}
-\par\vspace{2mm}
-\footnotesize Outcome-based, sector-neutral. NIST SP 800-82 Rev.\,3 is the ICS-specific companion.
+\par\vspace{1mm}
+{\footnotesize Outcome-based, sector-neutral. NIST SP 800-82 Rev.\,3 is the ICS-specific companion.}
+\source{NIST, \emph{Cybersecurity Framework 2.0}, Feb 2024 \textbar{} NIST SP 800-82 Rev.\,3, Sep 2023.}
 \end{frame}
 
 \section{Regulations}
@@ -87,6 +89,7 @@ Each zone gets a target SL (SL-T) chosen by \emph{consequence} and the expected 
   \node[isbox, fill=isOT!15, draw=isOT, minimum width=100mm, below=10mm of cira, font=\scriptsize] (sec)
     {Sector: IEC 62443, IEC 61850, ANSI/ISA-84};
 \end{tikzpicture}
+\source{NIS2: Directive (EU) 2022/2555 \textbar{} CRA: Regulation (EU) 2024/2847 \textbar{} KRITIS: BSI-Kritisverordnung \textbar{} NERC CIP-002--CIP-014.}
 \end{frame}
 
 \section{Programme}
@@ -160,6 +163,7 @@ US federal contractors, sector-CISA regulated entities, and any team that prefer
 \begin{importantbox}{New duties}
 Manufacturers must provide security updates, vulnerability handling, and an SBOM. CE marking now covers cybersecurity too.
 \end{importantbox}
+\source{Regulation (EU) 2024/2847 of the European Parliament and Council (Cyber Resilience Act), 23 Oct 2024.}
 \end{frame}
 
 \begin{frame}{ENISA OT Recommendations}

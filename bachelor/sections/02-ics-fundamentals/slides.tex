@@ -55,6 +55,7 @@
       \item Instruction List
     \end{itemize}
 \end{itemize}
+{\color{slideMuted}\tiny\textit{Source:} D.\ Morley, ``History of the PLC'', Modicon, 2003 \textbar{} IEC 61131-3:2013.\par}
 \column{0.55\textwidth}
 \centering
 \begin{tikzpicture}[node distance=1mm, scale=0.85, transform shape]
@@ -69,7 +70,7 @@
 
 \begin{frame}{PLC Scan Cycle}
 \centering
-\begin{tikzpicture}
+\begin{tikzpicture}[scale=0.92, transform shape]
   \def\R{2.0}
   \draw[thick] (0,0) circle (\R);
   \foreach \deg/\lbl/\col in {
@@ -136,16 +137,16 @@
 
 \begin{frame}{SCADA Architecture}
 \centering
-\begin{tikzpicture}[node distance=14mm]
+\begin{tikzpicture}[node distance=12mm, scale=0.92, transform shape]
   \node[scada] (mtu) {SCADA Server (MTU)};
   \node[hmi, above left=of mtu] (h1) {HMI};
   \node[hmi, above=of mtu] (h2) {HMI};
   \node[hmi, above right=of mtu] (h3) {HMI};
   \node[server, right=of mtu] (hist) {Historian};
   \node[switch, below=of mtu] (sw) {Field switch};
-  \node[plc, below left=14mm and 6mm of sw] (p1) {RTU 1};
-  \node[plc, below=14mm of sw] (p2) {RTU 2};
-  \node[plc, below right=14mm and 6mm of sw] (p3) {RTU 3};
+  \node[plc, below left=12mm and 6mm of sw] (p1) {RTU 1};
+  \node[plc, below=12mm of sw] (p2) {RTU 2};
+  \node[plc, below right=12mm and 6mm of sw] (p3) {RTU 3};
   \foreach \n in {h1,h2,h3}{\draw[netline] (\n) -- (mtu);}
   \draw[netline] (mtu) -- (hist);
   \draw[netline] (mtu) -- (sw);
@@ -216,6 +217,7 @@
 \begin{notebox}{Safety layer}
 The SIS brings the process to a safe state on demand. \textbf{IEC 61511 / 61508}, SIL 1--4.
 \end{notebox}
+\source{IEC 61508 (2010, ed.\,2.0), IEC 61511 (2016--17, ed.\,2.0) \textbar{} TRITON: Dragos \emph{TRISIS Malware Analysis}, 2017.}
 \end{frame}
 
 \begin{frame}{IEC 61131-3 -- PLC Programming Languages}

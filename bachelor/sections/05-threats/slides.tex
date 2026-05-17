@@ -74,10 +74,11 @@ ATT\&CK for ICS gives a shared vocabulary for techniques, detections, and incide
   \draw[attack] (a)--(b); \draw[attack] (b)--(c); \draw[attack] (c)--(d);
   \draw[attack] (d)--(e); \draw[attack] (e)--(f);
 \end{tikzpicture}
-\vspace{2mm}
+\vspace{1mm}
 \begin{notebox}{Natanz, 2010}
-Four zero-days, two stolen code-signing certificates. Subtly destroyed $\sim$1\,000 centrifuges over months while feeding the HMI \emph{normal-looking} data. The first widely-known cyber-physical weapon.
+Four zero-days, two stolen code-signing certificates. Subtly destroyed an estimated $\sim$1\,000 centrifuges over months while feeding the HMI \emph{normal-looking} data. The first widely-known cyber-physical weapon.
 \end{notebox}
+\source{N.\ Falliere, L.\ Murchu, E.\ Chien, \emph{W32.Stuxnet Dossier} v1.4, Symantec, 2011 \textbar{} D.\ Albright et al., ISIS report, 2010.}
 \end{frame}
 
 \begin{frame}{Ukraine 2015 \& 2016}
@@ -96,8 +97,9 @@ Four zero-days, two stolen code-signing certificates. Subtly destroyed $\sim$1\,
     \node[font=\tiny, above=1mm, align=center] at (\x,0) {\label};
   }
 \end{tikzpicture}
-\par\vspace{4mm}
-\footnotesize Sandworm (GRU). Industroyer was the first malware framework with built-in grid protocol modules.
+\par\vspace{3mm}
+{\footnotesize Sandworm (GRU). Industroyer was the first malware framework with built-in grid protocol modules.}
+\source{R.\ M.\ Lee, M.\ J.\ Assante, T.\ Conway, \emph{Analysis of the Cyber Attack on the Ukrainian Power Grid}, SANS/E-ISAC, 2016 \textbar{} A.\ Cherepanov, \emph{Win32/Industroyer}, ESET, 2017.}
 \end{frame}
 
 \begin{frame}{TRITON / TRISIS (2017)}
@@ -110,8 +112,9 @@ Four zero-days, two stolen code-signing certificates. Subtly destroyed $\sim$1\,
   \draw[flow] (bpcs) -- (proc); \draw[flow] (sis) -- (proc);
   \draw[attack] (atk) -- node[right=3pt, font=\tiny, align=center, fill=white, inner sep=1pt]{TriStation\\proprietary} (sis);
 \end{tikzpicture}
-\par\vspace{2mm}
-\footnotesize First publicly known attack on a Safety Instrumented System. Programming error in the malware tripped the plant -- and exposed the operation. Watershed moment: attackers reached the safety layer.
+\par\vspace{1mm}
+{\footnotesize First publicly known attack on a Safety Instrumented System. A programming error in the malware tripped the plant and exposed the operation. Watershed moment: attackers reached the safety layer.}
+\source{Dragos, \emph{TRISIS Malware Analysis}, 2017 \textbar{} Mandiant/FireEye, \emph{Attackers Deploy New ICS Attack Framework ``TRITON''}, 2017.}
 \end{frame}
 
 \begin{frame}{Colonial Pipeline (2021)}
@@ -126,8 +129,9 @@ Four zero-days, two stolen code-signing certificates. Subtly destroyed $\sim$1\,
   \draw[attack] (atk) -- (vpn) -- (it) -- (enc);
   \draw[flow] (enc) -- (shut) -- (impact);
 \end{tikzpicture}
-\par\vspace{2mm}
-\footnotesize IT compromise; operator pre-emptively halted OT. Highlights IT/OT interdependence and the physical impact of ransomware.
+\par\vspace{1mm}
+{\footnotesize IT compromise; the operator pre-emptively halted OT. Highlights IT/OT interdependence and the physical impact of ransomware.}
+\source{FBI, \emph{Statement on Colonial Pipeline}, May 2021 \textbar{} GAO-22-104746, 2022.}
 \end{frame}
 
 \begin{frame}{CyberAv3ngers / Unitronics (2023)}
@@ -143,8 +147,9 @@ Four zero-days, two stolen code-signing certificates. Subtly destroyed $\sim$1\,
   \node[isbox, fill=isAttack!10, draw=isAttack, right=of plc] (def) {HMI defaced};
   \draw[attack] (atk) -- (inet) -- (plc) -- (def);
 \end{tikzpicture}
-\par\vspace{3mm}
-\footnotesize No process damage, but trivially exploited at multiple water utilities. \textbf{Reminder:} never expose OT to the Internet, always change defaults.
+\par\vspace{2mm}
+{\footnotesize No process damage, but trivially exploited at multiple water utilities. \textbf{Reminder:} never expose OT to the Internet, always change defaults.}
+\source{CISA \emph{AA23-335A}, ``IRGC-Affiliated Cyber Actors Exploit PLCs in Multiple Sectors'', 1 Dec 2023.}
 \end{frame}
 
 \section{Cross-Cutting Risks}
@@ -175,6 +180,7 @@ Four zero-days, two stolen code-signing certificates. Subtly destroyed $\sim$1\,
   \node[font=\scriptsize, below=12mm of plc, align=center, text width=10cm]
     {Maroochy Shire (2000): ex-contractor with a stolen radio modem released sewage 46 times.};
 \end{tikzpicture}
+\source{J.\ Slay \& M.\ Miller, ``Lessons learned from the Maroochy Water breach'', \emph{Critical Infrastructure Protection}, IFIP, 2008.}
 \end{frame}
 
 \begin{frame}{INCONTROLLER / PIPEDREAM (2022)}
@@ -194,6 +200,7 @@ Four zero-days, two stolen code-signing certificates. Subtly destroyed $\sim$1\,
 \begin{importantbox}{First multi-target ICS framework}
 PIPEDREAM is the first modular framework with pre-built modules for several vendors at once -- captured before it was used in anger.
 \end{importantbox}
+\source{CISA \emph{AA22-103A}, ``APT Cyber Tools Targeting ICS/SCADA Devices'', 13 Apr 2022 \textbar{} Dragos, \emph{PIPEDREAM/CHERNOVITE} report, 2022 \textbar{} Mandiant, \emph{INCONTROLLER}, 2022.}
 \end{frame}
 
 \begin{frame}{Volt Typhoon -- Living off the Land in OT}
@@ -206,6 +213,7 @@ PIPEDREAM is the first modular framework with pre-built modules for several vend
 \begin{warnbox}
 The hardest threat to detect is the one that looks like a normal admin task. Behavioural analytics matter more than signatures.
 \end{warnbox}
+\source{CISA \emph{AA24-038A}, ``PRC State-Sponsored Actors Compromise and Maintain Persistent Access to U.S.\ Critical Infrastructure'', 7 Feb 2024 \textbar{} Microsoft, \emph{Volt Typhoon}, May 2023.}
 \end{frame}
 
 \begin{frame}{Common Initial Access Vectors in ICS}

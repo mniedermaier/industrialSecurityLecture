@@ -25,7 +25,12 @@
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage[english]{babel}
-\usepackage{lmodern}
+% Modern type pair: IBM Plex Sans for text, IBM Plex Mono for code.
+% Math stays in lmodern; Plex is the dominant family on every text frame.
+\usepackage{plex-sans}
+\usepackage{plex-mono}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage[activate={true,nocompatibility},final,tracking=true,kerning=true,spacing=true,factor=1100,stretch=10,shrink=10]{microtype}
 \usepackage{graphicx}
 \usepackage{listings}
 \usepackage{xcolor}
@@ -36,7 +41,6 @@
 \usepackage{hyperref}
 \usepackage{amsmath}
 \usepackage{amssymb}
-\usepackage{microtype}
 \usepackage{tcolorbox}
 \tcbuselibrary{skins, breakable, raster}
 \usepackage{fontawesome5}
@@ -152,6 +156,7 @@
 
 % --- callout boxes --------------------------------------------------
 % Shared base style for all callout boxes.
+% Subtle drop shadow gives the boxes a hint of elevation without distraction.
 \tcbset{
   isCallout/.style={
     enhanced, breakable, sharp corners=northeast,
@@ -161,6 +166,7 @@
     coltitle=white,
     fontupper=\small,
     left=2mm, right=2mm, top=1.5mm, bottom=1.5mm,
+    drop fuzzy shadow=black!30,
     title={#1}
   }
 }
@@ -229,6 +235,14 @@
 % Convenience: inline highlight badge
 \newcommand{\remembertag}{\tikz[baseline=-0.7ex]\node[fill=calImportant, text=white, font=\scriptsize\bfseries, rounded corners=2pt, inner sep=2pt]{REMEMBER};}
 \newcommand{\tldr}{\tikz[baseline=-0.7ex]\node[fill=calTake, text=white, font=\scriptsize\bfseries, rounded corners=2pt, inner sep=2pt]{TL;DR};}
+
+% Source attribution: tiny grey line, anchored bottom-left of the content area
+% Usage:  \source{Symantec, \emph{W32.Stuxnet Dossier} v1.4, 2011.}
+% Multiple sources:  \source{X.\ Y., 2018; Z, 2020.}
+\newcommand{\source}[1]{%
+  \par\nointerlineskip\vspace{0.4mm}%
+  {\color{slideMuted}\fontsize{5.5}{6.5}\selectfont\textit{Source:} #1\par}%
+}
 
 % --- title page -----------------------------------------------------
 \title[\courseTitle]{\courseTitle}

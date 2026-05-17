@@ -57,6 +57,7 @@ Most industrial protocols in production today were \textbf{designed before the I
      Address space: coils, discrete inputs, input regs, holding regs\\
      No auth, no encryption -- by design (1979)};
 \end{tikzpicture}
+\source{Modbus Organization, \emph{Modbus Application Protocol Specification} v1.1b3, 2012.}
 \end{frame}
 
 \begin{frame}[fragile]{Modbus TCP Frame Anatomy}
@@ -109,8 +110,9 @@ Most industrial protocols in production today were \textbf{designed before the I
   \draw[flow] (master) -- (out2);
   \draw[flow] (master) -- (out3);
 \end{tikzpicture}
-\par\vspace{2mm}
-\footnotesize DNP3 dominant in NA utilities; IEC 60870-5-104 in Europe. Both ride TCP today; both added Secure Authentication (SAv5) on top, but encryption is optional.
+\par\vspace{1mm}
+{\footnotesize DNP3 dominant in NA utilities; IEC 60870-5-104 in Europe. Both ride TCP today; both added Secure Authentication (SAv5) on top, but encryption is optional.}
+\source{IEEE 1815-2012 (DNP3) \textbar{} IEC 60870-5-104:2006 + Amd.\,1:2016.}
 \end{frame}
 
 \begin{frame}{EtherNet/IP and CIP}
@@ -153,6 +155,7 @@ Most industrial protocols in production today were \textbf{designed before the I
   \draw[-{Stealth[length=2mm]}, thick] (c1) -- node[left, font=\tiny]{TLS} (srv);
   \draw[-{Stealth[length=2mm]}, thick] (c2) -- node[right, font=\tiny]{TLS} (srv);
 \end{tikzpicture}
+\source{IEC 62541 (multipart, OPC Foundation) \textbar{} OPC UA Specification Part 2 (Security Model).}
 \end{frame}
 
 \begin{frame}{MQTT for IIoT}
@@ -204,10 +207,11 @@ MQTT         & \cellcolor{isAccent!20}+TLS     & \cellcolor{isNet!25}TLS        
   \draw[netline] (ied3.south) -- ([yshift=2pt]ied3.south |- sw.north);
   \draw[netline] (sw.south) -- (scada.north);
 \end{tikzpicture}
-\vspace{2mm}
+\vspace{1mm}
 \begin{notebox}{The substation stack}
 \textbf{MMS} for client/server; \textbf{GOOSE} for sub-4\,ms trip messages; \textbf{Sampled Values} for measurements. Goose has \emph{no} authentication by default.
 \end{notebox}
+\source{IEC 61850 (multipart) \textbar{} IEC 62351 (security for IEC TC 57 protocols).}
 \end{frame}
 
 \begin{frame}{Summary -- Section \sectionNumber}
