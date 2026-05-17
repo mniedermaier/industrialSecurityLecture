@@ -1,0 +1,52 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\sectionNumber{04}
+\def\sectionTitle{Offensive ICS in Authorised Labs}
+\def\sheetKind{Exercise Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 4.1 -- Rules of Engagement}
+Draft a Rules of Engagement (ROE) document for a 1-week ICS penetration test of a fictional water utility. Include:
+\begin{itemize}
+  \item Scope (what is in / out), with named devices and IP ranges.
+  \item Timing (windows, holidays excluded, kill-switch).
+  \item Approval chain (operations manager + CISO + safety engineer).
+  \item Communications (start-of-day notice, daily status, end-of-day report).
+  \item Forbidden actions (no DoS on safety systems, no writes to production PLCs).
+\end{itemize}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 4.2 -- Recon Plan}
+For the same utility, write a 1-page \emph{passive-first} recon plan:
+\begin{enumerate}
+  \item What you can learn from the corporate website + LinkedIn.
+  \item What passive network monitoring would reveal in 24 hours.
+  \item Which active probes you would attempt first, and why.
+  \item How to detect when you have triggered an SOC alert.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 4.3 -- Attack Path}
+Pick one of: Modbus write, S7comm CPU stop, GOOSE spoof, OPC UA anonymous abuse. Document:
+\begin{enumerate}
+  \item Pre-conditions (network access, credentials, equipment knowledge).
+  \item Step-by-step execution against your lab.
+  \item Process impact -- what would a real plant operator see?
+  \item Detection opportunities at each step.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 4.4 -- Report Writing}
+Take any one finding from Exercise 4.3 and produce a 1-page finding write-up: title, executive summary (3 sentences), CVSS-E, evidence (PCAP excerpt or screenshot), reproduction (numbered), recommendation (this-quarter / this-year).
+\end{taskbox}
+
+\begin{warnbox}
+Use only your lab. Reuse of lab findings against a real environment without authorisation crosses the line from training to crime.
+\end{warnbox}
+
+\end{document}

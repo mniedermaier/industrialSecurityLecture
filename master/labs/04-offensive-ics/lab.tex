@@ -1,0 +1,72 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\labNumber{04}
+\def\labTitle{End-to-End Mini Pentest in the Bachelor Lab Stack}
+\def\labSection{04}
+\def\labTime{3--4 hours}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Run a full mini-engagement against the Bachelor Docker lab stack:
+ROE \(\to\) passive recon \(\to\) active recon \(\to\) one exploitation
+step \(\to\) detection observation \(\to\) report.
+\end{goalbox}
+
+\begin{stepbox}{0 -- Sign a fake ROE}
+Write the ROE for testing the Docker stack as if it were a real client.
+Self-sign as both tester and approver. Save it -- you will reference
+it in the report.
+\end{stepbox}
+
+\begin{stepbox}{1 -- Passive recon}
+\begin{lstlisting}[language=bash]
+cd bachelor/labs/_stack && docker compose up -d
+# 30 minutes of passive baseline:
+ls zeek-logs/current/
+\end{lstlisting}
+Note: which devices, which protocols, which talkers.
+\end{stepbox}
+
+\begin{stepbox}{2 -- Active recon (low-rate)}
+\begin{lstlisting}[language=bash]
+docker compose exec student nmap -sT --max-rate 5 \
+   --scan-delay 200ms -Pn -p 502,4840,1883,8080 172.28.0.0/24
+\end{lstlisting}
+Record which hosts respond on which ports.
+\end{stepbox}
+
+\begin{stepbox}{3 -- One exploitation step}
+\begin{lstlisting}[language=bash]
+docker compose exec student python3 /labs/scripts/modbus_inject.py
+\end{lstlisting}
+Confirm in OpenPLC monitor that coil 0 flipped.
+\end{stepbox}
+
+\begin{stepbox}{4 -- Detection}
+Check Zeek's \texttt{notice.log} for the unsolicited-write notice.
+Document the time difference between attack and detection.
+\end{stepbox}
+
+\begin{stepbox}{5 -- Report}
+Produce a 2-page report with: ROE summary, recon findings,
+exploitation step (with PCAP excerpt), detection evidence,
+prioritised recommendations.
+\end{stepbox}
+
+\begin{deliverbox}
+The fake ROE, the recon and PCAP files, and the 2-page report.
+Hand in as a single PDF.
+\end{deliverbox}
+
+\begin{warnbox}
+This whole sequence runs against your local Docker stack only.
+Performing any step against equipment you do not own without
+written authorisation is a criminal act under \S 202a StGB
+(and equivalents in other jurisdictions).
+\end{warnbox}
+\end{document}

@@ -1,0 +1,54 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\sectionNumber{03}
+\def\sectionTitle{Advanced Industrial Protocols}
+\def\sheetKind{Exercise Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 3.1 -- S7commPlus Handshake}
+Set up a Siemens TIA Portal connection to an S7-1200 / 1500 (simulator is fine). Capture the handshake:
+\begin{enumerate}
+  \item Identify the version (S7commPlus v1, v2, v3).
+  \item Locate the client and server challenges in the first frames.
+  \item Read a public reverse-engineering paper (Gordeychik 2017, Lei 2020) and reproduce the key derivation in Python for the captured session.
+  \item Decrypt one read-request and verify against the variable you actually requested.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 3.2 -- GOOSE Spoof in the Lab}
+On an authorised IEC 61850 lab (open-source: \texttt{libiec61850}):
+\begin{enumerate}
+  \item Capture a normal GOOSE multicast stream.
+  \item Use \texttt{libiec61850} or Scapy to craft a frame with \texttt{stNum} one higher than the latest seen.
+  \item Inject onto the lab L2; observe the subscriber's reaction.
+  \item Document the only effective mitigation that worked.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 3.3 -- Scapy Dissector}
+Pick a niche protocol of your choice (HART-IP, OPC DA over DCOM, ADS Twincat, IEC 60870-5-104).
+\begin{enumerate}
+  \item Build a minimal Scapy layer (header + length + 2-3 fields).
+  \item Replay a captured exchange against a test client; verify it accepts the spoof.
+  \item Submit the Scapy module + 5 lines on its limits.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 3.4 -- Fuzz Harness}
+Wire up \texttt{boofuzz} against a soft-PLC or sandboxed device:
+\begin{enumerate}
+  \item Define one Modbus PDU with mutators on length and function code.
+  \item Run 5 minutes; document any crash, hang, or bus reset.
+  \item Map the crash to a CWE class.
+\end{enumerate}
+\begin{warnbox}
+Bench-isolated PLC only. Real plants \emph{will} trip on malformed input.
+\end{warnbox}
+\end{taskbox}
+
+\end{document}

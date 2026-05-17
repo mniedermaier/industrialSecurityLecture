@@ -1,0 +1,206 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\courseSubtitle{Section 04 -- Offensive ICS in Authorised Labs}
+\def\sectionNumber{04}
+\def\sectionTitle{Offensive ICS in Authorised Labs}
+
+\input{../../../template/slides-preamble.tex}
+
+\begin{document}
+
+\sectionoverviewframe
+
+\learningobjectives{
+  \item Distinguish authorised testing, red-team exercises, and unauthorised access -- legally and ethically.
+  \item Build a contained lab in which destructive testing is safe.
+  \item Apply standard ICS-attack techniques (reconnaissance, protocol abuse, logic injection) with full attribution.
+  \item Produce findings that the asset owner can act on without re-doing the work.
+}
+
+\section{Ethics and Scope}
+
+\begin{frame}{Authorised vs.\ Unauthorised}
+\centering
+\begin{tikzpicture}[node distance=8mm]
+  \node[isbox, fill=isNet!15, draw=isNet, minimum width=42mm, font=\small, align=center] (auth) {Authorised\\penetration test};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=42mm, font=\small, align=center, right=of auth] (red) {Authorised red team\\(internal-blind)};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=42mm, font=\small, align=center, right=of red] (unauth) {Unauthorised access\\(criminal)};
+\end{tikzpicture}
+\vspace{2mm}
+\begin{importantbox}{Paper, not handshake}
+``Verbal'' permission is no permission. A signed \emph{Rules of Engagement} document with named approvers, scope, timing, kill-switch, and reporting path is the gating artefact.
+\end{importantbox}
+\source{NIST SP 800-115 \emph{Technical Guide to Information Security Testing}; PTES Technical Guidelines.}
+\end{frame}
+
+\begin{frame}{Legal Surface (EU/DE/US -- partial)}
+\begin{itemize}
+  \item \textbf{Germany:} \S 202a / 202c StGB criminalise unauthorised access and \emph{preparation tools}; commercial pentesting needs written authorisation.
+  \item \textbf{EU CRA (2024/2847):} research safe-harbour for vulnerability disclosure under coordinated terms.
+  \item \textbf{US CFAA \& DMCA \S1201:} authorisation contracts grant access; safe-harbour for security research since 2015 rulemaking.
+  \item \textbf{ISO/IEC 29147 \& 30111:} normative guidance for coordinated disclosure.
+\end{itemize}
+\begin{warnbox}
+Cross-border engagements need both legal opinions. A US-headquartered firm testing a German plant follows the strictest applicable law.
+\end{warnbox}
+\source{StGB \S 202a, \S 202c; Directive (EU) 2022/2555; Regulation (EU) 2024/2847; ISO/IEC 29147:2018, 30111:2019.}
+\end{frame}
+
+\section{The Lab}
+
+\begin{frame}{Contained Lab Topology}
+\centering
+\begin{tikzpicture}[node distance=6mm]
+  \node[plc] (plc) {Spare PLC};
+  \node[hmi, right=of plc] (hmi) {HMI VM};
+  \node[server, right=of hmi, fill=isAccent!15, draw=isAccent] (eng) {Eng WS};
+  \node[switch, below=10mm of hmi] (sw) {Lab switch};
+  \node[isbox, fill=isAttack!15, draw=isAttack, below=10mm of sw, minimum width=46mm, font=\small, align=center] (att) {Attacker laptop\\(Kali / Caldera)};
+  \node[isbox, fill=isOT!12, draw=isOT, left=10mm of sw, minimum width=30mm, font=\scriptsize, align=center] (cap) {Mirror port\\$\to$ Zeek};
+  \foreach \n in {plc,hmi,eng}{\draw[netline] (\n) -- (sw);}
+  \draw[netline] (sw) -- (att);
+  \draw[netline, dashed] (sw) -- (cap);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{tipbox}{Air-gapped, recorded}
+No Internet, no host bridge, full PCAP. Every action you take is later auditable to a wall-clock minute.
+\end{tipbox}
+\end{frame}
+
+\begin{frame}{Lab Equipment Choices}
+\centering
+\renewcommand{\arraystretch}{1.3}
+\footnotesize
+\begin{tabular}{|p{3.5cm}|p{5.6cm}|p{5cm}|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Tier} & \textbf{Examples} & \textbf{Best for} \\
+\hline
+Pure software & OpenPLC, ScadaBR, open62541   & teaching, basic protocol work \\
+Mixed         & Spare Siemens S7-1200, Modicon M580 & realistic on-the-wire behaviour \\
+Production-grade & Vendor demo kits, donated equipment & vendor-specific exploit research \\
+\hline
+\end{tabular}
+\vspace{2mm}
+\begin{notebox}{Donations}
+Many vendors donate retired equipment to academic and CERT labs in exchange for confidentiality on findings. Worth asking.
+\end{notebox}
+\end{frame}
+
+\section{Tactics}
+
+\begin{frame}{Reconnaissance in OT (passive first)}
+\begin{itemize}
+  \item ARP / LLDP / CDP listening to enumerate devices.
+  \item Passive Zeek capture for 24h to build a baseline.
+  \item Vendor banners on web UIs (read-only HTTP GET / robots.txt).
+  \item Project files on file shares (engineering WS, contractor laptops).
+\end{itemize}
+\begin{warnbox}{Active scans on the bench}
+Nmap with \texttt{--max-rate} and only NSE scripts known safe for the target. Run once, capture, then decide if a deeper probe is worth the risk.
+\end{warnbox}
+\source{ICS-CERT (CISA) recommended practices; Dragos \emph{ICS Knowledge Pack}.}
+\end{frame}
+
+\begin{frame}{Protocol Abuse Patterns}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small] (a) {Modbus -- write to coils / holding regs without auth};
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small, below=of a] (b) {S7comm -- start/stop CPU, upload OB, download poisoned OB};
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small, below=of b] (c) {DNP3 -- spoof control message, exploit unauthenticated read};
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small, below=of c] (d) {GOOSE -- spoof higher stNum to inject false trip};
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small, below=of d] (e) {OPC UA -- enumerate anonymous endpoints, abuse weak user policies};
+\end{tikzpicture}
+\source{MITRE ATT\&CK for ICS, T0855/T0867/T0846/T0848/T0858.}
+\end{frame}
+
+\begin{frame}{Logic Injection Workflow}
+\centering
+\begin{tikzpicture}[node distance=6mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=30mm, font=\small] (read) {Read project};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of read, minimum width=30mm, font=\small] (mod) {Modify OB};
+  \node[isbox, fill=isAttack!15, draw=isAttack, right=of mod, minimum width=30mm, font=\small] (down) {Download};
+  \node[isbox, fill=isPLC!15, draw=isPLC, right=of down, minimum width=30mm, font=\small] (mon) {Monitor effect};
+  \foreach \s/\e in {read/mod, mod/down, down/mon}{\draw[flow] (\s) -- (\e);}
+\end{tikzpicture}
+\vspace{2mm}
+\begin{importantbox}{Reversibility}
+Always take a verified backup of the original program first, and test the rollback before injecting. ``Oops'' on production hardware is career-ending.
+\end{importantbox}
+\source{Lab pattern adapted from Klick, J., Lau, S. et al., ``Internet-facing PLCs as a Network Backdoor'', BlackHat USA, 2015.}
+\end{frame}
+
+\begin{frame}{Tooling Survey}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=46mm, font=\small] (a) {Metasploit (modbusclient, modicon\_stux)};
+  \node[isbox, fill=isOT!15, draw=isOT, right=of a, minimum width=46mm, font=\small] (b) {Caldera + ATT\&CK ICS adversary emulation};
+  \node[isbox, fill=isAccent!15, draw=isAccent, below=of a, minimum width=46mm, font=\small] (c) {Smod (Modbus pentest framework)};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of c, minimum width=46mm, font=\small] (d) {plcscan, pymodbus, snap7};
+  \node[isbox, fill=isPLC!15, draw=isPLC, below=of c, minimum width=46mm, font=\small] (e) {ISF (Industrial Security Framework)};
+  \node[isbox, fill=isPLC!15, draw=isPLC, right=of e, minimum width=46mm, font=\small] (f) {OpenVAS / Greenbone with ICS plug-ins};
+\end{tikzpicture}
+\source{Tool repos: Rapid7 Metasploit; MITRE Caldera; \texttt{theralfbrown/smod}; \texttt{dark-lbp/isf}; Greenbone Networks.}
+\end{frame}
+
+\section{Reporting}
+
+\begin{frame}{Report Structure}
+\centering
+\begin{tikzpicture}[node distance=2mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small] (a) {1.\ Executive summary -- 1 page, plain language};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of a] (b) {2.\ Scope, ROE, attestations};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of b] (c) {3.\ Findings, each: title, CVSS-E, evidence, repro};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of c] (d) {4.\ Recommendations, sized this-quarter / this-year};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of d] (e) {5.\ Appendix: PCAPs, configs, raw logs};
+\end{tikzpicture}
+\vspace{1mm}
+\begin{tipbox}{Reproducibility}
+A finding without a step-by-step repro is theatre. If the asset owner cannot reproduce it after a week, they will not trust the rest of the report.
+\end{tipbox}
+\end{frame}
+
+\begin{frame}{Common Reporting Pitfalls}
+\begin{itemize}
+  \item Listing CVEs without saying which versions are actually in the plant.
+  \item Confusing ``vulnerable'' with ``exploitable in this environment''.
+  \item Recommendations without owners or timelines.
+  \item Findings ranked by CVSS only, not by process-impact.
+  \item Reusing screenshots between clients (legal disaster).
+\end{itemize}
+\begin{warnbox}
+The asset owner's safety engineers should be able to read the report and say whether the test \emph{could have} caused a process upset. If not, your scope was wrong.
+\end{warnbox}
+\end{frame}
+
+\begin{frame}{Summary -- Section \sectionNumber}
+\begin{takeawaybox}{Offensive ICS, responsibly}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Signed Rules of Engagement gate every action -- no signature, no test.
+  \item Build a contained lab; never fuzz or inject on production.
+  \item Standard ICS-attack patterns (recon, protocol abuse, logic injection) cover most engagements.
+  \item Report in plain language with reproducible evidence and prioritised recommendations.
+  \item Cross-border work follows the strictest applicable law.
+\end{itemize}
+\end{takeawaybox}
+\end{frame}
+
+\referencesframe{
+  \item NIST SP 800-115. \emph{Technical Guide to Information Security Testing and Assessment}, 2008.
+  \item PTES. \emph{Penetration Testing Execution Standard}, technical guidelines.
+  \item ISO/IEC 29147:2018. \emph{Vulnerability disclosure}.
+  \item ISO/IEC 30111:2019. \emph{Vulnerability handling processes}.
+  \item Klick, J., Lau, S., Marzin, D., Malchow, J.-O., Roth, V. ``Internet-facing PLCs as a Network Backdoor'', BlackHat USA, 2015.
+  \item MITRE. \emph{ATT\&CK for ICS}, knowledge base, current.
+  \item MITRE. \emph{Caldera} adversary emulation, with ICS plug-in.
+  \item Rapid7. Metasploit Framework, modbus and ICS modules.
+  \item Bodungen, C.E., Singer, B., Shbeeb, A., Hilt, S., Wilhoit, K. \emph{Hacking Exposed: Industrial Control Systems}, McGraw-Hill, 2016.
+  \item Dragos. \emph{ICS Knowledge Pack} and \emph{Year in Review} reports.
+  \item OPC Foundation. \emph{OPC UA Security Bulletin} archive.
+  \item Forescout Vedere Labs. ICS vulnerability research outputs.
+}
+
+\closingframe
+
+\end{document}

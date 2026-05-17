@@ -1,0 +1,216 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\courseSubtitle{Section 03 -- Advanced Industrial Protocols}
+\def\sectionNumber{03}
+\def\sectionTitle{Advanced Industrial Protocols}
+
+\input{../../../template/slides-preamble.tex}
+
+\begin{document}
+
+\sectionoverviewframe
+
+\learningobjectives{
+  \item Dissect S7commPlus, GOOSE, MMS and DLMS/COSEM down to the byte level.
+  \item Understand the cryptographic anti-replay schemes in each.
+  \item Recognise typical implementation defects (and how to fuzz for them).
+  \item Build a custom Wireshark / Scapy dissector for a niche protocol.
+}
+
+\section{S7commPlus}
+
+\begin{frame}{S7commPlus -- The Encrypted-ish Successor}
+\centering
+\begin{tikzpicture}[node distance=2mm]
+  \node[isbox, fill=isOT!10, draw=isOT, minimum width=70mm, minimum height=8mm] (eth) {Ethernet};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=70mm, minimum height=8mm, above=of eth] (ip) {IP};
+  \node[isbox, fill=isOT!20, draw=isOT, minimum width=70mm, minimum height=8mm, above=of ip] (tcp) {TCP (port 102)};
+  \node[isbox, fill=isPLC!20, draw=isPLC, minimum width=70mm, minimum height=8mm, above=of tcp] (cotp) {ISO 8073 (TPKT/COTP)};
+  \node[isbox, fill=isPLC!30, draw=isPLC, minimum width=70mm, minimum height=8mm, above=of cotp] (s7p) {S7commPlus (Session-keyed)};
+\end{tikzpicture}
+\vspace{2mm}
+\begin{importantbox}{Session keys, not real crypto}
+Each session derives a key from challenges in the handshake -- but the key derivation function (KDF) is fixed and reproducible. Several research groups have re-implemented it.
+\end{importantbox}
+\source{Lei, C., He, J. et al., reverse-engineering of S7commPlus, multiple academic papers 2017--2020.}
+\end{frame}
+
+\begin{frame}[fragile]{S7commPlus Frame Sketch}
+\centering
+\begin{tikzpicture}[x=11mm, y=8mm, font=\scriptsize]
+  \foreach \x/\w/\name/\col in {0/1/{0x72}/isOT, 1/1/{Ver}/isOT, 2/2/{Len}/isOT, 4/3/{Cmd hdr}/isPLC, 7/4/{Encrypted data}/isAttack}{
+    \draw[fill=\col!15, draw=\col, thick] (\x,0) rectangle ++(\w,1);
+    \node[align=center] at (\x+\w/2, 0.5) {\name};
+  }
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{Open-source dissectors}
+\texttt{python-s7commplus} (gymgle, 2018) and \texttt{Plc4j} / \texttt{Plc4go} (Apache) both implement S7commPlus enough to read tags. Wireshark has a partial dissector.
+\end{notebox}
+\end{frame}
+
+\section{IEC 61850 Stack}
+
+\begin{frame}{IEC 61850 -- The Substation Stack}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=40mm, font=\small] (mms) {MMS\\\scriptsize ACSE/MMS, port 102};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=40mm, font=\small, right=of mms] (gse) {GOOSE\\\scriptsize EtherType 0x88B8};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=40mm, font=\small, right=of gse] (sv) {Sampled Values\\\scriptsize EtherType 0x88BA};
+\end{tikzpicture}
+\vspace{2mm}
+\begin{importantbox}{GOOSE has no authentication by default}
+Multicast L2 frames, sub-4\,ms latency, sequence-number anti-replay only. IEC 62351 adds signatures but adoption in production substations is rare.
+\end{importantbox}
+\source{IEC 61850 (multipart) \textbar{} IEC 62351 (security for TC 57 protocols).}
+\end{frame}
+
+\begin{frame}{GOOSE Frame Anatomy}
+\centering
+\begin{tikzpicture}[x=10mm, y=8mm, font=\scriptsize]
+  \foreach \x/\w/\name/\col in {0/2/{ETH header}/isMute, 2/1/{AppID}/isOT, 3/1/{Len}/isOT, 4/2/{Reserved}/isMute, 6/4/{goosePdu (ASN.1)}/isAccent}{
+    \draw[fill=\col!15, draw=\col, thick] (\x,0) rectangle ++(\w,1);
+    \node[align=center] at (\x+\w/2, 0.5) {\name};
+  }
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{Known weakness}
+A spoofed GOOSE with a higher \texttt{stNum} (status number) is accepted instantly. Without IEC 62351-6, the only mitigation is L2 isolation.
+\end{notebox}
+\source{C.\ Kush, A.\ Ahmadian, P.\ Mahgoub, et al., academic GOOSE attack papers 2010--2018.}
+\end{frame}
+
+\section{MMS \& DLMS/COSEM}
+
+\begin{frame}{MMS -- Manufacturing Message Specification}
+\begin{itemize}
+  \item Application-layer ISO 9506, runs over OSI on TCP/IP (RFC 1006).
+  \item Identifies named variables and methods on an IED.
+  \item Used by IEC 61850 for client-server (HMI talks to IED here).
+  \item No authentication by default; IEC 62351 part 4 adds TLS for MMS.
+\end{itemize}
+\begin{notebox}{Why MMS matters}
+The HMI's read/write of named variables flows through MMS. If you can spoof or replay MMS, you can drive the IED's behaviour from the operator's perspective.
+\end{notebox}
+\source{ISO 9506 (Parts 1 and 2) \textbar{} IEC 62351-4.}
+\end{frame}
+
+\begin{frame}{DLMS/COSEM -- Smart Meters}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[isbox, fill=isOT!15, draw=isOT, font=\small] (m) {Smart meter};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of m, font=\small, minimum width=24mm] (con) {Concentrator};
+  \node[isbox, fill=isPLC!15, draw=isPLC, right=of con, font=\small, minimum width=24mm] (hes) {HES (Head-end)};
+  \foreach \s/\e in {m/con, con/hes}{\draw[flow] (\s) -- (\e);}
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{Authentication levels}
+DLMS defines 0 (none), 1 (low, shared password), 2 (high, MD5/SHA-1), 3 (high-GMAC). German rollout (BSI TR-03109) mandates Gateway with X.509 + AES-GCM.
+\end{notebox}
+\source{IEC 62056 (DLMS/COSEM Blue/Green/Yellow/White books) \textbar{} BSI TR-03109.}
+\end{frame}
+
+\section{Building Dissectors and Fuzzers}
+
+\begin{frame}[fragile]{Custom Scapy Layer (sketch)}
+\begin{lstlisting}[language=Python]
+from scapy.all import Packet, ByteField, ShortField, bind_layers, TCP
+
+class MyVendor(Packet):
+    name = "MyVendor"
+    fields_desc = [
+        ByteField("magic", 0x5A),
+        ByteField("version", 1),
+        ShortField("length", None),
+    ]
+
+bind_layers(TCP, MyVendor, sport=27015)
+bind_layers(TCP, MyVendor, dport=27015)
+\end{lstlisting}
+\vspace{2mm}
+\begin{tipbox}{First step}
+Capture a known-good session, hex-edit one byte at a time, replay -- watch the device's reaction. That tells you which fields gate what.
+\end{tipbox}
+\end{frame}
+
+\begin{frame}{Fuzzing ICS Protocols}
+\centering
+\begin{tikzpicture}[node distance=6mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=30mm, font=\small] (corp) {Corpus capture};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of corp, minimum width=30mm, font=\small] (mut) {Mutator};
+  \node[isbox, fill=isPLC!15, draw=isPLC, right=of mut, minimum width=30mm, font=\small] (tgt) {Target PLC\\(bench only)};
+  \node[isbox, fill=isAttack!15, draw=isAttack, right=of tgt, minimum width=30mm, font=\small] (mon) {Crash monitor};
+  \draw[flow] (corp) -- (mut); \draw[flow] (mut) -- (tgt); \draw[flow] (tgt) -- (mon);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{warnbox}{Bench only}
+Industrial devices crash on malformed input -- often by tripping the safety system. \emph{Never} fuzz production. Use a spare unit on a private VLAN.
+\end{warnbox}
+\source{Tools: \texttt{boofuzz}, \texttt{kitty}/\texttt{katnip}, AFL++ for TCP harnesses.}
+\end{frame}
+
+\begin{frame}{Implementation Defects to Watch}
+\begin{itemize}
+  \item Integer overflows in length fields (Ripple20, URGENT/11, NUCLEUS:13).
+  \item Out-of-bounds writes in ASN.1 parsers (MMS, GOOSE).
+  \item Missing nonce checks in challenge-response auth (S7commPlus pre-2019).
+  \item Hard-coded session keys after firmware update (multiple vendors).
+  \item ICS PSIRT disclosures often reveal these for one product but the same code is in twenty others.
+\end{itemize}
+\source{Forescout Vedere Labs, \emph{Project Memoria}: Ripple20, URGENT/11, NUCLEUS:13, NAME:WRECK, INFRA:HALT.}
+\end{frame}
+
+\section{Defensive View}
+
+\begin{frame}{What an ICS IDS Can / Cannot See}
+\centering
+\renewcommand{\arraystretch}{1.3}
+\footnotesize
+\begin{tabular}{|p{3.6cm}|p{4.6cm}|p{4.6cm}|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Protocol} & \textbf{Detectable} & \textbf{Hidden} \\
+\hline
+Modbus TCP   & function code, addr, value & nothing -- plain \\
+S7commPlus   & frame, command ID          & encrypted payload \\
+GOOSE        & ETH header, AppID, stNum   & multicast L2 only \\
+DLMS/COSEM   & AARQ, COSEM class IDs      & encrypted, depending on level \\
+\hline
+\end{tabular}
+\vspace{2mm}
+\begin{notebox}{Implication}
+Span-port IDS gives full visibility on legacy plaintext stacks and only partial visibility on the modern session-keyed stacks. Plan host-side telemetry for the latter.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{Summary -- Section \sectionNumber}
+\begin{takeawaybox}{Advanced protocols, in one breath}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item S7commPlus session keying is reproducible -- treat it as obfuscation, not crypto.
+  \item GOOSE has no authentication by default; IEC 62351 changes this but adoption is rare.
+  \item MMS and DLMS/COSEM both bolted security on later; rollouts have known weak modes.
+  \item Custom dissectors (Scapy, Wireshark) unlock visibility on niche vendor protocols.
+  \item Fuzz only on bench equipment -- production devices crash unsafely.
+\end{itemize}
+\end{takeawaybox}
+\end{frame}
+
+\referencesframe{
+  \item IEC 61850 (multipart). \emph{Communication networks and systems for power utility automation}.
+  \item IEC 62351 (multipart). \emph{Security for IEC TC 57 protocols}.
+  \item ISO 9506. \emph{Manufacturing Message Specification (MMS)}, Parts 1 \& 2.
+  \item IEC 62056. \emph{DLMS/COSEM} (Blue/Green/Yellow/White books).
+  \item BSI TR-03109. \emph{Smart Metering System Specifications}.
+  \item Beresford, D. \emph{Exploiting Siemens Simatic S7 PLCs}, BlackHat USA, 2011.
+  \item Gordeychik, S. \emph{SCADA StrangeLove} talks and tools, 2014--2018.
+  \item Forescout Vedere Labs. \emph{Project Memoria} -- Ripple20, URGENT/11, NUCLEUS:13, NAME:WRECK, INFRA:HALT.
+  \item Wireshark Foundation. ICS protocol dissector documentation.
+  \item Scapy contributors. \emph{Scapy User Manual}, ICS protocol modules.
+  \item \texttt{boofuzz} project (Joshua Pereyda). \url{https://boofuzz.readthedocs.io}.
+  \item Apache Software Foundation. \emph{Plc4x} (Plc4j, Plc4go, Plc4py).
+}
+
+\closingframe
+
+\end{document}

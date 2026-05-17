@@ -1,18 +1,27 @@
-# Syllabus -- Industrial Security (Master, draft)
+# Syllabus -- Industrial Security (Master, pilot)
 
-Planned advanced course. Prerequisite: `bachelor/` course.
+Advanced course; assumes the Bachelor course as prerequisite.
 
-## Sections (planned)
+## Sections (current state)
 
-| # | Topic |
-|---|-------|
-| 01 | Firmware Reverse Engineering (**pilot, available**) |
-| 02 | Deep dive into industrial protocols (S7commPlus, GOOSE, MMS, DLMS/COSEM) |
-| 03 | PLC ladder logic reverse engineering |
-| 04 | Offensive ICS techniques in authorised labs |
-| 05 | Secure-by-design architectures for greenfield plants |
-| 06 | Threat intelligence for OT (Dragos, MITRE ATT&CK for ICS, PIPEDREAM) |
-| 07 | Formal safety / security co-engineering |
-| 08 | Research methods, seminar work |
+| # | Topic | Status |
+|---|-------|--------|
+| 01 | Firmware Reverse Engineering              | available |
+| 02 | PLC Ladder Logic Reverse Engineering       | available |
+| 03 | Advanced Industrial Protocols (S7commPlus, GOOSE, MMS, DLMS/COSEM) | available |
+| 04 | Offensive ICS in Authorised Labs           | available |
+| 05 | Secure-by-design architectures for greenfield plants | planned |
+| 06 | Threat intelligence for OT (PIPEDREAM, Volt Typhoon) | planned |
+| 07 | Formal safety / security co-engineering    | planned |
+| 08 | Research methods and seminar work          | planned |
 
-Only section 01 is currently populated.
+Each available section ships with: slide deck (PDF), exercise sheet, solution sheet, and a hands-on lab guide.
+
+## Building
+
+```
+make -C master         # build the four available pilots
+make verify            # zero-overflow gate from the repo root
+```
+
+Sections 01--04 reuse the same `template/` and Docker lab stack as the Bachelor course.

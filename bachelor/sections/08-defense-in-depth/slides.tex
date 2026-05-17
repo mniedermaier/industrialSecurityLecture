@@ -145,7 +145,7 @@ A single failed layer should not equal a successful attack.
   \node[server, right=of ids, fill=isHMI!12, draw=isHMI] (soc) {SOC};
   \draw[netline] (scada) -- (sw);
   \foreach \n in {p1,p2,p3}{\draw[netline] (\n) -- (sw);}
-  \draw[-{Stealth[length=2mm]}, dashed, thick] (sw) -- node[above, font=\tiny, fill=white, inner sep=1pt]{mirror only} (ids);
+  \draw[-{Stealth[length=2mm]}, dashed, thick] (sw) -- node[midway, right=3pt, font=\tiny, fill=white, inner sep=1pt]{mirror only} (ids);
   \draw[flow] (ids) -- (soc);
 \end{tikzpicture}
 \end{frame}
@@ -169,7 +169,7 @@ A single failed layer should not equal a successful attack.
   \node[server, fill=isPLC!15, draw=isPLC, right=of sw, minimum width=28mm, font=\small] (auth) {RADIUS / 802.1X};
   \node[plc, below=14mm of sw] (plc) {PLC port};
   \draw[flow] (lap) -- (sw) -- (auth);
-  \draw[flow, dashed] (sw) -- node[right=2pt, font=\tiny, fill=white, inner sep=1pt]{quarantine} (plc);
+  \draw[flow, dashed] (sw) -- node[midway, right=4pt, font=\tiny, fill=white, inner sep=1pt]{quarantine} (plc);
 \end{tikzpicture}
 \vspace{2mm}
 \begin{notebox}{Sealing the wall jack}
@@ -184,7 +184,7 @@ A single failed layer should not equal a successful attack.
   \node[isbox, fill=isAccent!15, draw=isAccent, right=of ws, minimum width=40mm, font=\small, align=center] (kiosk) {Kiosk scanner\\(Olea, OPSWAT, Nettitude)};
   \node[isbox, fill=isAttack!15, draw=isAttack, font=\small, above=10mm of kiosk] (usb) {USB stick};
   \draw[flow] (usb) -- (kiosk);
-  \draw[flow] (kiosk) -- node[above=2pt, font=\tiny, fill=white, inner sep=1pt]{cleared} (ws);
+  \draw[flow] (kiosk) -- node[midway, above=4pt, font=\tiny, fill=white, inner sep=1pt]{cleared} (ws);
 \end{tikzpicture}
 \vspace{2mm}
 \begin{importantbox}{One door}

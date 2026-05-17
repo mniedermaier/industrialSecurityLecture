@@ -1,0 +1,49 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\labNumber{03}
+\def\labTitle{GOOSE Spoof in a Lab Substation}
+\def\labSection{03}
+\def\labTime{3 hours}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Set up a minimal IEC 61850 lab on a single host, exchange GOOSE frames between two virtual IEDs, then spoof a higher-\texttt{stNum} frame and observe the subscriber's reaction. Conclude with the IEC 62351 mitigation.
+\end{goalbox}
+
+\begin{stepbox}{1 -- Build the lab}
+\begin{lstlisting}[language=bash]
+git clone https://github.com/mz-automation/libiec61850.git
+cd libiec61850 && mkdir build && cd build
+cmake .. && make -j
+# Run the goose example publisher / subscriber on different interfaces
+sudo ./examples/goose_publisher/goose_publisher_example eth0 &
+sudo ./examples/goose_subscriber/goose_subscriber_example eth0 &
+\end{lstlisting}
+Capture with \texttt{tcpdump} or Zeek; confirm baseline GOOSE multicast.
+\end{stepbox}
+
+\begin{stepbox}{2 -- Capture and analyse}
+Open the PCAP in Wireshark with the IEC 61850 dissector enabled. Identify the GOOSE \texttt{appID}, \texttt{stNum}, \texttt{sqNum} fields. Note the highest \texttt{stNum} seen.
+\end{stepbox}
+
+\begin{stepbox}{3 -- Craft the spoof}
+Modify the publisher (or write a Scapy script) to emit a frame with \texttt{stNum} = max+1, signalling the opposite of the current binary state. Inject onto the same L2 segment.
+\end{stepbox}
+
+\begin{stepbox}{4 -- Observe and mitigate}
+Watch the subscriber log: it should immediately accept the higher state. Now enable IEC 62351-6 signed GOOSE in the publisher (libiec61850 supports it via configuration). Re-inject; verify the subscriber rejects the unsigned spoof.
+\end{stepbox}
+
+\begin{deliverbox}
+PCAPs (baseline, spoof, signed-mitigation), screenshot of the subscriber log in each case, and a 1-page note covering: why \texttt{stNum} bypass works, why L2 isolation is the typical workaround in production substations, and what IEC 62351-6 fixes.
+\end{deliverbox}
+
+\begin{warnbox}
+Only on an isolated VLAN with equipment you own. GOOSE in a real substation drives protection relays -- a spoof can trip a feeder.
+\end{warnbox}
+\end{document}

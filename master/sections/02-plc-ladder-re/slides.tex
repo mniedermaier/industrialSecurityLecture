@@ -1,0 +1,232 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\courseSubtitle{Section 02 -- PLC Ladder Logic Reverse Engineering}
+\def\sectionNumber{02}
+\def\sectionTitle{PLC Ladder Logic Reverse Engineering}
+
+\input{../../../template/slides-preamble.tex}
+
+\begin{document}
+
+\sectionoverviewframe
+
+\learningobjectives{
+  \item Extract a ladder-logic program from a PLC and from a project file.
+  \item Recognise vendor-specific block formats (Siemens, Rockwell, CODESYS).
+  \item Decompile or visualise ladder logic and identify what the program does.
+  \item Spot logic-bomb and stealth modifications (\`a la Stuxnet).
+  \item Apply integrity controls to prevent unnoticed code change.
+}
+
+\section{Why Ladder RE}
+
+\begin{frame}{Why Ladder Logic Reverse Engineering?}
+\centering
+\begin{tikzpicture}[node distance=8mm]
+  \node[plc, minimum width=22mm] (plc) {PLC};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of plc, minimum width=30mm, font=\small] (prj) {Project file\\(.zap, .acd, .csmpx)};
+  \node[isbox, fill=isPLC!15, draw=isPLC, right=of prj, minimum width=30mm, font=\small] (rt) {Compiled blocks\\(MC7, .L5K, .gvl)};
+  \draw[flow] (plc) -- (prj); \draw[flow] (prj) -- (rt);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{importantbox}{The blind spot}
+The PLC runs the \emph{compiled} blocks. The vendor tool shows the \emph{project}. If an attacker changes only the runtime, the project still looks fine and only RE catches it.
+\end{importantbox}
+\source{Stuxnet (2010) is the canonical example -- HMI fed clean data while the PLC ran tampered logic.}
+\end{frame}
+
+\begin{frame}{Three Common Vendor Worlds}
+\centering
+\renewcommand{\arraystretch}{1.3}
+\footnotesize
+\begin{tabular}{|p{3.2cm}|p{3.4cm}|p{3.4cm}|p{3.6cm}|}
+\hline
+\rowcolor{slidePanel}
+ & \textbf{Siemens S7-3xx/4xx} & \textbf{Rockwell ControlLogix} & \textbf{CODESYS family} \\
+\hline
+Project file & \texttt{.zap}, \texttt{.s7p} (Step7); \texttt{.ap16} (TIA) & \texttt{.acd} & \texttt{.project} (XML zip) \\
+On-PLC format & MC7 byte-code, OBxx/FCxx/DBxx blocks & \texttt{.L5K} compiled tags & UDFB structured text \\
+Read-back tool & \texttt{snap7}, TIA upload & RSLogix5000 upload, \texttt{libplctag} & CODESYS device tree \\
+\hline
+\end{tabular}
+\source{Snap7 docs; \emph{libplctag}; Rockwell PCDC; CODESYS GmbH.}
+\end{frame}
+
+\section{Acquisition}
+
+\begin{frame}[fragile]{Reading Blocks via Snap7 (Siemens)}
+\begin{lstlisting}[language=Python]
+import snap7
+c = snap7.client.Client()
+c.connect("10.0.0.10", 0, 1)
+# List blocks, then upload OB1 + DB1
+blocks = c.list_blocks()                # SfcCount, OBCount, FCCount...
+ob1 = c.upload(snap7.types.Block.OB, 1) # raw MC7 bytes
+db1 = c.upload(snap7.types.Block.DB, 1)
+open("ob1.bin", "wb").write(ob1)
+\end{lstlisting}
+\vspace{1mm}
+\begin{notebox}{Permission check}
+The S7-300/400 default \emph{put/get} setting allows upload; modern S7-1500 requires explicit enable. Document any change.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{Project-File Acquisition}
+\centering
+\begin{tikzpicture}[node distance=6mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=30mm, font=\small] (a) {Engineering WS\\backup};
+  \node[isbox, fill=isOT!15, draw=isOT, right=of a, minimum width=30mm, font=\small] (b) {Maintenance\\share / SCM};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of b, minimum width=30mm, font=\small] (c) {Vendor cloud\\(rare in OT)};
+  \node[isbox, fill=isAttack!15, draw=isAttack, below=12mm of b, minimum width=40mm, font=\small, align=center] (d) {Open in the original tool\\(read-only image, sandbox)};
+  \draw[flow] (a) -- (d); \draw[flow] (b) -- (d); \draw[flow] (c) -- (d);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{tipbox}{Always sandbox}
+Project files have run macros and \emph{network ranges}. Open them in a disconnected VM with no host shares.
+\end{tipbox}
+\end{frame}
+
+\section{Decoding}
+
+\begin{frame}{Siemens MC7 Block Layout}
+\centering
+\begin{tikzpicture}[x=11mm, y=8mm, font=\scriptsize]
+  \foreach \x/\w/\name/\col in {0/2/{Block header}/isOT, 2/1/{Loc.Data}/isPLC, 3/2/{MC7 code}/isAccent, 5/2/{Network info}/isOT, 7/2/{Authoring}/isMute}{
+    \draw[fill=\col!15, draw=\col, thick] (\x,0) rectangle ++(\w,1);
+    \node[align=center] at (\x+\w/2, 0.5) {\name};
+  }
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{Tools}
+\texttt{s7-pcap} and \texttt{step7-parser} (Sergey Gordeychik et al., 2015) parse MC7. Newer S7commPlus blocks (S7-1200/1500) use \texttt{Pdata} and require S7commPlus-aware tools.
+\end{notebox}
+\source{Sergey Gordeychik et al., \emph{SCADA StrangeLove}, 2015 \textbar{} Beresford, D., \emph{Exploiting Siemens Simatic S7 PLCs}, 2011.}
+\end{frame}
+
+\begin{frame}{Rockwell .L5K and .ACD}
+\begin{itemize}
+  \item \texttt{.acd} is a binary container; \texttt{.l5k} / \texttt{.l5x} is the printable export.
+  \item \texttt{l5k\_parser} (community) reconstructs Structured Text from the export.
+  \item Watch for \textbf{add-on instructions (AOIs)} -- compiled inside the project; their internals are hidden in the GUI.
+  \item Tag aliases obscure semantics: \texttt{Bool15} may secretly be ``open\_valve''.
+\end{itemize}
+\begin{tipbox}{Decompile then re-render}
+Round-trip the export through RSLogix; what visually matches the original is faithful, what diverges is your target.
+\end{tipbox}
+\end{frame}
+
+\begin{frame}{CODESYS / IEC 61131-3 Round-Trip}
+\centering
+\begin{tikzpicture}[node distance=6mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=28mm, font=\small] (a) {.project (XML)};
+  \node[isbox, fill=isPLC!15, draw=isPLC, right=of a, minimum width=28mm, font=\small] (b) {POU = ST};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of b, minimum width=28mm, font=\small] (c) {Compiled bytecode};
+  \node[isbox, fill=isAttack!15, draw=isAttack, right=of c, minimum width=28mm, font=\small] (d) {Runtime};
+  \foreach \s/\e in {a/b, b/c, c/d}{\draw[flow] (\s) -- (\e);}
+\end{tikzpicture}
+\vspace{2mm}
+\begin{importantbox}{CODE16 (2023)}
+Sixteen CVEs in CODESYS Runtime exposed authentication, parser, and update-verifier flaws across hundreds of vendor products built on the runtime.
+\end{importantbox}
+\source{CISA \emph{ICSA-23-103-09} and related advisories; Microsoft \emph{CoDe16} disclosure, 2023.}
+\end{frame}
+
+\section{What to Look For}
+
+\begin{frame}{The Stuxnet Pattern}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small] (a) {1.\ Pristine OB1 / main loop sets up normal control};
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small, below=of a] (b) {2.\ Hidden OB35 (cyclic) checks for the target signature (frequency, set-point)};
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small, below=of b] (c) {3.\ On match: record current set-points, replace with malicious sequence};
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small, below=of c] (d) {4.\ When operator reads back, recorded set-points are returned (HMI lied)};
+\end{tikzpicture}
+\source{Langner, R., \emph{To Kill a Centrifuge}, The Langner Group, 2013.}
+\end{frame}
+
+\begin{frame}{Logic Bomb Indicators}
+\begin{itemize}
+  \item Unused inputs that are read but never appear in the rung logic.
+  \item Time- or counter-based branches that never fire under normal data.
+  \item Blocks named after vendor utilities (``OEM\_diag'', ``factory\_test'') outside the official block list.
+  \item Constants whose values match \emph{exactly} known process set-points.
+  \item Calls into reserved or vendor-locked memory areas.
+  \item Discrepancy between project-file timestamps and on-PLC block CRCs.
+\end{itemize}
+\begin{warnbox}
+A missing CRC, or a CRC that does not match the project file, is more often vendor sloppiness than malice -- but it deserves a written investigation.
+\end{warnbox}
+\end{frame}
+
+\begin{frame}{Tagging the Memory Map}
+\centering
+\begin{tikzpicture}[x=1.7cm, y=1cm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=22mm, font=\scriptsize, align=center] at (0,0) {Input image\\(I)};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=22mm, font=\scriptsize, align=center] at (1.6,0) {Output image\\(Q)};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=22mm, font=\scriptsize, align=center] at (3.2,0) {Markers\\(M)};
+  \node[isbox, fill=isHMI!15, draw=isHMI, minimum width=22mm, font=\scriptsize, align=center] at (4.8,0) {Timers\\(T)};
+  \node[isbox, fill=isMute!15, draw=isMute, minimum width=22mm, font=\scriptsize, align=center] at (6.4,0) {Counters\\(C)};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=22mm, font=\scriptsize, align=center] at (8,0) {Data\\blocks (DB)};
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{Reverse engineering tip}
+Cross-reference \emph{every} symbol against where it is read and where it is written. Symbols that are only \emph{written} (never read) are smoke.
+\end{notebox}
+\end{frame}
+
+\section{Defending the Code}
+
+\begin{frame}{Defensive Controls}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small] (a) {Signed firmware + signed program downloads (vendor support varies)};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of a] (b) {PLC key-switch in ``RUN'' position; ``PROG'' requires physical access};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of b] (c) {Continuous block-checksum monitoring (Claroty, Dragos, Nozomi modules)};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of c] (d) {Version-controlled project files with CI \& review};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of d] (e) {Engineering workstation hardened; no Internet, MFA, application allow-listing};
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Disclosure Considerations}
+\begin{itemize}
+  \item Findings on production logic touch \textbf{safety} -- coordinate with process safety, not just IT.
+  \item Vendor PSIRT first; CERT/CC second; public publication only after fix.
+  \item Sharing tags or constants from real plants risks identifying the asset owner -- redact heavily.
+  \item Some jurisdictions (US DMCA \S1201, EU CRA research safe-harbour, German \S202c StGB) constrain RE; consult counsel.
+\end{itemize}
+\begin{warnbox}
+Logic from a production PLC you do not own is contaminated evidence. No serious vendor will accept it.
+\end{warnbox}
+\end{frame}
+
+\begin{frame}{Summary -- Section \sectionNumber}
+\begin{takeawaybox}{Ladder RE for ICS}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item PLCs run compiled blocks, not the project source -- they can diverge silently.
+  \item Project-file and runtime acquisition each catch different attacks.
+  \item Vendor-specific tools (snap7, l5k-parser, CODESYS) are the workhorses.
+  \item Stuxnet-style logic bombs hide in unused inputs, time bombs, and CRC mismatches.
+  \item Defence is signed downloads, key-switch, continuous checksum monitoring.
+\end{itemize}
+\end{takeawaybox}
+\end{frame}
+
+\referencesframe{
+  \item Langner, R. \emph{To Kill a Centrifuge}, The Langner Group, Nov 2013.
+  \item Falliere, N., Murchu, L., Chien, E. \emph{W32.Stuxnet Dossier}, v1.4, Symantec, 2011.
+  \item Beresford, D. \emph{Exploiting Siemens Simatic S7 PLCs}, BlackHat USA, 2011.
+  \item Gordeychik, S. et al. \emph{SCADA StrangeLove} talks and tools, 2014--2018.
+  \item Snap7 project. \url{https://snap7.sourceforge.net}.
+  \item OpenPLC project. \url{https://openplcproject.com}.
+  \item ODVA. \emph{libplctag / CIP open libraries}.
+  \item Rockwell Automation. \emph{Logix5000 Controllers Import/Export}, manual 1756-RM084.
+  \item CISA \emph{ICSA-23-103-09} and related CODESYS advisories (CoDe16), 2023.
+  \item Microsoft Threat Intelligence. \emph{CoDe16: 16 vulnerabilities in CODESYS Runtime}, 2023.
+  \item IEC 61131-3:2013. \emph{Programmable controllers -- Part 3: Programming languages}.
+  \item Dragos, Claroty, Nozomi. PLC integrity-monitoring product documentation.
+}
+
+\closingframe
+
+\end{document}

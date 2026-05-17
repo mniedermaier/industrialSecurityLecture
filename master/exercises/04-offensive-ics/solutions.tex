@@ -1,0 +1,35 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\sectionNumber{04}
+\def\sectionTitle{Offensive ICS in Authorised Labs}
+\def\sheetKind{Solution Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 4.1 -- ROE (mark scheme)}
+Pass requires: named scope, explicit forbidden actions (especially around safety), kill-switch contact reachable 24/7, and an end-of-engagement evidence-handover process. Deduct for vague language (``best-effort'', ``where possible'').
+\end{taskbox}
+
+\begin{taskbox}{Exercise 4.2 -- Recon Plan (mark scheme)}
+Strong answers privilege \emph{passive} sources and explain why -- ICS devices are fragile, scans can trip safety. Active probes are limited to known-safe NSE scripts at low rates.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 4.3 -- Attack Path (sample)}
+Modbus write example:
+\begin{itemize}
+  \item Pre-conditions: L2 reach to PLC, no write allow-list.
+  \item Steps: \texttt{pymodbus} write\_coil to set point, observe HMI.
+  \item Process impact: pump cycles unexpectedly, alarm chain fires.
+  \item Detection: industrial firewall log (DPI), Zeek \texttt{ModbusWatch::Unsolicited\_Write}.
+\end{itemize}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 4.4 -- Report Writing (mark scheme)}
+Strong reports begin with the executive summary the plant manager actually reads, ranked by \emph{process impact} not CVSS, with reproduction the asset owner can run in 10 minutes.
+\end{taskbox}
+
+\end{document}

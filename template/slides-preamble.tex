@@ -249,6 +249,10 @@
 % The `frame` environment must be written literally in the deck, so this is a
 % macro rather than a wrapper environment (beamer collects the frame body and
 % trips over \newenvironment wrappers).
+%
+% allowframebreakstemplate=\insertcontinuationcount silences the trailing roman
+% numeral when content fits on a single page.
+\setbeamertemplate{frametitle continuation}[from second]
 \newcommand{\referencesframe}[1]{%
   \begin{frame}[allowframebreaks]{References -- Section \sectionNumber}
     \fontsize{7.5}{9}\selectfont

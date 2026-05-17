@@ -1,0 +1,33 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\sectionNumber{02}
+\def\sectionTitle{PLC Ladder Logic Reverse Engineering}
+\def\sheetKind{Solution Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 2.1 -- Project vs Runtime (mark scheme)}
+Award marks for: hashes match after a clean download; hashes diverge after the runtime-only modification; written explanation of \emph{which} byte ranges changed and \emph{why} the change is invisible to the engineering tool.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 2.2 -- Snap7 (sample)}
+\begin{itemize}
+  \item Block list returns counts for OBCount, FCCount, FBCount, DBCount, SDB, SFC, SFB.
+  \item Raw MC7 typically begins with header bytes \texttt{70 70 ..\ }; the next byte gives block type.
+  \item Code section starts after fixed header + local data declaration.
+\end{itemize}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 2.3 -- Logic-Bomb (mark scheme)}
+Pass if the student identifies: (a) the unused input acting as trigger, (b) the time/counter check, (c) the conditional branch that calls the malicious block, (d) the effect (set-point change, write to actuator, suppression of alarm).
+\end{taskbox}
+
+\begin{taskbox}{Exercise 2.4 -- Defence Pitch (mark scheme)}
+Strong answers explain the \emph{vendor-specific} mechanism (S7-1500 Know-How protection, ControlLogix Source Protection, Logix change detection) and acknowledge the operational cost (downtime windows, training).
+\end{taskbox}
+
+\end{document}

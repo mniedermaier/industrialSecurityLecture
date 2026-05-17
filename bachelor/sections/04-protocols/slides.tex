@@ -152,8 +152,8 @@ Most industrial protocols in production today were \textbf{designed before the I
   \node[hmi, above right=14mm and 10mm of srv] (c2) {Client (MES)};
   \node[isbox, fill=isAccent!10, draw=isAccent, below=of srv, font=\scriptsize, minimum width=70mm, align=left]
     {X.509 mutual auth $\bullet$ message signing $\bullet$ encryption\\Rich information model $\bullet$ pub/sub since v1.04};
-  \draw[-{Stealth[length=2mm]}, thick] (c1) -- node[left, font=\tiny]{TLS} (srv);
-  \draw[-{Stealth[length=2mm]}, thick] (c2) -- node[right, font=\tiny]{TLS} (srv);
+  \draw[-{Stealth[length=2mm]}, thick] (c1) -- node[left=2pt, font=\tiny, fill=white, inner sep=1pt]{TLS} (srv);
+  \draw[-{Stealth[length=2mm]}, thick] (c2) -- node[right=2pt, font=\tiny, fill=white, inner sep=1pt]{TLS} (srv);
 \end{tikzpicture}
 \source{IEC 62541 (multipart, OPC Foundation) \textbar{} OPC UA Specification Part 2 (Security Model).}
 \end{frame}
