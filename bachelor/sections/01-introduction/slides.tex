@@ -76,7 +76,7 @@ A breach has consequences in \emph{atoms}, not just in \emph{bits}.
      \quad Hard real-time, deterministic\\
      \quad Hostile environment\\
      \quad Failure cost: safety, lives};
-  \draw[<->, very thick, isAttack] (it.east) -- (ot.west) node[midway, above=2pt, font=\scriptsize, fill=white, inner sep=1pt] {converge};
+  \draw[<->, very thick, isAttack, shorten <=2pt, shorten >=2pt] (it.east) -- (ot.west) node[midway, yshift=4pt, font=\scriptsize, fill=white, inner sep=2pt] {converge};
 \end{tikzpicture}
 \end{frame}
 
@@ -112,16 +112,16 @@ In OT, \textbf{availability} and \textbf{safety} dominate the CIA triad. A block
 \begin{frame}{A Brief History of Industrial Control}
 \centering
 \begin{tikzpicture}[x=1.1cm]
-  \draw[axisline] (0,0) -- (11.5,0);
+  \draw[axisline] (0,0) -- (10.5,0);
   \foreach \x/\year/\label in {
     0/1960s/Direct\\digital ctrl,
-    1.5/1970s/PLCs invented,
-    3/1980s/DCS dominate\\process plants,
-    4.5/1990s/Ethernet on\\plant floor,
-    6/2000s/IT/OT\\convergence,
-    7/2010/Stuxnet,
-    8.5/2015--16/Ukraine grid,
-    10/2017+/TRITON\\Industroyer}{
+    1.4/1970s/PLCs\\invented,
+    2.8/1980s/DCS in\\process plants,
+    4.2/1990s/Ethernet\\plant floor,
+    5.6/2000s/IT/OT\\convergence,
+    6.8/2010/Stuxnet,
+    8.0/2015--16/Ukraine\\grid,
+    9.2/2017+/TRITON\\Industroyer}{
     \draw[thick] (\x,-1mm) -- (\x,1mm);
     \node[font=\tiny, below=1mm] at (\x,0) {\year};
     \node[font=\tiny, above=2mm, align=center] at (\x,0) {\label};
@@ -146,6 +146,7 @@ In OT, \textbf{availability} and \textbf{safety} dominate the CIA triad. A block
   \draw[flow]   (d.east) -- ([yshift=-10mm]target.west);
   \draw[flow]   (e.east) -- ([yshift=-18mm]target.west);
 \end{tikzpicture}
+\source{Dragos \emph{Year in Review 2024}: 23 active threat groups tracked, ICS ransomware up 87\% YoY \textbar{} Munich Re \emph{Cyber Insurance Risk Snapshot}, 2024.}
 \end{frame}
 
 \begin{frame}{Stakeholders}
@@ -204,7 +205,7 @@ In OT, \textbf{availability} and \textbf{safety} dominate the CIA triad. A block
   \node[font=\scriptsize, align=center] at (5, 1.5) {Hacktivists};
   \node[font=\scriptsize, align=center] at (5, 2.5) {Cybercriminals (ransomware)};
   \node[font=\scriptsize, align=center] at (5, 3.5) {Industrial espionage};
-  \node[font=\tiny, align=center] at (5, 4.2) {Nation-state};
+  \node[font=\tiny, align=center] at (5, 4.1) {Nation-state};
 \end{tikzpicture}
 \vspace{2mm}\par
 \small Capability rises as we move up; volume of actors falls.
@@ -213,10 +214,10 @@ In OT, \textbf{availability} and \textbf{safety} dominate the CIA triad. A block
 \begin{frame}{The Cost of ICS Incidents}
 \centering
 \begin{tikzpicture}[x=1.4cm]
-  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, align=center, minimum width=28mm, minimum height=20mm] at (0,0) {\textbf{Colonial}\\\textbf{Pipeline}\\\scriptsize \$4.4M ransom\\5-day outage};
-  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, align=center, minimum width=28mm, minimum height=20mm] at (2.2,0) {\textbf{Norsk Hydro}\\\\\scriptsize \$71M loss\\6-month recov.};
-  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, align=center, minimum width=28mm, minimum height=20mm] at (4.4,0) {\textbf{Maersk}\\\textbf{(NotPetya)}\\\scriptsize \$300M loss\\10 days down};
-  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, align=center, minimum width=28mm, minimum height=20mm] at (6.6,0) {\textbf{Stuxnet}\\\\\scriptsize $\sim$1000 centrifuges\\multi-year program};
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, align=center, text width=26mm, minimum height=22mm] at (0,0) {\textbf{Colonial Pipeline}\\[2pt]\scriptsize \$4.4M ransom\\5-day outage};
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, align=center, text width=26mm, minimum height=22mm] at (2.2,0) {\textbf{Norsk Hydro}\\[2pt]\scriptsize \$71M loss\\6-month recovery};
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, align=center, text width=26mm, minimum height=22mm] at (4.4,0) {\textbf{Maersk (NotPetya)}\\[2pt]\scriptsize \$300M loss\\10 days down};
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, align=center, text width=26mm, minimum height=22mm] at (6.6,0) {\textbf{Stuxnet}\\[2pt]\scriptsize $\sim$1000 centrifuges\\multi-year program};
 \end{tikzpicture}
 \vspace{2mm}
 \begin{notebox}{Direct + indirect}

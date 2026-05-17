@@ -30,6 +30,7 @@
   \node[isbox, fill=isOT!10, draw=isOT, below=14mm of root, xshift=42mm, minimum width=26mm, font=\scriptsize, align=center] (c) {4-x\\Component};
   \foreach \n in {g,p,s,c}{\draw[flow] (root.south) -- (\n.north);}
 \end{tikzpicture}
+\par\vspace{3mm}
 \source{IEC 62443 series (joint with ISA/IEC) \textbar{} ISA-99 committee, ongoing.}
 \end{frame}
 
@@ -44,7 +45,7 @@
     \pgfmathsetmacro{\w}{1.4 + (\sl-1)*0.6}
     \draw[fill=\col!15, draw=\col, thick] (0, -\sl) rectangle (\w, -\sl+0.7);
     \node[font=\scriptsize\bfseries, anchor=center] at (\w/2, -\sl+0.35) {SL\,\sl};
-    \node[font=\scriptsize, anchor=west] at (4.5, -\sl+0.35) {\name};
+    \node[font=\scriptsize, anchor=west] at (4.8, -\sl+0.35) {\name};
   }
 \end{tikzpicture}
 \par\vspace{2mm}
@@ -174,7 +175,7 @@ Manufacturers must provide security updates, vulnerability handling, and an SBOM
   \item Cross-border incident-information-sharing framework.
 \end{itemize}
 \begin{notebox}{For EU operators}
-ENISA guidance is non-binding but informs how national CERTs interpret NIS2 obligations.
+ENISA guidance is non-binding but shapes how national CERTs read NIS2 duties.
 \end{notebox}
 \end{frame}
 

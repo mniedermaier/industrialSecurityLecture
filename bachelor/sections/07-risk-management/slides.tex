@@ -72,8 +72,12 @@ Likelihood depends on adversary capability \emph{and} exploit difficulty.
   \node[isbox, fill=isNet!15, draw=isNet, right=22mm of event] (e1) {Conseq.\ 1};
   \node[isbox, fill=isNet!15, draw=isNet, above right=of event] (e2) {Conseq.\ 2};
   \node[isbox, fill=isNet!15, draw=isNet, below right=of event] (e3) {Conseq.\ 3};
-  \foreach \n in {c1,c2,c3}{\draw[flow] (\n) -- (event);}
-  \foreach \n in {e1,e2,e3}{\draw[flow] (event) -- (\n);}
+  \draw[flow] (c1.east) -- (event.west);
+  \draw[flow] (c2.south east) -- (event.north west);
+  \draw[flow] (c3.north east) -- (event.south west);
+  \draw[flow] (event.east) -- (e1.west);
+  \draw[flow] (event.north east) -- (e2.south west);
+  \draw[flow] (event.south east) -- (e3.north west);
 \end{tikzpicture}
 \par\vspace{2mm}
 \footnotesize Barriers on the left prevent causes; barriers on the right mitigate consequences.
@@ -125,13 +129,13 @@ Likelihood depends on adversary capability \emph{and} exploit difficulty.
   \draw[thick] (0,0) circle (\R);
   \node[font=\bfseries\small] at (0,0) {CCE};
   \node[isbox, fill=isAttack!10, draw=isAttack, font=\scriptsize, align=center, minimum width=26mm]
-    at (90:\R+2.2) {1. Consequence\\prioritisation};
+    at (90:\R+2.4) {1. Consequence\\prioritisation};
   \node[isbox, fill=isAttack!10, draw=isAttack, font=\scriptsize, align=center, minimum width=26mm]
-    at (0:\R+2.6) {2. System-of-\\systems analysis};
+    at (0:\R+2.4) {2. System-of-\\systems analysis};
   \node[isbox, fill=isAttack!10, draw=isAttack, font=\scriptsize, align=center, minimum width=26mm]
-    at (270:\R+2.2) {3. Consequence-based\\targeting};
+    at (270:\R+2.4) {3. Consequence-based\\targeting};
   \node[isbox, fill=isAttack!10, draw=isAttack, font=\scriptsize, align=center, minimum width=26mm]
-    at (180:\R+2.6) {4. Mitigations \&\\protections};
+    at (180:\R+2.4) {4. Mitigations \&\\protections};
 \end{tikzpicture}
 \vspace{-1mm}
 \begin{notebox}{INL methodology}
@@ -200,8 +204,12 @@ Each layer must be \emph{independent of the next} -- otherwise one common-cause 
   \node[isbox, fill=isNet!12, draw=isNet, font=\scriptsize, right=22mm of e] (k1) {Toxic release};
   \node[isbox, fill=isNet!12, draw=isNet, font=\scriptsize, above=of k1] (k2) {Production halt};
   \node[isbox, fill=isNet!12, draw=isNet, font=\scriptsize, below=of k1] (k3) {Regulatory fine};
-  \foreach \n in {c1,c2,c3}{\draw[flow] (\n) -- (e);}
-  \foreach \n in {k1,k2,k3}{\draw[flow] (e) -- (\n);}
+  \draw[flow] (c1.east) -- (e.west);
+  \draw[flow] (c2.east) -- (e.north west);
+  \draw[flow] (c3.east) -- (e.south west);
+  \draw[flow] (e.east) -- (k1.west);
+  \draw[flow] (e.north east) -- (k2.west);
+  \draw[flow] (e.south east) -- (k3.west);
 \end{tikzpicture}
 \par\vspace{1mm}
 {\footnotesize Barriers on the left prevent causes; barriers on the right mitigate consequences.}
@@ -232,9 +240,10 @@ Pitfalls    & False precision             & Garbage in $\Rightarrow$ garbage out
   \item Typical exclusions: nation-state acts of war, unpatched known CVEs, missing MFA.
   \item Insurers now drive a minimum control baseline (MFA, EDR, backups).
 \end{itemize}
-\begin{warnbox}
-Insurance is a backstop, not a control. Premiums rise sharply if your baseline is weak.
+\begin{warnbox}{Backstop, not a control}
+Insurance is a backstop. Premiums rise sharply if your baseline is weak, and ``act of war'' exclusions are tested in court each year.
 \end{warnbox}
+\source{Munich Re \emph{Cyber Insurance Risk Snapshot}, 2024 \textbar{} Merck v.\ Ace American (NotPetya war-exclusion ruling), New Jersey Appellate, 2022.}
 \end{frame}
 
 \begin{frame}{Risk Register Example}

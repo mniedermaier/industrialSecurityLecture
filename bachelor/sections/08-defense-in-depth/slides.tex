@@ -49,6 +49,7 @@
 \begin{importantbox}{Layered}
 A single failed layer should not equal a successful attack.
 \end{importantbox}
+\source{INL, \emph{Recommended Practice: Improving ICS Cybersecurity with Defense-in-Depth Strategies}, 2016 \textbar{} NIST SP 800-82 Rev.\,3, 2023.}
 \end{frame}
 
 \begin{frame}{Hardening ICS Hosts}
@@ -145,9 +146,10 @@ A single failed layer should not equal a successful attack.
   \node[server, right=of ids, fill=isHMI!12, draw=isHMI] (soc) {SOC};
   \draw[netline] (scada) -- (sw);
   \foreach \n in {p1,p2,p3}{\draw[netline] (\n) -- (sw);}
-  \draw[-{Stealth[length=2mm]}, dashed, thick] (sw) -- node[midway, right=3pt, font=\tiny, fill=white, inner sep=1pt]{mirror only} (ids);
+  \draw[-{Stealth[length=2mm]}, dashed, thick] (sw) -- node[midway, right=5pt, font=\tiny, fill=white, inner sep=2pt]{mirror only} (ids);
   \draw[flow] (ids) -- (soc);
 \end{tikzpicture}
+\source{Tools: Zeek (Paxson, 1999); Malcolm (Idaho National Lab); commercial: Claroty CTD, Nozomi Guardian, Dragos Platform.}
 \end{frame}
 
 \begin{frame}{What an OT IDS Looks For}
@@ -175,6 +177,7 @@ A single failed layer should not equal a successful attack.
 \begin{notebox}{Sealing the wall jack}
 802.1X (with MAC bypass for legacy devices) prevents random laptops from joining the plant LAN. Static PLC ports get MAC pinning.
 \end{notebox}
+\source{IEEE 802.1X-2020 \textbar{} NIST SP 800-92 (logging) \textbar{} vendors: Cisco ISE, Aruba ClearPass, Forescout eyeSight.}
 \end{frame}
 
 \begin{frame}{USB Allow-Listing}
@@ -184,7 +187,7 @@ A single failed layer should not equal a successful attack.
   \node[isbox, fill=isAccent!15, draw=isAccent, right=of ws, minimum width=40mm, font=\small, align=center] (kiosk) {Kiosk scanner\\(Olea, OPSWAT, Nettitude)};
   \node[isbox, fill=isAttack!15, draw=isAttack, font=\small, above=10mm of kiosk] (usb) {USB stick};
   \draw[flow] (usb) -- (kiosk);
-  \draw[flow] (kiosk) -- node[midway, above=4pt, font=\tiny, fill=white, inner sep=1pt]{cleared} (ws);
+  \draw[flow] (kiosk) -- node[midway, above=5pt, font=\tiny, fill=white, inner sep=2pt]{cleared} (ws);
 \end{tikzpicture}
 \vspace{2mm}
 \begin{importantbox}{One door}
@@ -200,7 +203,10 @@ Every USB must pass through one of N approved scanning kiosks before it touches 
   \node[server, right=of b, fill=isHMI!12] (c) {Historian alarms};
   \node[firewall, right=of c] (d) {FW logs};
   \node[server, fill=isPLC!15, draw=isPLC, below=14mm of {$(b)!0.5!(c)$}, minimum width=70mm, font=\small] (siem) {OT-aware SIEM};
-  \foreach \n in {a,b,c,d}{\draw[flow] (\n.south) -- (\n.south |- siem.north);}
+  \draw[flow] (a.south) |- ([yshift=2mm]siem.north west) -- (siem.north west);
+  \draw[flow] (b.south) -- (b.south |- siem.north);
+  \draw[flow] (c.south) -- (c.south |- siem.north);
+  \draw[flow] (d.south) |- ([yshift=2mm]siem.north east) -- (siem.north east);
 \end{tikzpicture}
 \vspace{2mm}
 \begin{notebox}{Send everything, correlate centrally}

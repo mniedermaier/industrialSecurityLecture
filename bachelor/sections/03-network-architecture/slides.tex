@@ -37,6 +37,7 @@
   \node[firewall, right=4mm of L4, minimum height=6mm, minimum width=10mm, font=\scriptsize] (fw1) {FW};
   \node[firewall, right=4mm of L5, minimum height=6mm, minimum width=10mm, font=\scriptsize] (fw2) {FW};
 \end{tikzpicture}
+\source{T.J.\ Williams, ``The Purdue Enterprise Reference Architecture'', \emph{Computers in Industry}, 1994 \textbar{} ISA-95 / IEC 62264.}
 \end{frame}
 
 \begin{frame}{Why an Industrial DMZ?}
@@ -117,9 +118,9 @@ Topology choice in OT is driven by \textbf{determinism} and \textbf{availability
   \node[plc] (p2) at (10.0,1.2) {PLC 2};
   \node[plc, fill=isAttack!15, draw=isAttack] (s1) at (4.0,-1.9) {SIS 1};
   \node[plc, fill=isAttack!15, draw=isAttack] (s2) at (7.0,-1.9) {SIS 2};
-  \draw[conduit] (h2.east) to[bend left=18] node[above, font=\tiny, sloped, fill=white, inner sep=1pt] {OPC UA} (p1.west);
-  \draw[conduit] (h1.east) -- (p2.west);
-  \draw[conduit] (p1.south) -- node[right, font=\tiny, fill=white, inner sep=1pt] {dry contact} (s1.north);
+  \draw[conduit] (h2.east) to[bend left=22] node[above, font=\tiny, sloped, fill=white, inner sep=2pt] {OPC UA} (p1.west);
+  \draw[conduit] (h1.east) to[bend right=18] (p2.west);
+  \draw[conduit] (p1.south) -- node[right=3pt, font=\tiny, fill=white, inner sep=2pt] {dry contact} (s1.north);
   \draw[conduit] (p2.south) -- (s2.north);
 \end{tikzpicture}
 \par\vspace{1mm}
@@ -138,7 +139,8 @@ Topology choice in OT is driven by \textbf{determinism} and \textbf{availability
   \draw[flow] (fw) -- (p);
 \end{tikzpicture}
 \par\vspace{3mm}
-\footnotesize Industrial firewalls do stateful inspection \emph{and} ICS protocol parsing. Often deployed transparently.
+{\footnotesize Industrial firewalls do stateful inspection \emph{and} ICS protocol parsing. Often deployed transparently.}
+\source{Examples: Cisco ISA-3000, Fortinet Rugged, Belden Hirschmann Tofino, Palo Alto IoT Security.}
 \end{frame}
 
 \begin{frame}{Data Diode -- One-Way Egress}
@@ -151,8 +153,9 @@ Topology choice in OT is driven by \textbf{determinism} and \textbf{availability
   \draw[flow, very thick] (diode) -- (it);
   \draw[-{Stealth[length=3mm]}, very thick, isAttack, dashed] (it.south) to[bend left=45] node[below, font=\scriptsize] {hardware-blocked} (ctrl.south);
 \end{tikzpicture}
-\par\vspace{2mm}
-\footnotesize Physical fibre layout enforces the direction. Useful for safety-critical data egress.
+\par\vspace{1mm}
+{\footnotesize Physical fibre layout enforces the direction. Useful for safety-critical data egress.}
+\source{Vendors: Owl Cyber Defense, Waterfall Security Solutions, Fox-IT DataDiode \textbar{} certified to IEC 62443-3-3 SR 5.1.}
 \end{frame}
 
 \begin{frame}{Wireless in OT}

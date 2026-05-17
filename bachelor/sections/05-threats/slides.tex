@@ -110,7 +110,7 @@ Four zero-days, two stolen code-signing certificates. Subtly destroyed an estima
   \node[plc, above right=of proc, fill=isAttack!25, draw=isAttack] (sis) {Triconex\\SIS};
   \node[attacker, above=18mm of sis] (atk) {Attacker};
   \draw[flow] (bpcs) -- (proc); \draw[flow] (sis) -- (proc);
-  \draw[attack] (atk) -- node[right=3pt, font=\tiny, align=center, fill=white, inner sep=1pt]{TriStation\\proprietary} (sis);
+  \draw[attack] (atk) -- node[right=3pt, font=\tiny, align=center, fill=white, inner sep=2pt]{TriStation\\proprietary} (sis);
 \end{tikzpicture}
 \par\vspace{1mm}
 {\footnotesize First publicly known attack on a Safety Instrumented System. A programming error in the malware tripped the plant and exposed the operation. Watershed moment: attackers reached the safety layer.}
@@ -213,21 +213,22 @@ PIPEDREAM is the first modular framework with pre-built modules for several vend
 \begin{warnbox}
 The hardest threat to detect is the one that looks like a normal admin task. Behavioural analytics matter more than signatures.
 \end{warnbox}
-\source{CISA \emph{AA24-038A}, ``PRC State-Sponsored Actors Compromise and Maintain Persistent Access to U.S.\ Critical Infrastructure'', 7 Feb 2024 \textbar{} Microsoft, \emph{Volt Typhoon}, May 2023.}
+\source{CISA \mbox{\emph{AA24-038A}}, ``PRC State-Sponsored Actors Compromise and Maintain Persistent Access to U.S.\ Critical Infrastructure'', 7 Feb 2024 \textbar{} Microsoft, \emph{Volt Typhoon}, May 2023.}
 \end{frame}
 
 \begin{frame}{Common Initial Access Vectors in ICS}
 \centering
-\begin{tikzpicture}[x=2.6cm, y=1.2cm]
-  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, text width=33mm, minimum height=14mm, align=center, inner sep=2pt] at (0,0) {Spearphish\\corporate IT};
-  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, text width=33mm, minimum height=14mm, align=center, inner sep=2pt] at (1,0) {Compromised\\vendor};
-  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, text width=33mm, minimum height=14mm, align=center, inner sep=2pt] at (2,0) {Internet-exposed\\PLC / HMI};
-  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, text width=33mm, minimum height=14mm, align=center, inner sep=2pt] at (3,0) {USB / removable\\media};
-  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, text width=33mm, minimum height=14mm, align=center, inner sep=2pt] at (0,-1.6) {Stolen / shared\\credentials};
-  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, text width=33mm, minimum height=14mm, align=center, inner sep=2pt] at (1,-1.6) {Vendor remote\\access};
-  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, text width=33mm, minimum height=14mm, align=center, inner sep=2pt] at (2,-1.6) {VPN with\\no MFA};
-  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, text width=33mm, minimum height=14mm, align=center, inner sep=2pt] at (3,-1.6) {Insider with\\physical access};
+\begin{tikzpicture}[x=3cm, y=1.6cm]
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, text width=24mm, minimum height=12mm, align=center, inner sep=2pt] at (0,0) {Spearphish corporate IT};
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, text width=24mm, minimum height=12mm, align=center, inner sep=2pt] at (1,0) {Compromised vendor};
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, text width=24mm, minimum height=12mm, align=center, inner sep=2pt] at (2,0) {Internet-exposed PLC / HMI};
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, text width=24mm, minimum height=12mm, align=center, inner sep=2pt] at (3,0) {USB / removable media};
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, text width=24mm, minimum height=12mm, align=center, inner sep=2pt] at (0,-1) {Stolen / shared credentials};
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, text width=24mm, minimum height=12mm, align=center, inner sep=2pt] at (1,-1) {Vendor remote access};
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, text width=24mm, minimum height=12mm, align=center, inner sep=2pt] at (2,-1) {VPN with no MFA};
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, text width=24mm, minimum height=12mm, align=center, inner sep=2pt] at (3,-1) {Insider with physical access};
 \end{tikzpicture}
+\source{Dragos \emph{Year in Review 2024} -- initial access vectors observed across 23 OT-targeting groups.}
 \end{frame}
 
 \begin{frame}{Summary -- Section \sectionNumber}

@@ -24,16 +24,15 @@
 \begin{frame}{Anatomy of a Control Loop}
 \centering
 \begin{tikzpicture}[node distance=14mm]
-  \node[process, minimum width=28mm, font=\small] (proc) {Physical Process};
-  \node[sensor, below=of proc] (sens) {Sensor};
+  \node[process, minimum width=32mm, font=\small] (proc) {Physical Process};
+  \node[sensor, below=14mm of proc] (sens) {Sensor};
   \node[plc, right=20mm of sens] (plc) {PLC};
-  \node[actuator, above=14mm of plc] (act) {Actuator};
+  \node[actuator, right=20mm of proc] (act) {Actuator};
   \draw[flow] (proc.south) -- (sens.north) node[midway, left, font=\scriptsize] {measure};
   \draw[flow] (sens.east) -- (plc.west) node[midway, above, font=\scriptsize] {signal};
   \draw[flow] (plc.north) -- (act.south) node[midway, right, font=\scriptsize] {command};
-  \draw[flow] (act.north) -- ++(0,3mm) -| (proc.north);
-  \node[font=\scriptsize, above=1mm of proc.north, xshift=12mm] {actuate};
-  \node[isbox, fill=isAccent!10, draw=isAccent, right=14mm of plc, font=\scriptsize, align=left]
+  \draw[flow] (act.west) -- (proc.east) node[midway, above, font=\scriptsize] {actuate};
+  \node[isbox, fill=isAccent!10, draw=isAccent, below=14mm of plc, font=\scriptsize, align=left]
     {Cycle:\\10\,$\mu$s -- 100\,ms\\Deterministic};
 \end{tikzpicture}
 \end{frame}
@@ -82,7 +81,7 @@
       at (\deg:\R+1.4) {\lbl};
   }
   \foreach \deg in {45,135,225,315}{
-    \draw[->, thick, isOT!70!black] (\deg-30:\R) arc (\deg-30:\deg+30:\R);
+    \draw[-{Stealth[length=3mm]}, very thick, isOT] (\deg-40:\R) arc (\deg-40:\deg+40:\R);
   }
   \node[font=\small\bfseries] at (0,0) {Scan cycle};
 \end{tikzpicture}
@@ -90,32 +89,37 @@
 
 \begin{frame}[fragile]{Ladder Logic --- A Motor Start/Stop}
 \centering
-\begin{tikzpicture}[x=8mm, y=8mm]
+\begin{tikzpicture}[x=10mm, y=10mm, font=\tiny]
   % power rails
-  \draw[thick] (0,3) -- (0,-2);
-  \draw[thick] (12,3) -- (12,-2);
-  % Rung 1: Start_Btn (NO) -- Stop_Btn (NC) -- Motor_Run coil
-  \draw[thick] (0,2) -- (2,2);
-  \node[font=\tiny, above=1mm] at (2.5,2) {Start};
-  \draw[thick] (2,2.3) -- (2,1.7); \draw[thick] (3,2.3) -- (3,1.7);
-  \draw[thick] (3,2) -- (5,2);
-  \node[font=\tiny, above=1mm] at (5.5,2) {Stop (NC)};
-  \draw[thick] (5,2.3) -- (5,1.7); \draw[thick] (6,2.3) -- (6,1.7);
-  \draw[thick] (5,2.3) -- (6,1.7);
-  \draw[thick] (6,2) -- (10,2);
-  \draw[thick] (10,2) circle (4pt);
-  \node[font=\tiny, above right=0mm and 1mm of {(10,2)}] {Motor\_Run};
-  \draw[thick] (10.1,2) -- (12,2);
-  % Rung 2: latch
-  \draw[thick] (0,0) -- (2,0);
-  \node[font=\tiny, above=1mm] at (2.5,0) {Motor\_Run};
-  \draw[thick] (2,0.3) -- (2,-0.3); \draw[thick] (3,0.3) -- (3,-0.3);
-  \draw[thick] (3,0) -- (5,0);
-  % Tie rung 2 into rung 1 (parallel/seal-in)
-  \draw[thick] (5,0) -- (5,2);
+  \draw[thick] (0,2.6) -- (0,-0.6);
+  \draw[thick] (10,2.6) -- (10,-0.6);
+  % --- Rung 1 wire (top) ---
+  \draw[thick] (0,2) -- (1.5,2);
+  % Start contact (NO) at x=1.5..2
+  \draw[thick] (1.5,2.25) -- (1.5,1.75); \draw[thick] (2,2.25) -- (2,1.75);
+  \node[above=1mm] at (1.75,2.25) {Start};
+  \draw[thick] (2,2) -- (4,2);
+  % Stop contact (NC) at x=4..4.5
+  \draw[thick] (4,2.25) -- (4,1.75); \draw[thick] (4.5,2.25) -- (4.5,1.75);
+  \draw[thick] (4,2.25) -- (4.5,1.75); % NC diagonal
+  \node[above=1mm] at (4.25,2.25) {Stop (NC)};
+  \draw[thick] (4.5,2) -- (7.5,2);
+  % Motor coil at x=8..8.5
+  \draw[thick] (8.25,2) circle (3pt);
+  \node[above=1mm] at (8.25,2.15) {Motor};
+  \draw[thick] (8.55,2) -- (10,2);
+  % --- Seal-in branch (parallel around Start) at y=1 ---
+  \draw[thick] (1,2) -- (1,1);                 % drop from L rail to seal branch
+  \draw[thick] (1,1) -- (2.25,1);              % wire to seal contact
+  \draw[thick] (2.25,1.25) -- (2.25,0.75); \draw[thick] (2.75,1.25) -- (2.75,0.75);
+  \node[above=1mm] at (2.5,1.25) {Motor};
+  \draw[thick] (2.75,1) -- (4,1);              % continue
+  \draw[thick] (4,1) -- (4,2);                 % rejoin main rung at Stop input
 \end{tikzpicture}
 \par\vspace{1mm}
-{\footnotesize Pressing \texttt{Start} energises the coil; rung 2 latches it. \texttt{Stop} (NC) breaks both paths.}
+\begin{notebox}{What it does}
+\texttt{Start} energises the \texttt{Motor} coil. The seal-in branch around \texttt{Start} latches the coil so it stays on. \texttt{Stop} (NC) breaks both paths.
+\end{notebox}
 \end{frame}
 
 \section{Plant-Wide Architectures}
@@ -152,6 +156,7 @@
   \draw[netline] (mtu) -- (sw);
   \foreach \n in {p1,p2,p3}{\draw[netline] (sw) -- (\n);}
 \end{tikzpicture}
+\source{Examples: Inductive Automation Ignition, Siemens WinCC OA, AVEVA System Platform, Schneider EcoStruxure Geo SCADA.}
 \end{frame}
 
 \begin{frame}{HMI -- Human Machine Interface}

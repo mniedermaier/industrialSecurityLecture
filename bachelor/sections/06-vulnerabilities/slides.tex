@@ -100,7 +100,7 @@
        $+$ Versions, banners\\
        $-$ Can crash legacy PLCs\\
        $-$ Bench / maint.\ window};
-  \draw[<->, very thick, isMute] (p) -- node[above=2pt, font=\scriptsize, fill=white, inner sep=2pt]{combine} (a);
+  \draw[<->, very thick, isMute] (p) -- node[above=3pt, font=\small\bfseries, fill=white, inner sep=2pt]{combine} (a);
 \end{tikzpicture}
 \end{frame}
 
@@ -136,8 +136,8 @@ nmap -p 502 --script modbus-discover 192.168.10.10
     270/{Mitigate (patch / control)}/isNet,
     210/{Document}/isMute,
     150/{Re-assess after change}/isAttack}{
-    \node[isbox, fill=\col!15, draw=\col, font=\scriptsize, align=center, text width=26mm, minimum height=10mm]
-      (n-\deg) at (\deg:\R+1.5) {\lbl};
+    \node[isbox, fill=\col!15, draw=\col, font=\scriptsize, align=center, text width=30mm, minimum height=11mm]
+      (n-\deg) at (\deg:\R+1.8) {\lbl};
   }
   \foreach \a/\b in {90/30, 30/330, 330/270, 270/210, 210/150, 150/90}{
     \draw[-{Stealth[length=2.5mm]}, isOT, thick] (n-\a) to[bend left=14] (n-\b);

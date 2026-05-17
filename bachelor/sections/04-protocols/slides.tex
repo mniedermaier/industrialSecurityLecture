@@ -48,8 +48,8 @@ Most industrial protocols in production today were \textbf{designed before the I
   \node[plc, right=24mm of m] (s1) {Slave 1};
   \node[plc, below=of s1] (s2) {Slave 2};
   \node[plc, above=of s1] (s3) {Slave 3};
-  \draw[-{Stealth[length=2.5mm]}, thick] (m.east) to[bend left=22] node[above=2pt, font=\tiny, sloped]{request} (s1.west);
-  \draw[-{Stealth[length=2.5mm]}, thick] (s1.west) to[bend left=22] node[above=2pt, font=\tiny, sloped]{response} (m.east);
+  \draw[-{Stealth[length=2.5mm]}, thick] (m.east) to[bend left=22] node[midway, sloped, above=2pt, font=\tiny, fill=white, inner sep=1pt]{request} (s1.west);
+  \draw[-{Stealth[length=2.5mm]}, thick] (s1.west) to[bend left=22] node[midway, sloped, above=2pt, font=\tiny, fill=white, inner sep=1pt]{response} (m.east);
   \draw[-{Stealth[length=2.5mm]}, thick] (m) -- (s2);
   \draw[-{Stealth[length=2.5mm]}, thick] (m) -- (s3);
   \node[font=\scriptsize, below=18mm of m, align=left]
@@ -62,25 +62,26 @@ Most industrial protocols in production today were \textbf{designed before the I
 
 \begin{frame}[fragile]{Modbus TCP Frame Anatomy}
 \centering
-\begin{tikzpicture}[x=10mm, y=8mm]
-  \foreach \x/\w/\name/\col in {
-    0/2/{Trans ID}/isOT,
-    2/2/{Proto ID}/isOT,
-    4/2/{Length}/isOT,
-    6/1.4/{Unit}/isOT,
-    7.4/1.4/{Func}/isPLC,
-    8.8/2.6/{Data (n B)}/isPLC}{
+\begin{tikzpicture}[x=10mm, y=11mm, font=\scriptsize]
+  \foreach \x/\w/\name/\hex/\col in {
+    0/2/{Trans ID}/{00 01}/isOT,
+    2/2/{Proto ID}/{00 00}/isOT,
+    4/2/{Length}/{00 06}/isOT,
+    6/1.4/{Unit}/{01}/isOT,
+    7.4/1.4/{Func}/{03}/isPLC,
+    8.8/2.0/{Addr}/{00 00}/isPLC,
+    10.8/2.0/{Count}/{00 0A}/isPLC}{
     \draw[fill=\col!15, draw=\col, thick] (\x,0) rectangle ++(\w,1);
-    \node[font=\tiny, align=center] at (\x+\w/2,0.5) {\name};
+    \node[align=center] at (\x+\w/2,0.7) {\name};
+    \node[font=\tiny\ttfamily, anchor=center] at (\x+\w/2,0.25) {\hex};
   }
-  \draw[brace] (0,1.1) -- (6,1.1) node[midway,above=4pt,font=\scriptsize]{MBAP header (7 B)};
-  \draw[brace] (6,1.1) -- (11.4,1.1) node[midway,above=4pt,font=\scriptsize]{PDU};
+  \draw[brace] (0,1.05) -- (7.4,1.05) node[midway,above=4pt]{MBAP header (incl.\ Unit, 7\,B)};
+  \draw[brace] (7.4,1.05) -- (12.8,1.05) node[midway,above=4pt]{PDU};
 \end{tikzpicture}
-\par\vspace{4mm}
-\begin{lstlisting}[basicstyle=\ttfamily\scriptsize, frame=none, backgroundcolor=\color{white}]
-00 01 00 00 00 06 01 03 00 00 00 0A
-^TID^ ^PID^ ^LEN^ ^U^ ^FC^ ^Addr^ ^Cnt^   -> Read 10 Holding Regs from 0x0000
-\end{lstlisting}
+\vspace{4mm}
+\begin{notebox}{Decoded}
+``Read 10 holding registers starting at address \texttt{0x0000} from slave \texttt{1}.''
+\end{notebox}
 \end{frame}
 
 \section{Siemens, DNP3, EtherNet/IP}
@@ -105,8 +106,8 @@ Most industrial protocols in production today were \textbf{designed before the I
   \node[plc] (out1) at (4,1) {Outstation 1};
   \node[plc] (out2) at (4,-1) {Outstation 2};
   \node[plc] (out3) at (4,-3) {Outstation 3};
-  \draw[flow] (master.east) to[bend left=22] node[above=2pt, font=\tiny, sloped]{poll} (out1.west);
-  \draw[flow] (out1.west) to[bend left=22] node[above=2pt, font=\tiny, sloped]{unsolicited} (master.east);
+  \draw[flow] (master.east) to[bend left=30] node[pos=0.4, sloped, above=2pt, font=\tiny, fill=white, inner sep=1pt]{poll} (out1.west);
+  \draw[flow] (out1.west) to[bend left=30] node[pos=0.4, sloped, above=2pt, font=\tiny, fill=white, inner sep=1pt]{unsolicited} (master.east);
   \draw[flow] (master) -- (out2);
   \draw[flow] (master) -- (out3);
 \end{tikzpicture}
@@ -120,8 +121,8 @@ Most industrial protocols in production today were \textbf{designed before the I
 \begin{tikzpicture}[node distance=10mm]
   \node[server] (scan) {Scanner};
   \node[plc, right=of scan] (dev) {CIP Device};
-  \draw[-{Stealth[length=2mm]}, thick] (scan) to[bend left=18] node[above=2pt, font=\tiny, sloped]{Explicit TCP/44818} (dev);
-  \draw[-{Stealth[length=2mm]}, thick] (scan) to[bend right=18] node[below=2pt, font=\tiny, sloped]{Implicit UDP/2222} (dev);
+  \draw[-{Stealth[length=2mm]}, thick] (scan) to[bend left=22] node[midway, sloped, above=2pt, font=\tiny, fill=white, inner sep=1pt]{Explicit TCP/44818} (dev);
+  \draw[-{Stealth[length=2mm]}, thick] (scan) to[bend right=22] node[midway, sloped, below=2pt, font=\tiny, fill=white, inner sep=1pt]{Implicit UDP/2222} (dev);
   \node[isbox, fill=isAccent!10, draw=isAccent, below=18mm of scan, font=\scriptsize, align=left, minimum width=90mm]
     {CIP carries object-oriented messages (assemblies, parameters, identity).\\CIP Security adds TLS/DTLS and certificate-based authentication.};
 \end{tikzpicture}
@@ -152,8 +153,8 @@ Most industrial protocols in production today were \textbf{designed before the I
   \node[hmi, above right=14mm and 10mm of srv] (c2) {Client (MES)};
   \node[isbox, fill=isAccent!10, draw=isAccent, below=of srv, font=\scriptsize, minimum width=70mm, align=left]
     {X.509 mutual auth $\bullet$ message signing $\bullet$ encryption\\Rich information model $\bullet$ pub/sub since v1.04};
-  \draw[-{Stealth[length=2mm]}, thick] (c1) -- node[left=2pt, font=\tiny, fill=white, inner sep=1pt]{TLS} (srv);
-  \draw[-{Stealth[length=2mm]}, thick] (c2) -- node[right=2pt, font=\tiny, fill=white, inner sep=1pt]{TLS} (srv);
+  \draw[-{Stealth[length=2mm]}, thick] (c1) -- node[midway, sloped, above=2pt, font=\tiny, fill=white, inner sep=1pt]{TLS} (srv);
+  \draw[-{Stealth[length=2mm]}, thick] (c2) -- node[midway, sloped, above=2pt, font=\tiny, fill=white, inner sep=1pt]{TLS} (srv);
 \end{tikzpicture}
 \source{IEC 62541 (multipart, OPC Foundation) \textbar{} OPC UA Specification Part 2 (Security Model).}
 \end{frame}
@@ -168,8 +169,8 @@ Most industrial protocols in production today were \textbf{designed before the I
   \node[hmi, above right=10mm and 16mm of br] (sub1) {HMI};
   \node[hmi, right=22mm of br] (sub2) {Analytics};
   \node[hmi, below right=10mm and 16mm of br] (sub3) {Cloud};
-  \foreach \n in {s1,s2,s3}{\draw[flow] (\n) -- node[above=2pt, font=\tiny, sloped]{pub} (br);}
-  \foreach \n in {sub1,sub2,sub3}{\draw[flow] (br) -- node[above=2pt, font=\tiny, sloped]{sub} (\n);}
+  \foreach \n in {s1,s2,s3}{\draw[flow] (\n) -- node[midway, sloped, above=2pt, font=\tiny, fill=white, inner sep=1pt]{pub} (br);}
+  \foreach \n in {sub1,sub2,sub3}{\draw[flow] (br) -- node[midway, sloped, above=2pt, font=\tiny, fill=white, inner sep=1pt]{sub} (\n);}
   \node[font=\scriptsize, below=22mm of br] {Default 1883 plaintext / 8883 with TLS. Sparkplug B adds OT semantics.};
 \end{tikzpicture}
 \end{frame}
@@ -202,9 +203,9 @@ MQTT         & \cellcolor{isAccent!20}+TLS     & \cellcolor{isNet!25}TLS        
   \node[plc, fill=isOT!15, minimum width=24mm, right=of ied2] (ied3) {IED};
   \node[switch, below=10mm of ied2, minimum width=28mm] (sw) {Process bus};
   \node[server, fill=isHMI!15, draw=isHMI, below=8mm of sw, minimum width=44mm, font=\small] (scada) {Station HMI / SCADA};
-  \draw[netline] (ied1.south) -- ([yshift=2pt]ied1.south |- sw.north);
-  \draw[netline] (ied2.south) -- ([yshift=2pt]ied2.south |- sw.north);
-  \draw[netline] (ied3.south) -- ([yshift=2pt]ied3.south |- sw.north);
+  \draw[netline] (ied1.south) -- (ied1.south |- sw.north);
+  \draw[netline] (ied2.south) -- (sw.north);
+  \draw[netline] (ied3.south) -- (ied3.south |- sw.north);
   \draw[netline] (sw.south) -- (scada.north);
 \end{tikzpicture}
 \vspace{1mm}

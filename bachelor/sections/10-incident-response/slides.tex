@@ -45,10 +45,10 @@
     210/{5. Recovery}/isNet,
     150/{6. Lessons learned}/isMute}{
     \node[isbox, fill=\col!15, draw=\col, font=\scriptsize, align=center, minimum width=30mm, minimum height=10mm]
-      (n-\deg) at (\deg:\R+1.6) {\name};
+      (n-\deg) at (\deg:\R+1.9) {\name};
   }
   \foreach \a/\b in {90/30, 30/330, 330/270, 270/210, 210/150, 150/90}{
-    \draw[-{Stealth[length=2.5mm]}, thick, isOT] (n-\a) to[bend left=12] (n-\b);
+    \draw[-{Stealth[length=2.5mm]}, shorten >=3pt, shorten <=3pt, thick, isOT] (n-\a) to[bend left=12] (n-\b);
   }
 \end{tikzpicture}
 \end{frame}
@@ -57,7 +57,7 @@
 
 \begin{frame}{ICS Forensics -- What Can You Pull?}
 \centering
-\begin{tikzpicture}[node distance=14mm, scale=0.85, transform shape]
+\begin{tikzpicture}[node distance=16mm, scale=0.85, transform shape]
   \node[plc, minimum width=20mm] (plc) {PLC};
   \node[hmi, right=of plc, minimum width=20mm] (hmi) {HMI};
   \node[server, right=of hmi, minimum width=24mm] (eng) {Engineering WS};
@@ -73,6 +73,7 @@
 \end{tikzpicture}
 \par\vspace{1mm}
 {\footnotesize Chain of custody from minute one.}
+\source{SANS ICS515 \emph{ICS Active Defense and Incident Response}, 2024 \textbar{} NIST SP 800-86 \emph{Guide to Integrating Forensic Techniques into IR}, 2006.}
 \end{frame}
 
 \begin{frame}{Coordination and Reporting (NIS2 timing)}
@@ -90,7 +91,7 @@
   }
 \end{tikzpicture}
 \par\vspace{4mm}
-{\footnotesize Also: national CERT (BSI / CISA), sector ISAC (E-ISAC, WaterISAC), law enforcement, regulators, customers per contract.}
+{\footnotesize Notify in parallel: national CERT, sector ISAC, law enforcement, regulators, customers per contract.}
 \source{Directive (EU) 2022/2555 (NIS2), Art.\,23: 24h early warning, 72h notification, 1-month final report.}
 \end{frame}
 
