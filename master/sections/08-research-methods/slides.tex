@@ -1,0 +1,223 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\courseSubtitle{Section 08 -- Research Methods and Seminar Work}
+\def\sectionNumber{08}
+\def\sectionTitle{Research Methods and Seminar Work}
+
+\input{../../../template/slides-preamble.tex}
+
+\begin{document}
+
+\sectionoverviewframe
+
+\learningobjectives{
+  \item Distinguish industrial-security research from product-development work.
+  \item Choose an appropriate research method (case study, measurement, experiment, design science).
+  \item Build a reproducible artefact -- dataset, tool, or testbed.
+  \item Publish findings ethically and survive responsible-disclosure timelines.
+  \item Prepare a seminar talk that withstands an academic audience.
+}
+
+\section{What is OT Security Research?}
+
+\begin{frame}{Three Research Cultures}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=38mm, minimum height=20mm, align=center, font=\scriptsize] (a) {\textbf{Academic}\\peer-review, novelty};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=38mm, minimum height=20mm, align=center, font=\scriptsize, right=of a] (b) {\textbf{Vendor R\&D}\\patentable, productisable};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=38mm, minimum height=20mm, align=center, font=\scriptsize, right=of b] (c) {\textbf{Practitioner}\\war-stories, playbooks};
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{All three are valid}
+The best OT-security work blends all three. Pure academia misses operations. Pure vendor work is constrained by IP. Pure war stories don't generalise.
+\end{notebox}
+\source{Wieringa, R. \emph{Design Science Methodology for IS and SE}, Springer, 2014.}
+\end{frame}
+
+\begin{frame}{Choosing a Method}
+\centering
+\renewcommand{\arraystretch}{1.3}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{|p{2.8cm}|p{4.6cm}|p{4.8cm}|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Method} & \textbf{Question it answers} & \textbf{Typical OT topic} \\
+\hline
+Case study      & ``What happened, in detail?'' & TRITON forensic walk-through \\
+Measurement     & ``How big / how many?''       & Shodan census, attack frequency \\
+Experiment      & ``Does X cause Y?''           & latency of intrusion detection \\
+Design science  & ``Build an artefact, evaluate it.'' & new IDS rule set, new protocol fuzzer \\
+Theory building & ``What explains the pattern?'' & threat actor TTPs across campaigns \\
+\hline
+\end{tabular}
+\end{frame}
+
+\section{Reproducible Artefacts}
+
+\begin{frame}{What ``Reproducible'' Looks Like}
+\begin{itemize}
+  \item Code under version control with a permissive license.
+  \item Data with provenance, sized for download (\textless 50 GB), and (if sensitive) anonymised.
+  \item Containerised execution environment (Docker, Nix).
+  \item Step-by-step README that a third party can run cold.
+  \item Pinned dependency versions.
+\end{itemize}
+\begin{importantbox}{What kills reproducibility in ICS}
+Closed-source dependencies, equipment available only at one university, proprietary protocol stacks, NDAs on the data set.
+\end{importantbox}
+\source{ACM Artifact Review and Badging policy, 2020.}
+\end{frame}
+
+\begin{frame}{Public ICS Datasets}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=46mm, font=\small] (a) {iTrust SWaT \& WADI testbeds};
+  \node[isbox, fill=isOT!15, draw=isOT, right=of a, minimum width=46mm, font=\small] (b) {Mississippi State gas pipeline};
+  \node[isbox, fill=isAccent!15, draw=isAccent, below=of a, minimum width=46mm, font=\small] (c) {ICS-CERT advisory corpus};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of c, minimum width=46mm, font=\small] (d) {Conpot honeypot logs};
+  \node[isbox, fill=isPLC!15, draw=isPLC, below=of c, minimum width=46mm, font=\small] (e) {DARPA OpTC, CIDDS-001};
+  \node[isbox, fill=isPLC!15, draw=isPLC, right=of e, minimum width=46mm, font=\small] (f) {netresec.com PCAP archive};
+\end{tikzpicture}
+\source{Goh, J. et al., SWaT testbed (SUTD iTrust); Morris, T. et al., gas pipeline dataset (MSU); MITRE D3FEND.}
+\end{frame}
+
+\begin{frame}{Building a Testbed}
+\centering
+\begin{tikzpicture}[node distance=3mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=28mm, font=\scriptsize] (a) {Real PLC (spare)};
+  \node[isbox, fill=isOT!15, draw=isOT, right=of a, minimum width=28mm, font=\scriptsize] (b) {Software emulator};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of b, minimum width=28mm, font=\scriptsize] (c) {Process simulator};
+  \node[isbox, fill=isAttack!15, draw=isAttack, right=of c, minimum width=28mm, font=\scriptsize] (d) {Attacker host};
+  \foreach \s/\e in {a/b, b/c, c/d}{\draw[<->, thick] (\s) -- (\e);}
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{Cost-effective combos}
+OpenPLC + ScadaBR + Simulink + Kali on a single laptop costs nothing and reproduces most academic-paper experiments.
+\end{notebox}
+\source{OpenPLC; Mathworks Simulink; ICS Village curriculum.}
+\end{frame}
+
+\section{Ethics and Publication}
+
+\begin{frame}{Disclosure Timelines for Research}
+\centering
+\begin{tikzpicture}[x=2cm]
+  \draw[axisline] (0,0) -- (6,0);
+  \foreach \x/\name in {0/{Day 0\\Find},1/{Day 1\\Vendor},2/{30 days\\Patch dev},3/{90 days\\Default},4/{120 days\\Grace},5/{Publish}}{
+    \draw[thick] (\x,-1mm) -- (\x,1mm);
+    \node[font=\tiny, below=1mm, align=center] at (\x,0) {\name};
+  }
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{ICS adjusts the clock}
+For ICS, 90/30 (Google Project Zero) is too aggressive -- coordinated rollouts take longer. 180/60 is more typical; document any deviation in the disclosure email.
+\end{notebox}
+\source{Google Project Zero policy; ISO/IEC 29147:2018; CERT/CC vulnerability handling policy.}
+\end{frame}
+
+\begin{frame}{Where to Publish}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=46mm, font=\small] (a) {USENIX Security, IEEE S\&P, NDSS, CCS};
+  \node[isbox, fill=isOT!15, draw=isOT, right=of a, minimum width=46mm, font=\small] (b) {ACSAC, ESORICS, RAID};
+  \node[isbox, fill=isAccent!15, draw=isAccent, below=of a, minimum width=46mm, font=\small] (c) {WOOT, CSCS (ICS-focused)};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of c, minimum width=46mm, font=\small] (d) {S4 / DEF CON / BlackHat / Hardwear.io};
+  \node[isbox, fill=isPLC!15, draw=isPLC, below=of c, minimum width=46mm, font=\small] (e) {IEEE Tx Smart Grid, Tx Industrial Inf.};
+  \node[isbox, fill=isPLC!15, draw=isPLC, right=of e, minimum width=46mm, font=\small] (f) {Computers \& Security, IJCIP};
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{The Acknowledgements Section}
+\begin{itemize}
+  \item Name the vendor PSIRT contact if they cooperated.
+  \item Credit the coordinating CERT (BSI / CISA / JPCERT).
+  \item Cite the disclosure timeline (date sent, date acknowledged, date patched).
+  \item If anonymising the asset owner, say so -- and explain why.
+\end{itemize}
+\begin{warnbox}
+A paper that publishes exploit details before patch availability burns the relationship -- with that vendor and the wider community.
+\end{warnbox}
+\end{frame}
+
+\section{The Seminar Talk}
+
+\begin{frame}{Structure of a Seminar Talk}
+\centering
+\begin{tikzpicture}[node distance=2mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small] (a) {1.\ One-slide problem statement (90 seconds)};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of a] (b) {2.\ Why prior work falls short};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of b] (c) {3.\ Method or artefact};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of c] (d) {4.\ Evaluation -- one quantitative chart};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of d] (e) {5.\ Limitations + threats to validity};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of e] (f) {6.\ Conclusions + next steps};
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Questions to Expect}
+\begin{itemize}
+  \item ``How did you handle the obvious confound \emph{X}?''
+  \item ``What is the smallest realistic deployment that would benefit from this?''
+  \item ``Did you measure the operational cost?''
+  \item ``How does your approach generalise to vendor \emph{Y}?''
+  \item ``What does the vendor say?''
+\end{itemize}
+\begin{tipbox}{Rehearse the hostile question}
+The strongest defence is a slide in your back pocket that answers the question before it is asked.
+\end{tipbox}
+\end{frame}
+
+\begin{frame}{Writing Habits}
+\begin{itemize}
+  \item One claim per paragraph; one paragraph per claim.
+  \item Numbers in the abstract; jargon out.
+  \item Reproducibility artifacts as a single zenodo / archive.org capture.
+  \item Pre-print on arXiv after vendor agreement.
+  \item Track citations -- they show whether the work is being used.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Common Pitfalls}
+\begin{itemize}
+  \item Confusing CVE-count with security maturity.
+  \item Generalising from a single vendor or single sector.
+  \item Datasets without ground truth.
+  \item Tools that only work on the author's lab.
+  \item ``Future work'' that the authors will never do.
+\end{itemize}
+\begin{warnbox}
+A paper that promises 12 lines of ``future work'' usually delivers zero. Pick one and finish it instead.
+\end{warnbox}
+\end{frame}
+
+\begin{frame}{Summary -- Section \sectionNumber}
+\begin{takeawaybox}{Doing OT-security research well}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Pick a method that matches the question (case, measurement, experiment, design science).
+  \item Build reproducible artefacts -- code, data, container, README.
+  \item Coordinate disclosure on ICS-realistic timelines (180/60 typical).
+  \item Publish where ICS-aware reviewers read; structure talks for a hostile audience.
+  \item Avoid the well-known pitfalls -- CVE-count, single-vendor generalisations, no ground truth.
+\end{itemize}
+\end{takeawaybox}
+\end{frame}
+
+\referencesframe{
+  \item Wieringa, R. \emph{Design Science Methodology for Information Systems and Software Engineering}, Springer, 2014.
+  \item Runeson, P., Höst, M. ``Guidelines for conducting and reporting case study research in software engineering'', \emph{Empirical Software Engineering}, 2009.
+  \item ACM. \emph{Artifact Review and Badging} policy, 2020.
+  \item Goh, J., Adepu, S., Junejo, K.N., Mathur, A. SWaT testbed papers, SUTD iTrust.
+  \item Morris, T., Gao, W. Industrial Control System (ICS) attack/defense datasets, Mississippi State University.
+  \item Conpot project. \emph{Conpot} ICS/SCADA honeypot.
+  \item ISO/IEC 29147:2018. \emph{Vulnerability disclosure}.
+  \item ISO/IEC 30111:2019. \emph{Vulnerability handling processes}.
+  \item Google Project Zero. \emph{Vulnerability Disclosure FAQ}.
+  \item CERT/CC. \emph{Vulnerability Disclosure Policy}.
+  \item USENIX Security, IEEE S\&P, NDSS, CCS conference websites for ICS-related submissions.
+  \item Smith, R. \emph{Writing Science}, Oxford, 2012 (for technical writing habits).
+}
+
+\closingframe
+
+\end{document}

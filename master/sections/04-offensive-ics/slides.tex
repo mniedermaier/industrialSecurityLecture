@@ -22,14 +22,14 @@
 
 \begin{frame}{Authorised vs.\ Unauthorised}
 \centering
-\begin{tikzpicture}[node distance=8mm]
-  \node[isbox, fill=isNet!15, draw=isNet, minimum width=42mm, font=\small, align=center] (auth) {Authorised\\penetration test};
-  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=42mm, font=\small, align=center, right=of auth] (red) {Authorised red team\\(internal-blind)};
-  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=42mm, font=\small, align=center, right=of red] (unauth) {Unauthorised access\\(criminal)};
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isNet!15, draw=isNet, minimum width=38mm, font=\scriptsize, align=center] (auth) {Authorised\\penetration test};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=38mm, font=\scriptsize, align=center, right=of auth] (red) {Authorised red team\\(internal-blind)};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=38mm, font=\scriptsize, align=center, right=of red] (unauth) {Unauthorised access\\(criminal)};
 \end{tikzpicture}
 \vspace{2mm}
 \begin{importantbox}{Paper, not handshake}
-``Verbal'' permission is no permission. A signed \emph{Rules of Engagement} document with named approvers, scope, timing, kill-switch, and reporting path is the gating artefact.
+``Verbal'' permission is no permission. A signed Rules of Engagement document with named approvers, scope, timing, kill-switch, and reporting path is the gating artefact for any engagement.
 \end{importantbox}
 \source{NIST SP 800-115 \emph{Technical Guide to Information Security Testing}; PTES Technical Guidelines.}
 \end{frame}
@@ -72,7 +72,8 @@ No Internet, no host bridge, full PCAP. Every action you take is later auditable
 \centering
 \renewcommand{\arraystretch}{1.3}
 \footnotesize
-\begin{tabular}{|p{3.5cm}|p{5.6cm}|p{5cm}|}
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{|p{3.0cm}|p{4.8cm}|p{4.4cm}|}
 \hline
 \rowcolor{slidePanel}
 \textbf{Tier} & \textbf{Examples} & \textbf{Best for} \\
@@ -84,7 +85,7 @@ Production-grade & Vendor demo kits, donated equipment & vendor-specific exploit
 \end{tabular}
 \vspace{2mm}
 \begin{notebox}{Donations}
-Many vendors donate retired equipment to academic and CERT labs in exchange for confidentiality on findings. Worth asking.
+Many vendors donate retired equipment to academic and CERT labs in exchange for confidentiality on findings. Always worth asking.
 \end{notebox}
 \end{frame}
 
@@ -133,13 +134,13 @@ Always take a verified backup of the original program first, and test the rollba
 
 \begin{frame}{Tooling Survey}
 \centering
-\begin{tikzpicture}[node distance=4mm]
-  \node[isbox, fill=isOT!15, draw=isOT, minimum width=46mm, font=\small] (a) {Metasploit (modbusclient, modicon\_stux)};
-  \node[isbox, fill=isOT!15, draw=isOT, right=of a, minimum width=46mm, font=\small] (b) {Caldera + ATT\&CK ICS adversary emulation};
-  \node[isbox, fill=isAccent!15, draw=isAccent, below=of a, minimum width=46mm, font=\small] (c) {Smod (Modbus pentest framework)};
-  \node[isbox, fill=isAccent!15, draw=isAccent, right=of c, minimum width=46mm, font=\small] (d) {plcscan, pymodbus, snap7};
-  \node[isbox, fill=isPLC!15, draw=isPLC, below=of c, minimum width=46mm, font=\small] (e) {ISF (Industrial Security Framework)};
-  \node[isbox, fill=isPLC!15, draw=isPLC, right=of e, minimum width=46mm, font=\small] (f) {OpenVAS / Greenbone with ICS plug-ins};
+\begin{tikzpicture}[node distance=3mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=44mm, font=\scriptsize] (a) {Metasploit (modbus, modicon\_stux)};
+  \node[isbox, fill=isOT!15, draw=isOT, right=of a, minimum width=44mm, font=\scriptsize] (b) {Caldera + ATT\&CK ICS};
+  \node[isbox, fill=isAccent!15, draw=isAccent, below=of a, minimum width=44mm, font=\scriptsize] (c) {Smod (Modbus framework)};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of c, minimum width=44mm, font=\scriptsize] (d) {plcscan, pymodbus, snap7};
+  \node[isbox, fill=isPLC!15, draw=isPLC, below=of c, minimum width=44mm, font=\scriptsize] (e) {ISF};
+  \node[isbox, fill=isPLC!15, draw=isPLC, right=of e, minimum width=44mm, font=\scriptsize] (f) {OpenVAS / Greenbone};
 \end{tikzpicture}
 \source{Tool repos: Rapid7 Metasploit; MITRE Caldera; \texttt{theralfbrown/smod}; \texttt{dark-lbp/isf}; Greenbone Networks.}
 \end{frame}
@@ -148,12 +149,12 @@ Always take a verified backup of the original program first, and test the rollba
 
 \begin{frame}{Report Structure}
 \centering
-\begin{tikzpicture}[node distance=2mm]
-  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small] (a) {1.\ Executive summary -- 1 page, plain language};
-  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of a] (b) {2.\ Scope, ROE, attestations};
-  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of b] (c) {3.\ Findings, each: title, CVSS-E, evidence, repro};
-  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of c] (d) {4.\ Recommendations, sized this-quarter / this-year};
-  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of d] (e) {5.\ Appendix: PCAPs, configs, raw logs};
+\begin{tikzpicture}[node distance=1mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\footnotesize, minimum height=5mm] (a) {1.\ Executive summary -- 1 page, plain language};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\footnotesize, minimum height=5mm, below=of a] (b) {2.\ Scope, ROE, attestations};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\footnotesize, minimum height=5mm, below=of b] (c) {3.\ Findings, each: title, CVSS-E, evidence, repro};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\footnotesize, minimum height=5mm, below=of c] (d) {4.\ Recommendations, sized this-quarter / this-year};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\footnotesize, minimum height=5mm, below=of d] (e) {5.\ Appendix: PCAPs, configs, raw logs};
 \end{tikzpicture}
 \vspace{1mm}
 \begin{tipbox}{Reproducibility}

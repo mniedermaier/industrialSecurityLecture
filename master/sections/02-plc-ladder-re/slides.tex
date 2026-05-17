@@ -40,7 +40,8 @@ The PLC runs the \emph{compiled} blocks. The vendor tool shows the \emph{project
 \centering
 \renewcommand{\arraystretch}{1.3}
 \footnotesize
-\begin{tabular}{|p{3.2cm}|p{3.4cm}|p{3.4cm}|p{3.6cm}|}
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{|p{2.6cm}|p{3.2cm}|p{3.4cm}|p{3.0cm}|}
 \hline
 \rowcolor{slidePanel}
  & \textbf{Siemens S7-3xx/4xx} & \textbf{Rockwell ControlLogix} & \textbf{CODESYS family} \\
@@ -161,13 +162,13 @@ A missing CRC, or a CRC that does not match the project file, is more often vend
 
 \begin{frame}{Tagging the Memory Map}
 \centering
-\begin{tikzpicture}[x=1.7cm, y=1cm]
-  \node[isbox, fill=isOT!15, draw=isOT, minimum width=22mm, font=\scriptsize, align=center] at (0,0) {Input image\\(I)};
-  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=22mm, font=\scriptsize, align=center] at (1.6,0) {Output image\\(Q)};
-  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=22mm, font=\scriptsize, align=center] at (3.2,0) {Markers\\(M)};
-  \node[isbox, fill=isHMI!15, draw=isHMI, minimum width=22mm, font=\scriptsize, align=center] at (4.8,0) {Timers\\(T)};
-  \node[isbox, fill=isMute!15, draw=isMute, minimum width=22mm, font=\scriptsize, align=center] at (6.4,0) {Counters\\(C)};
-  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=22mm, font=\scriptsize, align=center] at (8,0) {Data\\blocks (DB)};
+\begin{tikzpicture}[x=1.3cm, y=1cm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=18mm, font=\scriptsize, align=center] at (0,0) {Input image\\(I)};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=18mm, font=\scriptsize, align=center] at (1.5,0) {Output image\\(Q)};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=18mm, font=\scriptsize, align=center] at (3.0,0) {Markers\\(M)};
+  \node[isbox, fill=isHMI!15, draw=isHMI, minimum width=18mm, font=\scriptsize, align=center] at (4.5,0) {Timers\\(T)};
+  \node[isbox, fill=isMute!15, draw=isMute, minimum width=18mm, font=\scriptsize, align=center] at (6.0,0) {Counters\\(C)};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=18mm, font=\scriptsize, align=center] at (7.5,0) {Data\\blocks (DB)};
 \end{tikzpicture}
 \vspace{2mm}
 \begin{notebox}{Reverse engineering tip}

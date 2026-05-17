@@ -1,0 +1,45 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\labNumber{05}
+\def\labTitle{Greenfield Plant Architecture Workshop}
+\def\labSection{05}
+\def\labTime{4 hours, group of 4}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Produce a complete secure-by-design package for a fictional greenfield plant: zones \& conduits, vendor SDL requirements, ATP, and a risk register.
+\end{goalbox}
+
+\begin{stepbox}{Scenario}
+A new 50-MW biogas plant. Single site, one DCS, one SIS, one HMI room, one Internet uplink for vendor remote support and a daily energy-trading data export to corporate IT.
+\end{stepbox}
+
+\begin{stepbox}{1 -- Zones \& conduits diagram}
+On a single sheet or in draw.io, draw the architecture. Label every level (Purdue 0--5 + iDMZ at 3.5). Assign target SLs. For every conduit, write source / destination / protocol / port / direction. Mark the data-diode candidates.
+\end{stepbox}
+
+\begin{stepbox}{2 -- Vendor SDL clauses}
+Pick one component (PLC, HMI, historian). Write the 5--10 contractual clauses that the procurement team will paste into the RFQ.
+\end{stepbox}
+
+\begin{stepbox}{3 -- Acceptance Test Procedure}
+For the same component, write the on-arrival ATP. Each step: action, expected result, evidence.
+\end{stepbox}
+
+\begin{stepbox}{4 -- Risk register seed}
+List ten plausible risks for the plant; score with a simple Lik$\times$Imp matrix; propose owners.
+\end{stepbox}
+
+\begin{deliverbox}
+A single PDF containing: the architecture diagram, conduit rules, SDL clauses, ATP, and the seed risk register.
+\end{deliverbox}
+
+\begin{warnbox}
+Fictional plant only -- do not reuse a real client's IP ranges or asset list, even partially.
+\end{warnbox}
+\end{document}

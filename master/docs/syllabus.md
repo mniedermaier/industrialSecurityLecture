@@ -1,27 +1,28 @@
-# Syllabus -- Industrial Security (Master, pilot)
+# Syllabus -- Industrial Security (Master)
 
 Advanced course; assumes the Bachelor course as prerequisite.
+Target volume: ~60 hours of lecture + exercise + lab work, eight sections.
 
-## Sections (current state)
+## Sections
 
-| # | Topic | Status |
-|---|-------|--------|
-| 01 | Firmware Reverse Engineering              | available |
-| 02 | PLC Ladder Logic Reverse Engineering       | available |
-| 03 | Advanced Industrial Protocols (S7commPlus, GOOSE, MMS, DLMS/COSEM) | available |
-| 04 | Offensive ICS in Authorised Labs           | available |
-| 05 | Secure-by-design architectures for greenfield plants | planned |
-| 06 | Threat intelligence for OT (PIPEDREAM, Volt Typhoon) | planned |
-| 07 | Formal safety / security co-engineering    | planned |
-| 08 | Research methods and seminar work          | planned |
+| #  | Topic                                                            | Pages |
+|----|------------------------------------------------------------------|-------|
+| 01 | Firmware Reverse Engineering                                      | 19    |
+| 02 | PLC Ladder Logic Reverse Engineering                              | 23    |
+| 03 | Advanced Industrial Protocols (S7commPlus, GOOSE, MMS, DLMS/COSEM) | 21   |
+| 04 | Offensive ICS in Authorised Labs                                  | 20    |
+| 05 | Secure-by-Design Architectures                                    | 24    |
+| 06 | Threat Intelligence for OT                                        | 24    |
+| 07 | Safety / Security Co-Engineering                                  | 21    |
+| 08 | Research Methods and Seminar Work                                 | 22    |
 
-Each available section ships with: slide deck (PDF), exercise sheet, solution sheet, and a hands-on lab guide.
+Each section ships with: slide deck (PDF), exercise sheet, solution sheet, and a hands-on lab guide.
 
 ## Building
 
 ```
-make -C master         # build the four available pilots
-make verify            # zero-overflow gate from the repo root
+make -C master        # build everything for the Master course
+make verify           # zero-overflow gate from the repo root
 ```
 
-Sections 01--04 reuse the same `template/` and Docker lab stack as the Bachelor course.
+All sections reuse the shared `template/` and most reuse the Bachelor `bachelor/labs/_stack/` Docker stack.

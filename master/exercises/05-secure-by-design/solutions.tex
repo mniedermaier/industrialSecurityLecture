@@ -1,0 +1,29 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\sectionNumber{05}
+\def\sectionTitle{Secure-by-Design Architectures}
+\def\sheetKind{Solution Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 5.1 -- Mark scheme}
+Pass requires named zones (e.g.\ Plant, Process Control, Safety, Site IT) each with a justifiable SL-T (typically 3 for control, 4 for safety), per-conduit allowlists, and a defensible diode placement (typically safety$\to$site for telemetry egress).
+\end{taskbox}
+
+\begin{taskbox}{Exercise 5.2 -- Mark scheme}
+Strong answers point to IEC 62443-4-1 evidence requirements (process maturity), CycloneDX/SPDX for SBOM, 90-day SLA with reasonable carve-outs, 10+ year support window, and signed downloads with vendor key rotation.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 5.3 -- Mark scheme}
+Award marks for: explicit pass/fail per step, traceable artefacts (vendor signature, PCAP, vuln report), and a backup/restore that completes within RTO.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 5.4 -- Mark scheme}
+Sensible sequencing (visibility before segmentation, segmentation before retirement), named owners, realistic cost bands, and risk reduction stated in process terms (downtime hours, safety events).
+\end{taskbox}
+
+\end{document}

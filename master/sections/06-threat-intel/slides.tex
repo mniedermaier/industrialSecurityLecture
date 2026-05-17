@@ -1,0 +1,245 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\courseSubtitle{Section 06 -- Threat Intelligence for OT}
+\def\sectionNumber{06}
+\def\sectionTitle{Threat Intelligence for OT}
+
+\input{../../../template/slides-preamble.tex}
+
+\begin{document}
+
+\sectionoverviewframe
+
+\learningobjectives{
+  \item Distinguish strategic, operational and tactical threat intelligence.
+  \item Identify the small set of OT-relevant intel sources and their biases.
+  \item Map adversary techniques to defenders' detections using ATT\&CK for ICS.
+  \item Run an intel-driven hunt in a real (lab) network.
+  \item Avoid the common pitfalls of intel programmes that produce reports nobody reads.
+}
+
+\section{What is OT Threat Intel?}
+
+\begin{frame}{Three Layers of Intelligence}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small] (s) {\textbf{Strategic} -- board-level: who targets us, why, how the landscape shifts};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=110mm, font=\small, below=of s] (o) {\textbf{Operational} -- which campaigns are active, against which sectors};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=110mm, font=\small, below=of o] (t) {\textbf{Tactical} -- IOCs, ATT\&CK techniques, behavioural patterns};
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{All three matter}
+A SOC that only consumes IOCs misses why the adversary is here in the first place. A board that only reads strategic reports misses the live campaigns this week.
+\end{notebox}
+\source{Bianco, D., \emph{The Pyramid of Pain}, 2013 \textbar{} Cyber Threat Intelligence Maturity Model (Sergio Caltagirone et al.).}
+\end{frame}
+
+\begin{frame}{Strategic Threat Actors Today}
+\centering
+\begin{tikzpicture}[node distance=3mm]
+  \node[isbox, fill=isAttack!20, draw=isAttack, minimum width=110mm, font=\small] (a) {\textbf{Sandworm (RU/GRU)} -- Ukraine grid 2015/16, NotPetya 2017, Industroyer2};
+  \node[isbox, fill=isAttack!20, draw=isAttack, minimum width=110mm, font=\small, below=of a] (b) {\textbf{Volt Typhoon (PRC)} -- living-off-the-land in US critical infrastructure};
+  \node[isbox, fill=isAttack!20, draw=isAttack, minimum width=110mm, font=\small, below=of b] (c) {\textbf{CHERNOVITE (?)} -- PIPEDREAM toolkit, multi-vendor};
+  \node[isbox, fill=isAttack!20, draw=isAttack, minimum width=110mm, font=\small, below=of c] (d) {\textbf{CyberAv3ngers (IR/IRGC-affiliated)} -- Unitronics PLC defacements};
+  \node[isbox, fill=isAttack!20, draw=isAttack, minimum width=110mm, font=\small, below=of d] (e) {\textbf{Predatory Sparrow (?)} -- Iran steel mill 2022, Khuzestan railway};
+\end{tikzpicture}
+\source{Dragos \emph{Year in Review} reports 2020--2024 \textbar{} CISA advisories \textbar{} Mandiant M-Trends.}
+\end{frame}
+
+\section{Sources}
+
+\begin{frame}{The Source Stack}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=46mm, font=\small] (a) {\textbf{Open} CISA, vendor PSIRTs};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of a, minimum width=46mm, font=\small] (b) {\textbf{Sector ISACs} E-ISAC, WaterISAC, Auto-ISAC};
+  \node[isbox, fill=isPLC!15, draw=isPLC, below=of a, minimum width=46mm, font=\small] (c) {\textbf{Commercial} Dragos, Mandiant, Forescout};
+  \node[isbox, fill=isHMI!15, draw=isHMI, right=of c, minimum width=46mm, font=\small] (d) {\textbf{Government} BSI, NCSC, CCCS};
+  \node[isbox, fill=isMute!15, draw=isMute, below=of c, minimum width=46mm, font=\small] (e) {\textbf{Honeypots} Conpot, Snare, sectoral};
+  \node[isbox, fill=isAttack!15, draw=isAttack, right=of e, minimum width=46mm, font=\small] (f) {\textbf{Underground} criminal forums (with care)};
+\end{tikzpicture}
+\source{Various; quality and timeliness varies sharply -- triangulate.}
+\end{frame}
+
+\begin{frame}{Bias Awareness}
+\begin{itemize}
+  \item Vendor PSIRTs under-disclose -- exploits exist for years before CVE.
+  \item Sector ISACs over-rotate to flagship members.
+  \item Commercial intel companies push their products in the reports.
+  \item Government attribution is selective and political.
+  \item Underground forum chatter is partly noise and partly disinformation.
+\end{itemize}
+\begin{warnbox}
+Treat any single source as a hypothesis. Confirm a campaign with at least two independent sources before acting on its scope.
+\end{warnbox}
+\source{Threat-intel methodology: Caltagirone, S. et al., \emph{Diamond Model}, 2013.}
+\end{frame}
+
+\section{Frameworks}
+
+\begin{frame}{MITRE ATT\&CK for ICS}
+\centering
+\begin{tikzpicture}[node distance=1.5mm]
+  \foreach \i/\name in {0/{Initial Access},1/{Execution},2/{Persistence},3/{Priv.\ Esc.},4/{Evasion},5/{Discovery},6/{Lateral},7/{Collection},8/{C2},9/{Inhibit Resp.},10/{Impair Proc.},11/{Impact}}{
+    \node[isbox, fill=isOT!12, draw=isOT, minimum width=20mm, minimum height=8mm, font=\tiny] at ({mod(\i,6)*2.1cm}, {-floor(\i/6)*1.2cm}) {\name};
+  }
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{Use it for both directions}
+Adversary side: which techniques did campaign X use? Defender side: what do I detect today, and where are my gaps?
+\end{notebox}
+\source{MITRE, \emph{ATT\&CK for ICS}, \url{https://attack.mitre.org/matrices/ics/}.}
+\end{frame}
+
+\begin{frame}{Pyramid of Pain}
+\centering
+\begin{tikzpicture}[scale=0.8, transform shape]
+  \draw[thick, fill=isAttack!15] (0,0) -- (10,0) -- (5,5) -- cycle;
+  \node[font=\scriptsize, align=center] at (5, 0.4) {Hashes (trivial to change)};
+  \node[font=\scriptsize, align=center] at (5, 1.2) {IP addresses};
+  \node[font=\scriptsize, align=center] at (5, 2.0) {Domain names};
+  \node[font=\scriptsize, align=center] at (5, 2.8) {Network/host artefacts};
+  \node[font=\scriptsize, align=center] at (5, 3.6) {Tools};
+  \node[font=\scriptsize, align=center] at (5, 4.4) {TTPs};
+\end{tikzpicture}
+\vspace{1mm}
+\begin{notebox}{Detect higher = hurt the adversary more}
+A signature on a hash dies in hours. Detection on a TTP forces the adversary to rebuild their playbook.
+\end{notebox}
+\source{Bianco, D., ``The Pyramid of Pain'', 2013.}
+\end{frame}
+
+\begin{frame}{Diamond Model for ICS Intrusions}
+\centering
+\begin{tikzpicture}[scale=0.8, transform shape]
+  \draw[thick, fill=isOT!10] (0,2.5) -- (2.5,5) -- (5,2.5) -- (2.5,0) -- cycle;
+  \node[font=\small\bfseries] at (2.5, 4.5) {Adversary};
+  \node[font=\small\bfseries] at (5.0, 2.5) {Capability};
+  \node[font=\small\bfseries] at (2.5, 0.5) {Victim};
+  \node[font=\small\bfseries] at (0.0, 2.5) {Infrastructure};
+\end{tikzpicture}
+\vspace{1mm}
+\begin{notebox}{Asking the right four questions}
+Who, what, on what, against whom. Filling all four corners gives you a hypothesis that survives the next data point.
+\end{notebox}
+\source{Caltagirone, S., Pendergast, A., Betz, C., \emph{The Diamond Model of Intrusion Analysis}, 2013.}
+\end{frame}
+
+\section{Operational Use}
+
+\begin{frame}{Intel-Driven Hunt}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=28mm, font=\small] (a) {Hypothesis};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of a, minimum width=28mm, font=\small] (b) {Query telemetry};
+  \node[isbox, fill=isPLC!15, draw=isPLC, right=of b, minimum width=28mm, font=\small] (c) {Triage results};
+  \node[isbox, fill=isAttack!15, draw=isAttack, right=of c, minimum width=28mm, font=\small] (d) {Document / refine};
+  \foreach \s/\e in {a/b, b/c, c/d}{\draw[flow] (\s) -- (\e);}
+  \draw[flow] (d.south) to[bend left=30] (a.south);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{Example hypothesis}
+``Volt Typhoon uses living-off-the-land via wmic and netsh. Do we see scripted wmic from non-admin hosts in the last 30 days?''
+\end{notebox}
+\source{SANS \emph{Threat Hunting Maturity Model}; Sqrrl/Splunk hunting playbooks.}
+\end{frame}
+
+\begin{frame}{IOC Lifecycle}
+\centering
+\begin{tikzpicture}[x=2cm]
+  \node[isbox, fill=isOT!15, draw=isOT, font=\scriptsize, minimum width=22mm, minimum height=12mm, align=center] at (0,0) {Ingest};
+  \node[isbox, fill=isAccent!15, draw=isAccent, font=\scriptsize, minimum width=22mm, minimum height=12mm, align=center] at (1,0) {Enrich};
+  \node[isbox, fill=isPLC!15, draw=isPLC, font=\scriptsize, minimum width=22mm, minimum height=12mm, align=center] at (2,0) {Deploy};
+  \node[isbox, fill=isHMI!15, draw=isHMI, font=\scriptsize, minimum width=22mm, minimum height=12mm, align=center] at (3,0) {Detect};
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\scriptsize, minimum width=22mm, minimum height=12mm, align=center] at (4,0) {Retire};
+\end{tikzpicture}
+\vspace{2mm}
+\begin{tipbox}{Half-life}
+Network-side IOCs (IP, domain) decay in days. Host-side IOCs (file hash) decay in weeks. Behavioural rules persist for years.
+\end{tipbox}
+\end{frame}
+
+\begin{frame}{STIX / TAXII -- Sharing Format}
+\begin{itemize}
+  \item \textbf{STIX 2.1}: structured representation of threat intel.
+  \item \textbf{TAXII 2.1}: transport API for sharing STIX over HTTPS.
+  \item Wide vendor support; many ISACs deliver this way.
+  \item Caveat: huge volume of low-signal indicators; filter aggressively.
+\end{itemize}
+\source{OASIS \emph{STIX 2.1} and \emph{TAXII 2.1} specifications, 2021.}
+\end{frame}
+
+\section{Programme Building}
+
+\begin{frame}{What an OT TI Programme Looks Like}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small] (a) {Collection plan tied to the asset inventory};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of a] (b) {Tagging schema (sector, vendor, geography, criticality)};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of b] (c) {Hypothesis backlog from operational reading};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of c] (d) {Hunt cadence (weekly, monthly) and tracking};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of d] (e) {Feedback loop into SOC detections};
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Common Failure Modes}
+\begin{itemize}
+  \item ``Intel'' that nobody reads (no consumer, no follow-up).
+  \item IOCs deployed without context, generating alert fatigue.
+  \item Detection improvements that never make it back to the platform.
+  \item Single-source dependence (one vendor feed).
+  \item Confusing CTI with marketing reports.
+\end{itemize}
+\begin{warnbox}
+A CTI team without a tight feedback loop into detection engineering is decoration. Measure the time from \emph{intel published} to \emph{rule deployed}.
+\end{warnbox}
+\end{frame}
+
+\begin{frame}{Sharing Responsibilities}
+\centering
+\begin{tikzpicture}[node distance=6mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=28mm, font=\small] (you) {Your team};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of you, minimum width=28mm, font=\small] (isac) {Sector ISAC};
+  \node[isbox, fill=isPLC!15, draw=isPLC, right=of isac, minimum width=28mm, font=\small] (cert) {National CERT};
+  \node[isbox, fill=isHMI!15, draw=isHMI, right=of cert, minimum width=28mm, font=\small] (vend) {Affected vendor};
+  \draw[<->, thick, isMute] (you) -- (isac);
+  \draw[<->, thick, isMute] (isac) -- (cert);
+  \draw[<->, thick, isMute] (cert) -- (vend);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{Reciprocity}
+You get what you give. ISACs work because members share, even when it is uncomfortable. Have an internal pre-approval list of what you can share without delay.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{Summary -- Section \sectionNumber}
+\begin{takeawaybox}{OT threat intelligence}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Three layers (strategic, operational, tactical) -- a programme delivers all three.
+  \item Six source families with known biases -- triangulate, do not trust one.
+  \item ATT\&CK for ICS, Diamond Model, Pyramid of Pain are the operating frameworks.
+  \item Hunt with hypotheses, not haystacks; feed results back to the SOC.
+  \item Measure time from intel publication to deployed detection.
+\end{itemize}
+\end{takeawaybox}
+\end{frame}
+
+\referencesframe{
+  \item Caltagirone, S., Pendergast, A., Betz, C. \emph{The Diamond Model of Intrusion Analysis}, 2013.
+  \item Bianco, D. ``The Pyramid of Pain'' blog post and presentations, 2013--2014.
+  \item MITRE. \emph{ATT\&CK for ICS}, \url{https://attack.mitre.org/matrices/ics/}.
+  \item Dragos. \emph{Year in Review} reports 2020--2024.
+  \item Mandiant. \emph{M-Trends} annual reports.
+  \item Microsoft Threat Intelligence. Volt Typhoon and related write-ups, 2023.
+  \item CISA. ICS Advisories, BAS templates and IR resources.
+  \item E-ISAC, WaterISAC, Auto-ISAC. Sector ISAC public summaries.
+  \item BSI. \emph{Lagebericht der IT-Sicherheit in Deutschland}, annual.
+  \item NCSC-UK. ICS guidance and threat reports.
+  \item OASIS. \emph{STIX 2.1} and \emph{TAXII 2.1} specifications, 2021.
+  \item SANS Institute. \emph{Threat Hunting Maturity Model} and related curriculum.
+}
+
+\closingframe
+
+\end{document}

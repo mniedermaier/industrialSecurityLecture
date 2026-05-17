@@ -1,0 +1,55 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\labNumber{07}
+\def\labTitle{Cyber-HAZOP Workshop Simulation}
+\def\labSection{07}
+\def\labTime{4 hours, group of 4--6}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Run a 4-hour facilitated Cyber-HAZOP on a P\&ID provided by the instructor. Produce a documented findings file that a real plant could action.
+\end{goalbox}
+
+\begin{stepbox}{Roles}
+\begin{itemize}
+  \item Facilitator (timekeeper, scribe)
+  \item Process safety engineer
+  \item Control / automation engineer
+  \item Cyber-security architect
+  \item Operations representative
+\end{itemize}
+\end{stepbox}
+
+\begin{stepbox}{1 -- Node decomposition}
+Take the provided P\&ID. Break the system into nodes (a reactor vessel, a piping run, a heat exchanger, ...). One node = one workshop pass.
+\end{stepbox}
+
+\begin{stepbox}{2 -- Apply guide words}
+For each node, walk through the HAZOP guide words (No, More, Less, Reverse, As well as, Part of, Other than). For each meaningful deviation, brainstorm:
+\begin{itemize}
+  \item One classical safety cause (mechanical failure, operator error).
+  \item One cyber cause (HMI compromise, PLC reprogram, network-borne).
+\end{itemize}
+\end{stepbox}
+
+\begin{stepbox}{3 -- Existing safeguards + gaps}
+For each cause: which safeguards already exist? Which gaps remain? Avoid the trap of ``add MFA'' -- specify the vendor mechanism.
+\end{stepbox}
+
+\begin{stepbox}{4 -- Findings file}
+Produce a worksheet (CSV / spreadsheet) with one row per cause, columns: node, guide-word, deviation, cause, safety/cyber, safeguard, gap, owner, due-date.
+\end{stepbox}
+
+\begin{deliverbox}
+The completed worksheet and a 1-page chairman's summary identifying the top three actionable findings.
+\end{deliverbox}
+
+\begin{warnbox}
+Fictional plant only. If your team accidentally produces a register that matches a real client's plant, redact and discard.
+\end{warnbox}
+\end{document}

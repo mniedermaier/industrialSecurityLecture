@@ -1,0 +1,261 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\courseSubtitle{Section 05 -- Secure-by-Design Architectures}
+\def\sectionNumber{05}
+\def\sectionTitle{Secure-by-Design Architectures}
+
+\input{../../../template/slides-preamble.tex}
+
+\begin{document}
+
+\sectionoverviewframe
+
+\learningobjectives{
+  \item Translate security requirements into early-design decisions on a greenfield plant.
+  \item Apply IEC 62443 zones, conduits and target SLs from the FEED phase.
+  \item Choose vendor-agnostic patterns: data diodes, brokered access, immutable backups.
+  \item Make security trade-offs explicit and defensible to operators and finance.
+  \item Build the contractual artefacts (vendor SDL, SBOM, ATPs) that survive procurement.
+}
+
+\section{Why Design First}
+
+\begin{frame}{Bolt-on vs.\ Built-in}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=42mm, minimum height=24mm, align=center, font=\small] (b) {\textbf{Bolt-on}\\\scriptsize firewall + agents\\post hoc};
+  \node[isbox, fill=isNet!15, draw=isNet, minimum width=42mm, minimum height=24mm, align=center, font=\small, right=of b] (i) {\textbf{Built-in}\\\scriptsize zones, signed protocols,\\hardened components};
+  \draw[<->, very thick, isMute] (b) -- (i);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{importantbox}{Cost curve}
+Security retrofits in OT typically cost 5--10$\times$ a design-phase decision and take a planned outage. Built-in choices avoid both.
+\end{importantbox}
+\source{INL CCE programme, multiple case studies 2018--2022.}
+\end{frame}
+
+\begin{frame}{The Greenfield Window}
+\centering
+\begin{tikzpicture}[x=1.6cm]
+  \draw[axisline] (0,0) -- (7.5,0);
+  \foreach \x/\name in {0/{Concept},1/{Pre-FEED},2/{FEED},3/{Detailed design},4/{Procurement},5/{Construction},6/{Commissioning},7/{Operation}}{
+    \draw[thick] (\x,-1mm) -- (\x,1mm);
+    \node[font=\tiny, below=1mm] at (\x,0) {\name};
+  }
+  \draw[very thick, isNet] (1.7,3mm) -- (4.2,3mm);
+  \node[font=\scriptsize, isNet, above=1mm] at (3,3mm) {best window for security decisions};
+\end{tikzpicture}
+\vspace{1mm}
+\begin{notebox}{FEED phase}
+Front-End Engineering Design is when zones, conduits, SLs become contractually binding. Earlier = cheaper; later = compromised.
+\end{notebox}
+\end{frame}
+
+\section{Pattern Library}
+
+\begin{frame}{Pattern 1 -- Strict Purdue with Diodes}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[isbox, fill=isIT!12, draw=isIT, minimum width=30mm] (it) {Enterprise L4/5};
+  \node[isbox, fill=isAccent!12, draw=isAccent, right=of it, minimum width=30mm] (dmz) {iDMZ L3.5};
+  \node[isbox, fill=isOT!12, draw=isOT, right=of dmz, minimum width=30mm] (ot) {Control L0--3};
+  \node[firewall, below=of dmz, minimum width=24mm, font=\scriptsize] (d) {Data diode};
+  \draw[flow] (ot) -- (dmz); \draw[flow] (dmz) -- (it);
+  \draw[flow, dashed] (ot.south) |- (d.east);
+  \draw[flow, dashed] (d.west) -| (it.south);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{When it earns its cost}
+SIS-adjacent zones; export of safety telemetry to the corporate side; regulatory reporting feeds.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{Pattern 2 -- Hub-and-Spoke iDMZ}
+\centering
+\begin{tikzpicture}[node distance=8mm]
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=42mm, font=\small] (idmz) {iDMZ broker};
+  \node[plc, above left=of idmz, minimum width=24mm] (plc1) {Plant A};
+  \node[plc, above=of idmz, minimum width=24mm] (plc2) {Plant B};
+  \node[plc, above right=of idmz, minimum width=24mm] (plc3) {Plant C};
+  \node[isbox, fill=isIT!12, draw=isIT, below=of idmz, minimum width=42mm, font=\small] (it) {Corporate IT};
+  \foreach \n in {plc1,plc2,plc3}{\draw[flow] (\n) -- (idmz);}
+  \draw[flow] (idmz) -- (it);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{Multi-site benefit}
+Single point of policy enforcement for vendor remote access, historian replication, software updates -- across all plants.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{Pattern 3 -- Identity Brokered Remote Access}
+\centering
+\begin{tikzpicture}[node distance=6mm]
+  \node[isbox, fill=isMute!15, draw=isMute] (vend) {Vendor};
+  \node[inetnode, fill=isLight, right=of vend] (inet) {Internet};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of inet, font=\small, align=center] (broker) {SSO + MFA\\portal};
+  \node[isbox, fill=isAttack!15, draw=isAttack, right=of broker, font=\small, align=center] (jump) {Jump host\\(time-boxed)};
+  \node[plc, right=of jump] (plc) {PLC};
+  \node[isbox, fill=isPLC!12, draw=isPLC, below=12mm of broker, font=\scriptsize, minimum width=42mm] (rec) {Session recording};
+  \node[isbox, fill=isOT!12, draw=isOT, below=12mm of jump, font=\scriptsize, minimum width=42mm, xshift=10mm] (op) {Operator approval};
+  \draw[flow] (vend) -- (inet) -- (broker) -- (jump) -- (plc);
+  \draw[flow, dashed] (broker) -- (rec);
+  \draw[flow, dashed] (jump) -- (op);
+\end{tikzpicture}
+\source{Cyolo / Claroty xDome Secure Access / Dispel design patterns, 2020--2024.}
+\end{frame}
+
+\begin{frame}{Pattern 4 -- Crypto-Agile Protocol Stack}
+\centering
+\begin{tikzpicture}[node distance=1mm]
+  \node[isbox, fill=isOT!10, draw=isOT, minimum width=70mm, minimum height=6mm, font=\scriptsize] (eth) {Ethernet};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=70mm, minimum height=6mm, font=\scriptsize, above=of eth] (ip) {IP + 802.1X};
+  \node[isbox, fill=isOT!20, draw=isOT, minimum width=70mm, minimum height=6mm, font=\scriptsize, above=of ip] (tls) {TLS 1.3 (modern only)};
+  \node[isbox, fill=isPLC!20, draw=isPLC, minimum width=70mm, minimum height=6mm, font=\scriptsize, above=of tls] (ua) {OPC UA SignAndEncrypt};
+  \node[isbox, fill=isPLC!30, draw=isPLC, minimum width=70mm, minimum height=6mm, font=\scriptsize, above=of ua] (app) {Application (process variables)};
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{Future-proofing}
+Specify in procurement: TLS 1.3+, modern cipher suites, support for cert rotation, and an explicit upgrade-path commitment from the vendor.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{Pattern 5 -- Immutable Backup Triad}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[server] (prod) {Production};
+  \node[server, fill=isPLC!10, right=of prod] (b1) {Hot backup};
+  \node[server, fill=isAccent!15, draw=isAccent, right=of b1] (b2) {Off-site};
+  \node[server, fill=isAttack!15, draw=isAttack, right=of b2, font=\small, align=center] (b3) {Immutable\\(WORM)};
+  \draw[flow] (prod) -- (b1); \draw[flow] (b1) -- (b2); \draw[flow] (b2) -- (b3);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{importantbox}{Test restore quarterly}
+Backups that have never been restored are not backups.
+\end{importantbox}
+\end{frame}
+
+\section{Procurement \& Contracts}
+
+\begin{frame}{Vendor SDL Requirements}
+\begin{itemize}
+  \item Conformance to IEC 62443-4-1 (Secure Development Lifecycle).
+  \item SBOM in CycloneDX or SPDX delivered with every release.
+  \item Threat modelling for the product, reviewed every major release.
+  \item Vulnerability handling per ISO/IEC 30111 with SLA on disclosure.
+  \item Long-term support commitment (e.g.\ 10 years from delivery).
+\end{itemize}
+\begin{tipbox}{Contractual leverage}
+Bake these into the purchase order. Vendors that cannot deliver an SBOM today should not be on a 20-year capital-investment list.
+\end{tipbox}
+\source{IEC 62443-4-1:2018 \textbar{} ISO/IEC 30111:2019 \textbar{} OWASP CycloneDX, SPDX.}
+\end{frame}
+
+\begin{frame}{Acceptance Test Procedures (ATP)}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small] (a) {1.\ Hardening check (no default passwords, no test accounts)};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of a] (b) {2.\ Firmware integrity (vendor signature verified)};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of b] (c) {3.\ Network traffic baseline (passive PCAP for 24h, signed by vendor)};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of c] (d) {4.\ Vuln scan (vendor-approved tool, results delivered with system)};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of d] (e) {5.\ Backup/restore drill before go-live};
+\end{tikzpicture}
+\end{frame}
+
+\section{Trade-offs}
+
+\begin{frame}{Where Security Trades Against Operations}
+\centering
+\renewcommand{\arraystretch}{1.3}
+\footnotesize
+\begin{tabular}{|p{3.6cm}|p{4.2cm}|p{4.2cm}|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Decision} & \textbf{Security win} & \textbf{Operational cost} \\
+\hline
+SignAndEncrypt OPC UA  & integrity, confidentiality   & cert lifecycle, vendor support \\
+Strict iDMZ            & blast-radius limit            & multi-hop for engineers \\
+MFA on jump host       & credential theft mitigated   & operator interruption \\
+Application allow-list & malware execution blocked    & change control overhead \\
+Data diode             & one-way egress only           & no remote control at all \\
+\hline
+\end{tabular}
+\end{frame}
+
+\begin{frame}{Risk Acceptance Conversation}
+\begin{itemize}
+  \item Frame as: ``If we do X, residual risk is Y, cost is Z.''
+  \item Pair every accepted residual with a review date.
+  \item Capture in a register countersigned by safety + operations + executive.
+  \item Re-open whenever the threat picture changes (new APT advisory, new sector incident).
+\end{itemize}
+\begin{warnbox}
+``We accept the risk'' without paper is no acceptance at all. Auditors and post-incident lawyers both want the paper.
+\end{warnbox}
+\end{frame}
+
+\section{Migration from Brownfield}
+
+\begin{frame}{Brownfield Reality Check}
+\centering
+\begin{tikzpicture}[node distance=2mm]
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\footnotesize, minimum height=5mm] (a) {25-year-old PLC, vendor out of business};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\footnotesize, minimum height=5mm, below=of a] (b) {Engineering WS on Windows XP / 7};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\footnotesize, minimum height=5mm, below=of b] (c) {Serial-only DCS network; flat L2};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=110mm, font=\footnotesize, minimum height=5mm, below=6mm of c] (d) {Possible: wrapper appliances, network-layer compensations};
+\end{tikzpicture}
+\vspace{1mm}
+\begin{notebox}{Realistic horizon}
+Most secure-by-design wins arrive in the next capital project. Brownfield gets compensating controls and a roadmap.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{Migration Roadmap (sketch)}
+\centering
+\begin{tikzpicture}[x=2.0cm]
+  \foreach \i/\name/\col in {
+    0/{Y1: visibility}/isOT,
+    1/{Y2: segment + MFA}/isPLC,
+    2/{Y3: vendor exit}/isAccent,
+    3/{Y4: greenfield core}/isNet,
+    4/{Y5: legacy retired}/isMute}{
+    \node[isbox, fill=\col!15, draw=\col, font=\scriptsize, align=center, minimum width=28mm, minimum height=14mm]
+      at (\i,0) {\name};
+  }
+\end{tikzpicture}
+\vspace{2mm}
+\begin{tipbox}{Sequence matters}
+You cannot segment what you have not inventoried. You cannot retire what you have not replaced.
+\end{tipbox}
+\end{frame}
+
+\begin{frame}{Summary -- Section \sectionNumber}
+\begin{takeawaybox}{Build it in, not on}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Security decisions are cheapest in the FEED phase, most expensive after commissioning.
+  \item A small library of patterns (Purdue+diode, iDMZ broker, brokered access, crypto-agile stack, immutable backup) covers most greenfield plants.
+  \item Contractual artefacts (SDL, SBOM, ATPs) are the only thing that survives the procurement firewall.
+  \item Trade-offs are unavoidable -- write them down, name an owner, set a review date.
+  \item Brownfield gets compensating controls and a sequenced migration roadmap.
+\end{itemize}
+\end{takeawaybox}
+\end{frame}
+
+\referencesframe{
+  \item IEC 62443-2-1:2010 + Amd.\,2019. \emph{IACS asset owner programme}.
+  \item IEC 62443-3-2:2020. \emph{Security risk assessment for system design}.
+  \item IEC 62443-3-3:2013. \emph{System security requirements and security levels}.
+  \item IEC 62443-4-1:2018. \emph{Secure product development lifecycle (SDL)}.
+  \item IEC 62443-4-2:2019. \emph{Technical security requirements for IACS components}.
+  \item INL. \emph{Consequence-Driven Cyber-Informed Engineering (CCE)}, Bochman \& Freeman, 2021.
+  \item NIST SP 800-160 Vol.\,1 Rev.\,1. \emph{Engineering Trustworthy Secure Systems}, 2022.
+  \item ENISA. \emph{Good practices for IACS}, 2020 onwards.
+  \item OWASP. \emph{CycloneDX Specification} for SBOMs.
+  \item SPDX. \emph{Software Package Data Exchange}.
+  \item Owl Cyber Defense, Waterfall Security: data-diode product literature for typical patterns.
+  \item Cyolo / Dispel / Claroty xDome Secure Access: brokered remote-access design notes.
+}
+
+\closingframe
+
+\end{document}

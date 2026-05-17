@@ -1,20 +1,16 @@
-SECTION_DIRS  := \
-  sections/01-firmware-re \
-  sections/02-plc-ladder-re \
-  sections/03-advanced-protocols \
-  sections/04-offensive-ics
+SECTIONS := \
+  01-firmware-re \
+  02-plc-ladder-re \
+  03-advanced-protocols \
+  04-offensive-ics \
+  05-secure-by-design \
+  06-threat-intel \
+  07-safety-security \
+  08-research-methods
 
-EXERCISE_DIRS := \
-  exercises/01-firmware-re \
-  exercises/02-plc-ladder-re \
-  exercises/03-advanced-protocols \
-  exercises/04-offensive-ics
-
-LAB_DIRS := \
-  labs/01-firmware-re \
-  labs/02-plc-ladder-re \
-  labs/03-advanced-protocols \
-  labs/04-offensive-ics
+SECTION_DIRS  := $(addprefix sections/,$(SECTIONS))
+EXERCISE_DIRS := $(addprefix exercises/,$(SECTIONS))
+LAB_DIRS      := $(addprefix labs/,$(SECTIONS))
 
 .PHONY: all slides exercises solutions labs clean distclean
 
