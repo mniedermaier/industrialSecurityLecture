@@ -23,10 +23,12 @@ cd "${STACK_DIR}" || { echo "FATAL: cannot cd to ${STACK_DIR}"; exit 2; }
 
 KEEP=0
 PULL=0
+BOOTSTRAP=0
 for arg in "$@"; do
   case "$arg" in
-    --keep) KEEP=1 ;;
-    --pull) PULL=1 ;;
+    --keep)      KEEP=1 ;;
+    --pull)      PULL=1 ;;
+    --bootstrap) BOOTSTRAP=1 ;;
     -h|--help)
       sed -n '2,15p' "$0"; exit 0 ;;
     *) echo "Unknown flag: $arg"; exit 2 ;;
@@ -107,6 +109,20 @@ done
 # --- lab-by-lab smoke tests -----------------------------------------
 echo
 echo "${BOLD}[3/4] Lab smoke tests${OFF}"
+
+# Optional: auto-bootstrap OpenPLC so port 502 is open before any
+# Modbus-dependent check runs. Without this the Lab 02 / Zeek checks
+# WARN until a lecturer uploads the program manually via the web UI.
+if (( BOOTSTRAP )); then
+  echo "  --bootstrap given: priming OpenPLC with conveyor.st ..."
+  if "${STACK_DIR}/bootstrap-openplc.sh" >/tmp/preflight-bootstrap-$$.out 2>&1; then
+    echo "  ${GREEN}bootstrap OK${OFF}"
+  else
+    echo "  ${YEL}bootstrap failed (continuing with WARN-only checks):${OFF}"
+    sed 's/^/      | /' /tmp/preflight-bootstrap-$$.out | head -10
+  fi
+  rm -f /tmp/preflight-bootstrap-$$.out
+fi
 
 # Probe whether OpenPLC has a running program. The Modbus listener on
 # port 502 is only bound once a program is uploaded and started via the

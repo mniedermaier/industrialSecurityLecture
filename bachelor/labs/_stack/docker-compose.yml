@@ -22,6 +22,22 @@ networks:
 services:
 
   # --------------------------------------------------------------
+  # Landing page -- polished HTML overview of the whole stack.
+  # Open http://127.0.0.1:8000 after `docker compose up -d`.
+  # --------------------------------------------------------------
+  landing:
+    image: nginx:1.27-alpine
+    container_name: is-landing
+    restart: unless-stopped
+    networks:
+      is-lab:
+        ipv4_address: 172.28.0.5
+    ports:
+      - "127.0.0.1:8000:80"
+    volumes:
+      - ./landing:/usr/share/nginx/html:ro
+
+  # --------------------------------------------------------------
   # OpenPLC -- soft PLC with Modbus TCP on 502
   # Used by labs 1, 2, and 6.
   # --------------------------------------------------------------
@@ -114,4 +130,9 @@ services:
     volumes:
       - ./zeek-logs:/usr/local/zeek/logs
       - ./zeek/local.zeek:/usr/local/zeek/share/zeek/site/local.zeek:ro
-    command: ["zeek", "-i", "eth0", "/usr/local/zeek/share/zeek/site/local.zeek"]
+    # Zeek writes logs to its CWD by default -- pin that to the mounted
+    # logs directory so they land on the host at ./zeek-logs/.
+    working_dir: /usr/local/zeek/logs
+    # -C ignores TCP/UDP checksums. The Docker bridge presents packets
+    # before NIC checksum offload, so Zeek would otherwise drop them.
+    command: ["zeek", "-C", "-i", "eth0", "/usr/local/zeek/share/zeek/site/local.zeek"]

@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Industrial Security Labs</title>
+<link rel="stylesheet" href="style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- ============================ HEADER ============================ -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <a href="#top" class="brand">
+      <svg class="brand-logo" viewBox="0 0 40 40" aria-hidden="true">
+        <polygon points="20,2 36,11 36,29 20,38 4,29 4,11" fill="none" stroke="currentColor" stroke-width="2.5"/>
+        <text x="20" y="25" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-weight="700" font-size="14" fill="currentColor">IS</text>
+      </svg>
+      <span class="brand-name">Industrial Security <span class="brand-sub">Bachelor Labs</span></span>
+    </a>
+    <nav class="topnav">
+      <a href="#labs">Labs</a>
+      <a href="#stack">Stack</a>
+      <a href="#scripts">Scripts</a>
+      <a href="#quickref">Quick&nbsp;Reference</a>
+      <a href="#help">Troubleshoot</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ============================ HERO ============================ -->
+<section class="hero" id="top">
+  <div class="hero-inner">
+    <span class="eyebrow">Lab environment</span>
+    <h1>10 hands-on labs, one Docker stack.</h1>
+    <p class="lede">
+      OpenPLC, OPC&nbsp;UA, MQTT, and Zeek on a self-contained
+      <code>172.28.0.0/16</code> network. Bring it up once, run every lab.
+    </p>
+    <div class="hero-cta">
+      <a class="btn btn-primary" href="#labs">Start at Lab 02 &rarr;</a>
+      <a class="btn btn-ghost" href="#stack">Bring up the stack</a>
+    </div>
+    <div class="hero-meta">
+      <span><strong>10</strong> labs</span>
+      <span><strong>5</strong> services</span>
+      <span><strong>45&ndash;60&nbsp;min</strong> per lab</span>
+    </div>
+  </div>
+  <div class="hero-decor" aria-hidden="true">
+    <svg viewBox="0 0 200 200">
+      <g fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1.5">
+        <polygon points="100,10 178,55 178,145 100,190 22,145 22,55"/>
+        <polygon points="100,40 152,70 152,130 100,160 48,130 48,70"/>
+        <polygon points="100,70 126,85 126,115 100,130 74,115 74,85"/>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<!-- ============================ LABS ============================ -->
+<section class="section" id="labs">
+  <div class="section-head">
+    <h2>The 10 labs</h2>
+    <p>Each lab compiles to a one-page PDF in <code>bachelor/labs/NN-topic/</code>. Sections marked <span class="pill pill-docker">docker</span> need the stack running.</p>
+  </div>
+
+  <div class="lab-grid">
+
+    <article class="lab-card">
+      <div class="lab-num">01</div>
+      <h3>Where Is the Industrial Security?</h3>
+      <p>Pen-and-paper walkthrough of an IT/OT system inventory.</p>
+      <div class="lab-meta"><span class="pill pill-paper">paper</span><span>30&nbsp;min</span></div>
+    </article>
+
+    <article class="lab-card">
+      <div class="lab-num">02</div>
+      <h3>First Contact with OpenPLC</h3>
+      <p>Stand up the stack, upload a ladder program, read holding registers over Modbus.</p>
+      <div class="lab-meta"><span class="pill pill-docker">docker</span><span>30&ndash;45&nbsp;min</span></div>
+    </article>
+
+    <article class="lab-card">
+      <div class="lab-num">03</div>
+      <h3>Network Segmentation Design</h3>
+      <p>Design a Purdue-layered network for a small water utility on paper.</p>
+      <div class="lab-meta"><span class="pill pill-paper">paper</span><span>45&nbsp;min</span></div>
+    </article>
+
+    <article class="lab-card">
+      <div class="lab-num">04</div>
+      <h3>Modbus and OPC UA &ndash; See the Difference</h3>
+      <p>Read &amp; inject without authentication on Modbus; capture and compare with OPC&nbsp;UA.</p>
+      <div class="lab-meta"><span class="pill pill-docker">docker</span><span>45&ndash;60&nbsp;min</span></div>
+    </article>
+
+    <article class="lab-card">
+      <div class="lab-num">05</div>
+      <h3>Shodan Reconnaissance</h3>
+      <p>Find real exposed ICS devices on the open Internet &ndash; read-only.</p>
+      <div class="lab-meta"><span class="pill pill-web">web</span><span>30&nbsp;min</span></div>
+    </article>
+
+    <article class="lab-card">
+      <div class="lab-num">06</div>
+      <h3>Real CVE Walk-Through</h3>
+      <p>Open a CISA ICSA advisory, then run a safe nmap against the lab PLC.</p>
+      <div class="lab-meta"><span class="pill pill-docker">docker</span><span>45&nbsp;min</span></div>
+    </article>
+
+    <article class="lab-card">
+      <div class="lab-num">07</div>
+      <h3>Risk Matrix Workshop</h3>
+      <p>Build a 5&times;5 risk matrix in groups for a small chemical plant.</p>
+      <div class="lab-meta"><span class="pill pill-paper">workshop</span><span>60&nbsp;min</span></div>
+    </article>
+
+    <article class="lab-card">
+      <div class="lab-num">08</div>
+      <h3>Passive OT IDS with Zeek</h3>
+      <p>Detect the Modbus injection from Lab&nbsp;04 with a passive ICS-aware IDS.</p>
+      <div class="lab-meta"><span class="pill pill-docker">docker</span><span>45&ndash;60&nbsp;min</span></div>
+    </article>
+
+    <article class="lab-card">
+      <div class="lab-num">09</div>
+      <h3>Regulatory Gap Analysis</h3>
+      <p>Map NIS2 / KRITIS / CRA obligations to controls for a German water utility.</p>
+      <div class="lab-meta"><span class="pill pill-paper">paper</span><span>60&nbsp;min</span></div>
+    </article>
+
+    <article class="lab-card">
+      <div class="lab-num">10</div>
+      <h3>Saturday Night Tabletop</h3>
+      <p>90-minute tabletop: an unexpected OT incident in real time, six roles.</p>
+      <div class="lab-meta"><span class="pill pill-paper">tabletop</span><span>90&nbsp;min</span></div>
+    </article>
+
+  </div>
+</section>
+
+<!-- ============================ STACK ============================ -->
+<section class="section section-alt" id="stack">
+  <div class="section-head">
+    <h2>The lab stack</h2>
+    <p>One <code>docker compose up&nbsp;-d</code> brings up everything you need. The student container is the workbench &ndash; <code>exec</code> in and run anything from there.</p>
+  </div>
+
+  <div class="stack-grid">
+    <div class="service-card service-plc">
+      <div class="service-icon">PLC</div>
+      <h3>openplc</h3>
+      <p>OpenPLC runtime &ndash; soft PLC with Modbus TCP on 502.</p>
+      <code>172.28.0.10:502 / :8080</code>
+      <p class="service-note">Web UI: <a href="http://127.0.0.1:8080" target="_blank">127.0.0.1:8080</a><br>default creds: <code>openplc / openplc</code></p>
+    </div>
+
+    <div class="service-card service-ua">
+      <div class="service-icon">UA</div>
+      <h3>opcua</h3>
+      <p>open62541 example server &ndash; anonymous, no encryption.</p>
+      <code>172.28.0.11:4840</code>
+    </div>
+
+    <div class="service-card service-mqtt">
+      <div class="service-icon">MQ</div>
+      <h3>mqtt</h3>
+      <p>Eclipse Mosquitto broker for the IIoT side-quest.</p>
+      <code>172.28.0.12:1883</code>
+    </div>
+
+    <div class="service-card service-student">
+      <div class="service-icon">WS</div>
+      <h3>student</h3>
+      <p>Debian workbench: python3, pymodbus, asyncua, paho-mqtt, nmap, tcpdump, tshark.</p>
+      <code>172.28.0.20</code>
+      <p class="service-note">Enter: <code>docker compose exec student bash</code></p>
+    </div>
+
+    <div class="service-card service-zeek">
+      <div class="service-icon">IDS</div>
+      <h3>zeek</h3>
+      <p>Network monitor in the OpenPLC netns &ndash; sees every Modbus packet.</p>
+      <code>shares 172.28.0.10</code>
+      <p class="service-note">Logs land at <code>_stack/zeek-logs/</code></p>
+    </div>
+  </div>
+
+  <div class="stack-quick">
+    <h3>Quick commands</h3>
+    <pre><code><span class="c">cd bachelor/labs/_stack</span>
+docker compose up -d              <span class="c"># start everything</span>
+./bootstrap-openplc.sh            <span class="c"># load conveyor.st, start the PLC</span>
+docker compose exec student bash  <span class="c"># jump into the workbench</span>
+docker compose down -v            <span class="c"># tear down (drops PCAPs)</span>
+
+../preflight.sh --bootstrap       <span class="c"># validate the whole stack end-to-end</span></code></pre>
+  </div>
+</section>
+
+<!-- ============================ SCRIPTS ============================ -->
+<section class="section" id="scripts">
+  <div class="section-head">
+    <h2>Helper scripts</h2>
+    <p>All mounted inside the student container at <code>/labs/scripts/</code>.</p>
+  </div>
+
+  <div class="script-grid">
+    <div class="script-card">
+      <h3>modbus_read.py</h3>
+      <p>Read 10 holding registers from the OpenPLC over Modbus TCP (FC 0x03).</p>
+    </div>
+    <div class="script-card">
+      <h3>modbus_inject.py</h3>
+      <p>Write coil 0 = TRUE on the OpenPLC over Modbus TCP &ndash; no auth, by design.</p>
+    </div>
+    <div class="script-card">
+      <h3>modbus_poll_loop.py</h3>
+      <p>Background polling loop &ndash; useful as Zeek baseline traffic.</p>
+    </div>
+    <div class="script-card">
+      <h3>opcua_browse.py</h3>
+      <p>Anonymous OPC UA browse of the open62541 example server's <code>Objects</code> namespace.</p>
+    </div>
+    <div class="script-card">
+      <h3>mqtt_publish.py</h3>
+      <p>Publish one message to the Mosquitto broker; entry point for the IIoT side-quest.</p>
+    </div>
+    <div class="script-card">
+      <h3>ladder/conveyor.st</h3>
+      <p>Three-rung Structured Text ladder &ndash; the PLC program Lab 02 uploads.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ QUICK REFERENCE ============================ -->
+<section class="section section-alt" id="quickref">
+  <div class="section-head">
+    <h2>Quick reference</h2>
+    <p>The bits you keep looking up.</p>
+  </div>
+
+  <div class="ref-grid">
+
+    <div class="ref-card">
+      <h3>Common Modbus function codes</h3>
+      <table class="ref-table">
+        <tr><th>FC</th><th>Name</th><th>Direction</th></tr>
+        <tr><td>0x01</td><td>Read Coils</td><td>read</td></tr>
+        <tr><td>0x02</td><td>Read Discrete Inputs</td><td>read</td></tr>
+        <tr><td>0x03</td><td>Read Holding Registers</td><td>read</td></tr>
+        <tr><td>0x04</td><td>Read Input Registers</td><td>read</td></tr>
+        <tr><td>0x05</td><td>Write Single Coil</td><td>write</td></tr>
+        <tr><td>0x06</td><td>Write Single Register</td><td>write</td></tr>
+        <tr><td>0x0F</td><td>Write Multiple Coils</td><td>write</td></tr>
+        <tr><td>0x10</td><td>Write Multiple Registers</td><td>write</td></tr>
+      </table>
+    </div>
+
+    <div class="ref-card">
+      <h3>Modbus TCP frame (12 + N bytes)</h3>
+      <div class="frame">
+        <div class="cell c-id" title="Transaction ID (2 B)">Trans ID</div>
+        <div class="cell c-id" title="Protocol ID (2 B, 0x0000)">Proto ID</div>
+        <div class="cell c-len" title="Length (2 B)">Length</div>
+        <div class="cell c-unit" title="Unit ID (1 B)">Unit</div>
+        <div class="cell c-fc" title="Function code (1 B)">FC</div>
+        <div class="cell c-data" title="Payload (N bytes)">Data&hellip;</div>
+      </div>
+      <p class="ref-note">First 7 bytes = MBAP header (incl.\ Unit). No auth, no integrity, no encryption.</p>
+    </div>
+
+    <div class="ref-card">
+      <h3>Lab service addresses</h3>
+      <table class="ref-table">
+        <tr><th>Service</th><th>Address</th><th>Port</th></tr>
+        <tr><td>OpenPLC</td><td>172.28.0.10</td><td>502 / 8080</td></tr>
+        <tr><td>OPC UA</td><td>172.28.0.11</td><td>4840</td></tr>
+        <tr><td>MQTT</td><td>172.28.0.12</td><td>1883</td></tr>
+        <tr><td>student</td><td>172.28.0.20</td><td>&mdash;</td></tr>
+        <tr><td>zeek</td><td>shares OpenPLC netns</td><td>&mdash;</td></tr>
+      </table>
+    </div>
+
+    <div class="ref-card">
+      <h3>One-liners</h3>
+      <pre><code><span class="c"># tail Zeek's Modbus log live</span>
+tail -f _stack/zeek-logs/modbus.log
+
+<span class="c"># PCAP from inside the student container</span>
+docker compose exec -d student tcpdump \
+  -i eth0 -w /labs/captures/run.pcap port 502
+
+<span class="c"># decode it on the host</span>
+tshark -r _stack/captures/run.pcap -V -Y modbus
+
+<span class="c"># reset OpenPLC for a fresh start</span>
+docker compose restart openplc &amp;&amp; \
+  ./bootstrap-openplc.sh</code></pre>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============================ TROUBLESHOOT ============================ -->
+<section class="section" id="help">
+  <div class="section-head">
+    <h2>Troubleshooting</h2>
+    <p>The three things that always go wrong.</p>
+  </div>
+
+  <div class="trouble-grid">
+    <div class="trouble-card">
+      <span class="trouble-code">Connection refused</span>
+      <h3>port 502 closed</h3>
+      <p>OpenPLC's Modbus listener only opens after a program is uploaded and started. Run <code>./bootstrap-openplc.sh</code> or do Lab&nbsp;02 step&nbsp;3 manually.</p>
+    </div>
+    <div class="trouble-card">
+      <span class="trouble-code">empty zeek-logs/</span>
+      <h3>Zeek silent</h3>
+      <p>Zeek only sees traffic when the PLC is running and something is talking to it. Generate traffic with <code>modbus_read.py</code> first. If still silent, check <code>docker compose logs zeek</code> for checksum-offload warnings.</p>
+    </div>
+    <div class="trouble-card">
+      <span class="trouble-code">login fails</span>
+      <h3>OpenPLC web UI</h3>
+      <p>Defaults are <code>openplc / openplc</code>. If you changed them, set <code>OPLC_USER</code> and <code>OPLC_PASS</code> before running the bootstrap script.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ FOOTER ============================ -->
+<footer class="footer">
+  <div class="footer-inner">
+    <p>Industrial Security (Bachelor) &middot; Lab environment</p>
+    <p class="footer-meta">Lab containers only &middot; never point these at real equipment.</p>
+  </div>
+</footer>
+
+</body>
+</html>
