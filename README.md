@@ -52,12 +52,13 @@ Each `bachelor/labs/NN-topic/` folder builds:
 |-------------------------------|----------------------------------------------------------|
 | `NN-topic-lab.pdf`            | 30--90 min hands-on lab sheet for the room.              |
 
-Two course-wide handouts live at `bachelor/`:
+Course-wide handouts live at `bachelor/`:
 
 | File                          | Purpose                                                  |
 |-------------------------------|----------------------------------------------------------|
 | `delivery-schedule.pdf`       | 5-day per-slot schedule for the lecturer.                |
 | `acronyms.pdf`                | ~120 OT/IT/security acronyms; student handout.           |
+| `cheatsheets.pdf`             | 4-page quick reference: Modbus, OPC UA, CVSS, NIS2/CRA.  |
 
 ---
 
@@ -198,5 +199,17 @@ Day-by-day pacing is in `bachelor/delivery-schedule.pdf`.
 
 ## License
 
-Course material released under CC BY-SA 4.0; code samples (lab scripts,
-Docker config, Makefiles) under MIT.
+Dual-licensed, with a clean split between course content and code:
+
+- **Course material** (slides, speaker notes, exercises, solutions,
+  lab sheets, schedule, acronyms, cheat-sheets, and the LaTeX
+  templates that produce them) is licensed under
+  **CC BY-SA 4.0**. See [`LICENSE-CONTENT`](LICENSE-CONTENT).
+- **Code and configuration** (lab Python helpers, Docker stack, shell
+  scripts, Makefiles, landing page HTML/CSS) is licensed under the
+  **MIT License**. See [`LICENSE`](LICENSE).
+
+Both license files list the exact paths covered. Third-party material
+quoted inside the slides (logos, screenshots, CISA advisories, vendor
+documentation) remains the property of its respective owners and is
+used under fair use for educational purposes.

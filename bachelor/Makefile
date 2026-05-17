@@ -32,12 +32,15 @@ slides:
 notes:
 	@for d in $(SECTION_DIRS); do $(MAKE) -C $$d notes || exit 1; done
 
-handouts: delivery-schedule.pdf acronyms.pdf
+handouts: delivery-schedule.pdf acronyms.pdf cheatsheets.pdf
 
 delivery-schedule.pdf: delivery-schedule.tex
 	cd $(@D) && latexmk -pdf -interaction=nonstopmode -halt-on-error $(<F)
 
 acronyms.pdf: acronyms.tex
+	cd $(@D) && latexmk -pdf -interaction=nonstopmode -halt-on-error $(<F)
+
+cheatsheets.pdf: cheatsheets.tex
 	cd $(@D) && latexmk -pdf -interaction=nonstopmode -halt-on-error $(<F)
 
 exercises:
