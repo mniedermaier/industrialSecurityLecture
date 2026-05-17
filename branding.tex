@@ -1,0 +1,34 @@
+% =====================================================================
+% Corporate / institutional branding -- single file to customise the
+% look of the entire course (slides, notes, exercises, labs).
+%
+% HOW TO REBRAND IN UNDER A MINUTE:
+%   1. Replace `branding/logo.pdf` with your own logo
+%      (PDF preferred; PNG and JPG also work -- name it `logo.<ext>`).
+%   2. (Optional) change the two colours below to your brand palette.
+%   3. (Optional) override the author/institute lines below.
+%   4. Re-run `make` at the repo root. That's it.
+%
+% Everything in this file has sensible defaults; you can delete a line
+% to fall back to the built-in defaults, or comment it out.
+%
+% This file is loaded automatically by the slides, exercise, and lab
+% preambles -- you never need to \input it manually.
+% =====================================================================
+
+% --- Logo --------------------------------------------------------------
+% Path is resolved from each leaf-build directory; the default points at
+% the shared `branding/` folder at the repo root. If you put your logo
+% somewhere else, set the full or relative path here (without extension):
+\renewcommand{\companyLogo}{../../../branding/logo}
+
+% --- Author / institute (appears on the title page footer) ------------
+\renewcommand{\courseAuthor}{Lecture Notes}
+\renewcommand{\courseInstitute}{Department of Computer Science}
+
+% --- Brand colours ----------------------------------------------------
+% slideAccent      = primary brand colour (title bands, accent rule)
+% slideSecondary   = secondary brand colour (section badge, highlight)
+% Both use HTML hex codes. Keep enough contrast against white text.
+\definecolor{slideAccent}{HTML}{1F4E79}      % primary navy
+\definecolor{slideSecondary}{HTML}{E08E0B}   % amber accent

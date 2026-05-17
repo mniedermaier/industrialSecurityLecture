@@ -36,6 +36,13 @@
 \input{../../../template/tikz-styles.tex}
 
 \providecommand{\courseAuthor}{Industrial Security Lecture Series}
+\providecommand{\courseInstitute}{Department of Computer Science}
+\providecommand{\companyLogo}{logo}
+
+% --- Corporate branding overrides ------------------------------------
+% Picks up logo / author / brand colours from the repo-root branding.tex
+% when present; falls back to the defaults above otherwise.
+\IfFileExists{../../../branding.tex}{\input{../../../branding.tex}}{}
 
 % --- listings -------------------------------------------------------
 \definecolor{codebg}{rgb}{0.96,0.96,0.96}

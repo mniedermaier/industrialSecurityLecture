@@ -1,0 +1,227 @@
+\documentclass[10pt,a4paper,twocolumn]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage[a4paper, margin=1.5cm]{geometry}
+\usepackage{plex-sans}
+\usepackage{plex-mono}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{xcolor}
+\usepackage{array}
+\usepackage{microtype}
+\usepackage[hidelinks]{hyperref}
+
+\definecolor{slideBlue}{HTML}{1F4E79}
+\definecolor{slideAccent}{HTML}{F5A623}
+\definecolor{slidePanel}{HTML}{F2F5FA}
+
+\setlength{\columnsep}{6mm}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{1pt}
+
+\pagestyle{empty}
+
+% --- macros for the entries -----------------------------------------
+% \ac{ABBR}{Expansion. Optional one-line context.}
+\newcommand{\ac}[2]{%
+  \noindent\textcolor{slideBlue}{\textbf{#1}}\,\,--\,\,\small #2\par\vspace{0.6mm}%
+}
+
+\newcommand{\letterhead}[1]{%
+  \par\vspace{1.5mm}%
+  \noindent\colorbox{slidePanel}{\parbox{\dimexpr\columnwidth-2\fboxsep}{%
+    \textcolor{slideBlue}{\textbf{\large #1}}}}\par\vspace{0.8mm}%
+}
+
+\begin{document}
+
+\twocolumn[%
+\begin{center}
+{\Large\bfseries Industrial Security (Bachelor) -- Acronyms}\par\vspace{1mm}
+{\footnotesize OT, IT, security, and standards acronyms used across the course.
+Keep this sheet open during exercises and labs.}
+\end{center}\vspace{3mm}
+]
+
+\letterhead{A}
+\ac{AD}{Active Directory. The Windows domain service that holds enterprise identities; OT borrows it for engineering workstations.}
+\ac{ALARP}{As Low As Reasonably Practicable. Safety-engineering principle imported into OT risk acceptance.}
+\ac{ANSI}{American National Standards Institute. Co-publishes ISA standards (e.g.\ ANSI/ISA-84).}
+\ac{AP}{Access Point (wireless).}
+\ac{APT}{Advanced Persistent Threat. Long-dwell, well-resourced adversary; nation-state in practice.}
+\ac{AS}{Application Server.}
+\ac{ATT\&CK}{MITRE's adversary tactics, techniques, and common knowledge matrix. ICS variant exists since 2020.}
+\ac{AV}{Antivirus.}
+
+\letterhead{B}
+\ac{BCP}{Business Continuity Plan.}
+\ac{BPCS}{Basic Process Control System. The day-to-day DCS/PLC loop, as opposed to the SIS.}
+\ac{BSI}{Bundesamt f\"ur Sicherheit in der Informationstechnik. German federal cyber-security authority.}
+\ac{BYOD}{Bring Your Own Device. Generally forbidden in OT.}
+
+\letterhead{C}
+\ac{C2}{Command and Control (channel used by malware).}
+\ac{C2M2}{Cybersecurity Capability Maturity Model. US DOE maturity framework, widely used in OT.}
+\ac{CCE}{Consequence-driven Cyber-informed Engineering. INL methodology, see Bochman \& Freeman 2021.}
+\ac{CERT}{Computer Emergency Response Team.}
+\ac{CIA}{Confidentiality, Integrity, Availability. Re-ordered to A$\succ$I$\succ$C in OT.}
+\ac{CIP}{1. Critical Infrastructure Protection (NERC CIP-002--014, US electric). 2. Common Industrial Protocol (Rockwell, on EtherNet/IP).}
+\ac{CIRCIA}{Cyber Incident Reporting for Critical Infrastructure Act (US, 2022).}
+\ac{CIS}{Center for Internet Security; publishes hardening benchmarks.}
+\ac{CISA}{Cybersecurity \& Infrastructure Security Agency (US).}
+\ac{CISO}{Chief Information Security Officer.}
+\ac{CMDB}{Configuration Management Database (asset inventory of record).}
+\ac{CPU}{Central Processing Unit.}
+\ac{CRA}{Cyber Resilience Act -- Regulation (EU) 2024/2847. Most provisions enter force 11 Dec 2027.}
+\ac{CSF}{NIST Cybersecurity Framework. CSF 2.0 published Feb 2024 added the \emph{Govern} function.}
+\ac{CSIRT}{Computer Security Incident Response Team.}
+\ac{CTD}{Continuous Threat Detection (Claroty).}
+\ac{CVE}{Common Vulnerabilities and Exposures (MITRE-assigned ID).}
+\ac{CVSS}{Common Vulnerability Scoring System. v3.1 most common in OT advisories.}
+\ac{CWE}{Common Weakness Enumeration. CWE-798 (hard-coded credentials) is the most-cited OT root cause.}
+
+\letterhead{D}
+\ac{DCS}{Distributed Control System. Process-industry sibling of PLC + SCADA, typically vendor-integrated (Emerson, Honeywell, Yokogawa, ABB).}
+\ac{DMZ}{Demilitarised Zone. In OT, the segment between IT and the plant (Purdue Level 3.5 / iDMZ).}
+\ac{DNP3}{Distributed Network Protocol 3. Common in North American utilities; SAv5 adds authentication, rarely enabled.}
+\ac{DoS}{Denial of Service.}
+\ac{DSGVO}{Datenschutz-Grundverordnung -- the German name for the EU GDPR.}
+
+\letterhead{E}
+\ac{EDR}{Endpoint Detection and Response.}
+\ac{ENISA}{European Union Agency for Cybersecurity.}
+\ac{ESET}{Slovak AV/security vendor; published the Industroyer 2017 analysis.}
+\ac{EU}{European Union.}
+
+\letterhead{F}
+\ac{FAIR}{Factor Analysis of Information Risk. Quantitative risk model by Jones \& Freund.}
+\ac{FAT}{Factory Acceptance Test.}
+\ac{FBI}{Federal Bureau of Investigation.}
+\ac{FIRST}{Forum of Incident Response and Security Teams; publishes CVSS and the PSIRT services framework.}
+\ac{FW}{Firewall.}
+
+\letterhead{G}
+\ac{GDPR}{General Data Protection Regulation (EU 2016/679).}
+\ac{GOOSE}{Generic Object-Oriented Substation Event -- IEC 61850 Layer-2 messaging, no auth by default.}
+\ac{GRU}{Russian military intelligence; Unit 74455 = Sandworm.}
+
+\letterhead{H}
+\ac{HAZOP}{HAZard and OPerability study; IEC 61882. \emph{Cyber-HAZOP} adds an attacker overlay.}
+\ac{HMI}{Human-Machine Interface (operator console).}
+\ac{HSE}{Health, Safety, Environment.}
+
+\letterhead{I}
+\ac{IACS}{Industrial Automation and Control Systems. The 62443 term for OT.}
+\ac{ICS}{Industrial Control System.}
+\ac{ICS-CERT}{Predecessor of CISA's OT advisory arm; advisories carry the \texttt{ICSA-} prefix.}
+\ac{ID}{Identifier.}
+\ac{IDS}{Intrusion Detection System.}
+\ac{IEC}{International Electrotechnical Commission. Publishes 61131, 61850, 62443, 61508, 61511.}
+\ac{IED}{Intelligent Electronic Device. Substation-side relay/controller.}
+\ac{IEEE}{Institute of Electrical and Electronics Engineers. Publishes 802.1X, 1588.}
+\ac{IIoT}{Industrial Internet of Things.}
+\ac{INL}{Idaho National Laboratory. Author of CCE and the 2016 Defense-in-Depth recommended practice.}
+\ac{IP}{Internet Protocol.}
+\ac{IPS}{Intrusion Prevention System.}
+\ac{IR}{Incident Response.}
+\ac{IRP}{Incident Response Plan.}
+\ac{ISA}{International Society of Automation. Co-publishes 62443 with IEC.}
+\ac{ISAC}{Information Sharing and Analysis Center (e.g.\ E-ISAC for electric, WaterISAC).}
+\ac{ISIS}{Institute for Science and International Security. Source of the canonical Natanz centrifuge estimate.}
+\ac{ISMS}{Information Security Management System (ISO/IEC 27001).}
+\ac{ISO}{International Organization for Standardization.}
+\ac{IT}{Information Technology.}
+
+\letterhead{K}
+\ac{KPI}{Key Performance Indicator.}
+\ac{KRITIS}{German term for critical infrastructure; regulated under BSI-Kritisverordnung.}
+
+\letterhead{L}
+\ac{LAN}{Local Area Network.}
+\ac{LOLBin}{Living-Off-the-Land Binary -- a legitimate OS tool repurposed by attackers (PowerShell, WMI, certutil).}
+\ac{LOPA}{Layers Of Protection Analysis. AIChE CCPS quantitative safety method.}
+
+\letterhead{M}
+\ac{MAC}{Media Access Control (address).}
+\ac{MBAP}{Modbus Application Protocol header. 7 bytes prepended in Modbus TCP.}
+\ac{MES}{Manufacturing Execution System (Purdue Level 3).}
+\ac{MFA}{Multi-Factor Authentication.}
+\ac{MITRE}{Non-profit that maintains CVE, CWE, ATT\&CK.}
+\ac{MQTT}{Message Queuing Telemetry Transport. Lightweight IIoT pub/sub; TLS optional (port 8883).}
+
+\letterhead{N}
+\ac{NAC}{Network Access Control (e.g.\ 802.1X, Cisco ISE, Forescout).}
+\ac{NAT}{Network Address Translation.}
+\ac{NERC}{North American Electric Reliability Corporation; publishes the CIP standards.}
+\ac{NIS2}{EU Network and Information Systems Directive 2 -- Directive (EU) 2022/2555. Transposition deadline 17 Oct 2024.}
+\ac{NIST}{US National Institute of Standards and Technology.}
+\ac{NTP}{Network Time Protocol.}
+\ac{NVD}{NIST National Vulnerability Database.}
+
+\letterhead{O}
+\ac{OPC}{Open Platform Communications. Vendor-neutral interoperability spec; OPC UA is the modern version.}
+\ac{OS}{Operating System.}
+\ac{OT}{Operational Technology. Hardware and software that interact with the physical world.}
+
+\letterhead{P}
+\ac{PCAP}{Packet capture file (libpcap format).}
+\ac{PFD}{Probability of Failure on Demand. Used in LOPA / SIL credit.}
+\ac{PHA}{Process Hazard Analysis. \emph{Cyber-PHA} adds attacker-induced deviations.}
+\ac{PLC}{Programmable Logic Controller.}
+\ac{PSIRT}{Product Security Incident Response Team (vendor side).}
+\ac{PTP}{Precision Time Protocol -- IEEE 1588; sub-microsecond sync in substations.}
+
+\letterhead{R}
+\ac{RACI}{Responsible, Accountable, Consulted, Informed (decision matrix).}
+\ac{RADIUS}{Remote Authentication Dial-In User Service. Backs 802.1X NAC.}
+\ac{RBAC}{Role-Based Access Control.}
+\ac{RPO}{Recovery Point Objective. ``How much data can we lose?''}
+\ac{RTO}{Recovery Time Objective. ``How long can we be down?''}
+\ac{RTU}{Remote Terminal Unit. Field-side PLC equivalent in SCADA setups.}
+
+\letterhead{S}
+\ac{SCADA}{Supervisory Control and Data Acquisition. The operator-side software watching a fleet of PLCs/RTUs.}
+\ac{SBOM}{Software Bill of Materials. Required for CRA-scoped products.}
+\ac{SIEM}{Security Information and Event Management.}
+\ac{SIL}{Safety Integrity Level (IEC 61508/61511). SIL\,1--4.}
+\ac{SIS}{Safety Instrumented System. Independent layer that trips the process to a safe state.}
+\ac{SL}{Security Level. IEC 62443 attacker tiers SL\,1--4 (casual $\to$ nation-state).}
+\ac{SL-T}{Target Security Level (assigned per zone).}
+\ac{SOC}{Security Operations Center.}
+\ac{SP}{Special Publication (NIST series, e.g.\ SP 800-82 R3).}
+\ac{SPAN}{Switched Port Analyzer (Cisco term for port mirror; used to feed IDS).}
+\ac{SR}{System Requirement (IEC 62443-3-3).}
+\ac{ST}{Structured Text (IEC 61131-3 PLC language).}
+
+\letterhead{T}
+\ac{TAP}{Test Access Point (dedicated tap device, more reliable than SPAN).}
+\ac{TCP}{Transmission Control Protocol.}
+\ac{TDoS}{Telephony Denial of Service.}
+\ac{TIA}{Totally Integrated Automation (Siemens engineering toolchain).}
+\ac{TLS}{Transport Layer Security.}
+\ac{TR}{Technical Report (ISA, IEC).}
+\ac{TRISIS}{Alternative name for TRITON / HatMan (Schneider Triconex SIS attack, 2017).}
+\ac{TRITON}{Malware family targeting Schneider Triconex Safety Instrumented Systems (2017).}
+\ac{TSA}{US Transportation Security Administration; issues Security Directives for pipelines and rail.}
+
+\letterhead{U}
+\ac{UA}{Unified Architecture (the ``UA'' in OPC UA).}
+\ac{UDP}{User Datagram Protocol.}
+\ac{UI}{User Interface.}
+\ac{USB}{Universal Serial Bus. Stuxnet vector; treat as untrusted-by-default in OT.}
+
+\letterhead{V}
+\ac{VFD}{Variable Frequency Drive. Stuxnet's eventual target.}
+\ac{VLAN}{Virtual LAN.}
+\ac{VPN}{Virtual Private Network.}
+
+\letterhead{W}
+\ac{WAN}{Wide Area Network.}
+\ac{WPA}{Wi-Fi Protected Access (WPA2-Enterprise / WPA3-Enterprise on OT Wi-Fi).}
+\ac{WS}{Workstation. ``Engineering WS'' = engineer's laptop with vendor toolchain.}
+
+\letterhead{Z}
+\ac{Zeek}{Open-source network monitor / scriptable IDS (formerly Bro).}
+
+\end{document}

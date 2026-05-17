@@ -67,6 +67,12 @@
 % --- modern palette --------------------------------------------------
 \definecolor{slideAccent}{HTML}{1F4E79}       % primary navy
 \definecolor{slideSecondary}{HTML}{E08E0B}    % amber accent
+
+% --- Corporate branding overrides ------------------------------------
+% A user-editable `branding.tex` at the repo root can override the
+% logo path, author/institute lines, and brand colours. If the file is
+% missing the built-in defaults above stay in effect.
+\IfFileExists{../../../branding.tex}{\input{../../../branding.tex}}{}
 \definecolor{slideTitle}{HTML}{0F2A44}        % near-black navy
 \definecolor{slideMuted}{HTML}{6B6B6B}
 \definecolor{slideBg}{HTML}{FFFFFF}

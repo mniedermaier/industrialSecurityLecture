@@ -31,9 +31,17 @@
 \input{../../../template/tikz-styles.tex}
 
 \providecommand{\courseAuthor}{Industrial Security Lecture Series}
+\providecommand{\courseInstitute}{Department of Computer Science}
+\providecommand{\companyLogo}{logo}
 
-\definecolor{labAccent}{HTML}{1F4E79}
-\definecolor{labSec}{HTML}{E08E0B}
+\definecolor{slideAccent}{HTML}{1F4E79}
+\definecolor{slideSecondary}{HTML}{E08E0B}
+
+% --- Corporate branding overrides ------------------------------------
+\IfFileExists{../../../branding.tex}{\input{../../../branding.tex}}{}
+
+\colorlet{labAccent}{slideAccent}
+\colorlet{labSec}{slideSecondary}
 \definecolor{labCheck}{HTML}{2E7D32}
 \definecolor{labWarn}{HTML}{B23A48}
 

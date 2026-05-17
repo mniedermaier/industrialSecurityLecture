@@ -12,40 +12,46 @@
 \labheader
 
 \begin{goalbox}
-Show that a passive ICS-aware IDS can detect the Modbus injection from Lab 02 without ever sending a packet itself.
+Show that a passive ICS-aware IDS detects the same Modbus injection you ran in Lab 04 without ever sending a packet itself. Tune one false positive at the end.
 \end{goalbox}
 
 \begin{stepbox}{1 -- Stack and baseline traffic}
-The Zeek container is already up and sniffing on the lab subnet. Generate baseline traffic:
+The Zeek container shares the OpenPLC network namespace so it sees all Modbus traffic on port 502. From \texttt{bachelor/labs/\_stack}, generate one minute of baseline polls:
 \begin{lstlisting}[language=bash]
-docker compose exec student python3 /labs/scripts/modbus_poll_loop.py &
-POLL=$!
+cd bachelor/labs/_stack
+docker compose exec -d student python3 /labs/scripts/modbus_poll_loop.py
 sleep 60
-kill $POLL
+docker compose exec student pkill -f modbus_poll_loop
 \end{lstlisting}
-Inspect host-side logs:
+Inspect host-side logs (still from \texttt{\_stack/}):
 \begin{lstlisting}[language=bash]
-ls bachelor/labs/zeek-logs/
-tail bachelor/labs/zeek-logs/modbus.log
+ls zeek-logs/
+tail zeek-logs/modbus.log
 \end{lstlisting}
+\emph{Observation:} you should see one Modbus request line per poll. Note the function code and the source/dest pair.
 \end{stepbox}
 
 \begin{stepbox}{2 -- Trigger the injection}
 \begin{lstlisting}[language=bash]
 docker compose exec student python3 /labs/scripts/modbus_inject.py
+tail zeek-logs/notice.log
 \end{lstlisting}
-Within seconds, a notice should land in \texttt{notice.log} tagged \texttt{ModbusWatch::Unsolicited\_Write}.
+Within a few seconds, a notice should land in \texttt{notice.log} tagged \texttt{ModbusWatch::Unsolicited\_Write}.
 \end{stepbox}
 
 \begin{stepbox}{3 -- Tune one false positive}
-Edit \texttt{bachelor/labs/zeek/local.zeek} so writes from the student container (172.28.0.20) are not treated as notices (assume the engineering WS is sanctioned). Restart:
+Edit \texttt{bachelor/labs/\_stack/zeek/local.zeek} so writes from the student container (\texttt{172.28.0.20}) are no longer treated as notices -- assume the engineering workstation is sanctioned. Reload Zeek:
 \begin{lstlisting}[language=bash]
 docker compose restart zeek
 \end{lstlisting}
-Re-run the injection -- the notice should now be suppressed.
+Re-run the injection: the notice should now be suppressed while normal polls keep being logged.
 \end{stepbox}
 
 \begin{deliverbox}
 Hand in: \texttt{notice.log} excerpts before and after tuning, your modified \texttt{local.zeek}, and a 5-line answer to: ``\emph{Who would receive this alert in a real SOC, and what is their first action?}''
 \end{deliverbox}
+
+\begin{warnbox}
+Lab containers only. Zeek here passively observes a private Docker network; running it on a production network requires explicit authorisation and usually a SPAN/TAP feed, not a shared netns.
+\end{warnbox}
 \end{document}

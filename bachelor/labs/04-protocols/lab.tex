@@ -25,11 +25,12 @@ docker compose exec student python3 /labs/scripts/modbus_read.py
 
 \begin{stepbox}{A2 -- Capture and decode}
 \begin{lstlisting}[language=bash]
-docker compose exec student tcpdump -i eth0 -w /labs/captures/lab04-mb.pcap port 502 &
+docker compose exec -d student tcpdump -i eth0 -w /labs/captures/lab04-mb.pcap port 502
+sleep 1
 docker compose exec student python3 /labs/scripts/modbus_read.py
-docker compose exec student pkill tcpdump
+docker compose exec student pkill -INT tcpdump
 \end{lstlisting}
-On the host: \texttt{tshark -r bachelor/labs/\_stack/captures/lab04-mb.pcap -V -Y modbus | less}.
+On the host: \texttt{tshark -r bachelor/labs/\_stack/captures/lab04-mb.pcap -V -Y modbus | less}. \emph{Observation:} note the function code in the request and the byte count in the response.
 \end{stepbox}
 
 \begin{stepbox}{A3 -- Inject without authentication}
@@ -49,11 +50,12 @@ docker compose exec student python3 /labs/scripts/opcua_browse.py
 
 \begin{stepbox}{B2 -- Capture the OPC UA handshake}
 \begin{lstlisting}[language=bash]
-docker compose exec student tcpdump -i eth0 -w /labs/captures/lab04-ua.pcap port 4840 &
+docker compose exec -d student tcpdump -i eth0 -w /labs/captures/lab04-ua.pcap port 4840
+sleep 1
 docker compose exec student python3 /labs/scripts/opcua_browse.py
-docker compose exec student pkill tcpdump
+docker compose exec student pkill -INT tcpdump
 \end{lstlisting}
-On the host: \texttt{tshark -r bachelor/labs/\_stack/captures/lab04-ua.pcap -V -Y opcua | less}.
+On the host: \texttt{tshark -r bachelor/labs/\_stack/captures/lab04-ua.pcap -V -d tcp.port==4840,opcua -Y opcua | less}.
 \end{stepbox}
 
 \begin{deliverbox}

@@ -1,0 +1,178 @@
+\documentclass[10pt,a4paper,landscape]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage[a4paper, margin=1.4cm, landscape]{geometry}
+\usepackage{plex-sans}
+\usepackage{plex-mono}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{tcolorbox}
+\usepackage[hidelinks]{hyperref}
+\usepackage{microtype}
+
+% --- colour palette (kept consistent with the slide deck) -----------
+\definecolor{slidePanel}{HTML}{F2F5FA}
+\definecolor{slideAccent}{HTML}{F5A623}
+\definecolor{slideBlue}{HTML}{1F4E79}
+\definecolor{tipBg}{HTML}{EBF5FF}
+
+\setlength{\arrayrulewidth}{0.4pt}
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.25}
+
+\pagestyle{empty}
+
+\newcommand{\sectionheader}[1]{%
+  \noindent\colorbox{slideBlue}{\parbox{\dimexpr\textwidth-2\fboxsep}{%
+    \color{white}\textbf{#1}}}\vspace{1mm}\par%
+}
+
+\newcommand{\hint}[1]{%
+  \begin{tcolorbox}[colback=tipBg, colframe=slideBlue, boxrule=0.4pt, arc=2pt,
+    left=2mm, right=2mm, top=1mm, bottom=1mm, fontupper=\footnotesize]%
+  #1%
+  \end{tcolorbox}%
+}
+
+\begin{document}
+
+\begin{center}
+{\Large\bfseries Industrial Security (Bachelor) -- Delivery Schedule}\\[2mm]
+{\footnotesize 5 days, $\sim$40 hours.\ \ 10 sections,\ 211 slides,\ 100 exercises, 10 hands-on labs.\ \ Timing is a guide -- adjust to room dynamics.}
+\end{center}
+
+\vspace{2mm}
+
+% =====================================================================
+% Day 1
+% =====================================================================
+\sectionheader{Day 1 -- Foundations}
+
+\begin{tabular}{|p{2.2cm}|p{4.0cm}|p{4.2cm}|p{4.0cm}|p{4.8cm}|p{4.0cm}|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Slot} & \textbf{Section} & \textbf{Slides} & \textbf{Exercises} & \textbf{Lab} & \textbf{Watch for} \\
+\hline
+09:00--10:30 & 01 -- Introduction & Frames 1--13, $\sim$90 min & 1.1--1.5 (after slides) & --- & The IT/OT contrast question is the productive one. Mine it. \\
+\hline
+10:30--10:45 & \multicolumn{5}{l|}{\textit{Break}} \\
+\hline
+10:45--12:15 & 01 cont.\ + 02 -- ICS Fundamentals & 01 wrap + 02 frames 1--7 & 1.6--1.10 + 2.1--2.3 & --- & Scan cycle is load-bearing for everything later. Don't rush it. \\
+\hline
+13:30--15:00 & 02 -- ICS Fundamentals cont. & 02 frames 8--13 & 2.4--2.7 & --- & Ladder logic: walk one rung live on the board. \\
+\hline
+15:00--17:00 & Lab 02 -- Stand up the Stack & --- & 2.8--2.10 (parallel) & \texttt{02-ics-fundamentals} (Docker stack up; first Modbus read) & First lab: budget time for environment setup. \\
+\hline
+\end{tabular}
+
+\vspace{4mm}
+
+% =====================================================================
+% Day 2
+% =====================================================================
+\sectionheader{Day 2 -- Network and Protocols}
+
+\begin{tabular}{|p{2.2cm}|p{4.0cm}|p{4.2cm}|p{4.0cm}|p{4.8cm}|p{4.0cm}|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Slot} & \textbf{Section} & \textbf{Slides} & \textbf{Exercises} & \textbf{Lab} & \textbf{Watch for} \\
+\hline
+09:00--10:30 & 03 -- Network Architecture & Frames 1--7, Purdue $\to$ zones \& conduits & 3.1--3.4 & --- & Purdue is conventional, not physical -- say so on slide 1. \\
+\hline
+10:45--12:15 & 03 cont. & Frames 8--13, firewalls / data diodes / wireless & 3.5--3.10 & --- & VLAN $\neq$ segmentation; force them to write the ACL. \\
+\hline
+13:30--15:00 & 04 -- Industrial Protocols & Frames 1--7, Modbus $\to$ EtherNet/IP & 4.1--4.5 & --- & Decode the Modbus frame on the board; it's the load-bearing trick. \\
+\hline
+15:00--17:00 & 04 cont.\ + Lab 04 & Frames 8--12, OPC UA / MQTT / 61850 & 4.6--4.10 (during lab) & \texttt{04-protocols} (Modbus inject, OPC UA browse, PCAP diff) & The injection step is the ``aha''; let them run it themselves. \\
+\hline
+\end{tabular}
+
+\vspace{4mm}
+
+% =====================================================================
+% Day 3
+% =====================================================================
+\sectionheader{Day 3 -- Threats and Vulnerabilities (the heaviest day)}
+
+\begin{tabular}{|p{2.2cm}|p{4.0cm}|p{4.2cm}|p{4.0cm}|p{4.8cm}|p{4.0cm}|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Slot} & \textbf{Section} & \textbf{Slides} & \textbf{Exercises} & \textbf{Lab} & \textbf{Watch for} \\
+\hline
+09:00--10:30 & 05 -- Threat Landscape & Actors + ATT\&CK + Stuxnet (3 frames) & 5.1 during slides & --- & Read the matrix left-to-right; map every case study back to it. \\
+\hline
+10:45--12:15 & 05 cont.\ -- Case Studies & Ukraine 15/16, TRITON, Industroyer & 5.2--5.3 & --- & 2015 vs.\ 2016 contrast is the lesson; the rest is colour. \\
+\hline
+13:30--15:00 & 05 cont.\ -- Case Studies & NotPetya, Colonial, PIPEDREAM, CyberAv3ngers, Volt Typhoon & 5.4--5.10 & --- & PIPEDREAM ``caught before victim'' is the geopolitical point. \\
+\hline
+15:00--17:00 & 06 -- Vulnerabilities + Lab 06 & Frames 1--13 (compact) & 6.1--6.10 (during lab) & \texttt{06-vulnerabilities} (asset inventory, safe nmap) & The 200-PLC matching exercise is the keeper. \\
+\hline
+\end{tabular}
+
+\vspace{4mm}
+
+% =====================================================================
+% Day 4
+% =====================================================================
+\sectionheader{Day 4 -- Risk and Defence}
+
+\begin{tabular}{|p{2.2cm}|p{4.0cm}|p{4.2cm}|p{4.0cm}|p{4.8cm}|p{4.0cm}|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Slot} & \textbf{Section} & \textbf{Slides} & \textbf{Exercises} & \textbf{Lab} & \textbf{Watch for} \\
+\hline
+09:00--10:30 & 07 -- Risk Management & Frames 1--7, risk matrix $\to$ Bow-Tie & 7.1--7.3 & --- & Risk matrix colour bands are policy, not truth. Repeat. \\
+\hline
+10:45--12:15 & 07 cont. & Frames 8--14, LOPA / CCE / FAIR / insurance & 7.4--7.10 & --- & Walk one LOPA row live with PFDs. \\
+\hline
+13:30--15:00 & 08 -- Defense in Depth & Frames 1--7, onion / hardening / remote access & 8.1--8.5 & --- & ``Three layers, one logo'' is the misconception to attack. \\
+\hline
+15:00--17:00 & 08 cont.\ + Lab 08 & Frames 8--13, NAC / IDS / SIEM / deception & 8.6--8.10 (during lab) & \texttt{08-defense-in-depth} (Zeek alerts on Modbus traffic) & First time most students see a real Zeek log. \\
+\hline
+\end{tabular}
+
+\vspace{4mm}
+
+% =====================================================================
+% Day 5
+% =====================================================================
+\sectionheader{Day 5 -- Standards and Incident Response}
+
+\begin{tabular}{|p{2.2cm}|p{4.0cm}|p{4.2cm}|p{4.0cm}|p{4.8cm}|p{4.0cm}|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Slot} & \textbf{Section} & \textbf{Slides} & \textbf{Exercises} & \textbf{Lab} & \textbf{Watch for} \\
+\hline
+09:00--10:30 & 09 -- Standards \& Governance & Frames 1--7, 62443 / NIST / NIS2 / KRITIS & 9.1--9.5 & --- & Two dates: NIS2 17 Oct 2024; CRA 11 Dec 2027. \\
+\hline
+10:45--12:15 & 09 cont. & Frames 8--13, CRA / ENISA / C2M2 / programme & 9.6--9.10 & --- & ``Compliance $\neq$ security'' is the slogan they'll quote later. \\
+\hline
+13:30--15:00 & 10 -- Incident Response & Frames 1--7, OT IR differences $\to$ forensics & 10.1--10.5 & --- & Pulling the cable in OT can trip SIS. Anchor this. \\
+\hline
+15:00--16:30 & 10 cont.\ + Lab 10 & Frames 8--13, tabletop / BCP / post-mortem & 10.6--10.10 (during lab) & \texttt{10-incident-response} (tabletop walkthrough on the stack) & Tabletop runs better with you facilitating, not lecturing. \\
+\hline
+16:30--17:00 & Wrap-up & Recap takeaway slides per section & --- & --- & 5-minute Q\&A; thank students; share contact for follow-ups. \\
+\hline
+\end{tabular}
+
+\vspace{3mm}
+
+\hint{%
+\textbf{Pre-flight check (run the morning before Day 1):}
+\texttt{cd bachelor/labs/\_stack \&\& docker compose pull \&\& docker compose up -d \&\& docker compose ps}.
+Confirm \texttt{openplc}, \texttt{opcua}, \texttt{mqtt}, \texttt{zeek}, \texttt{student} all show \texttt{Up}.
+Each lecturer machine needs: Docker $\geq$ 24, $\sim$3 GB free for images, host port 8080 (OpenPLC UI) and 1880 (Node-RED) free, and projector-readable terminal font ($\geq$ 18 pt).
+}
+
+\hint{%
+\textbf{Per-slide artefacts you can lean on:}
+the \texttt{NN-topic-notes.pdf} alongside each slide deck shows your prepared notes on the right; project the \texttt{-slides.pdf} only.
+Each section ends with a \emph{Key Takeaway} frame -- that is your natural cliff-hanger into the next section. The \emph{Section Roadmap} on the first frame of Section 01 is a useful re-orient point if students get lost mid-day.
+}
+
+\end{document}

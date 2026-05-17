@@ -94,17 +94,20 @@ services:
       - NET_RAW
 
   # --------------------------------------------------------------
-  # Zeek IDS -- passive sniffer on the lab network.
+  # Zeek IDS -- passive sniffer attached to the OpenPLC netns.
+  # Sharing OpenPLC's network namespace (network_mode: service:openplc)
+  # is what lets Zeek's `eth0` see all traffic to/from the PLC --
+  # otherwise Docker's bridge isolation would hide it.
   # Logs go to ./zeek-logs on the host.
-  # Used by lab 6.
+  # Used by lab 08.
   # --------------------------------------------------------------
   zeek:
     image: zeek/zeek:latest
     container_name: is-zeek
     restart: unless-stopped
-    networks:
-      is-lab:
-        ipv4_address: 172.28.0.30
+    network_mode: "service:openplc"
+    depends_on:
+      - openplc
     cap_add:
       - NET_ADMIN
       - NET_RAW
