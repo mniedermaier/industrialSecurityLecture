@@ -22,12 +22,23 @@ EXERCISE_DIRS := \
   exercises/09-standards \
   exercises/10-incident-response
 
-.PHONY: all slides exercises solutions labs clean distclean
+.PHONY: all slides notes exercises solutions labs handouts clean distclean
 
-all: slides exercises solutions labs
+all: slides notes exercises solutions labs handouts
 
 slides:
 	@for d in $(SECTION_DIRS); do $(MAKE) -C $$d slides || exit 1; done
+
+notes:
+	@for d in $(SECTION_DIRS); do $(MAKE) -C $$d notes || exit 1; done
+
+handouts: delivery-schedule.pdf acronyms.pdf
+
+delivery-schedule.pdf: delivery-schedule.tex
+	cd $(@D) && latexmk -pdf -interaction=nonstopmode -halt-on-error $(<F)
+
+acronyms.pdf: acronyms.tex
+	cd $(@D) && latexmk -pdf -interaction=nonstopmode -halt-on-error $(<F)
 
 exercises:
 	@for d in $(EXERCISE_DIRS); do $(MAKE) -C $$d exercises || exit 1; done
@@ -47,3 +58,6 @@ distclean:
 	@for d in $(SECTION_DIRS); do $(MAKE) -C $$d distclean; done
 	@for d in $(EXERCISE_DIRS); do $(MAKE) -C $$d distclean; done
 	$(MAKE) -C labs distclean
+	rm -f delivery-schedule.pdf acronyms.pdf
+	rm -f delivery-schedule.aux delivery-schedule.log delivery-schedule.fls delivery-schedule.fdb_latexmk delivery-schedule.out
+	rm -f acronyms.aux acronyms.log acronyms.fls acronyms.fdb_latexmk acronyms.out
