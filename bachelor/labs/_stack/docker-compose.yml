@@ -34,8 +34,8 @@ services:
       is-lab:
         ipv4_address: 172.28.0.10
     ports:
-      - "127.0.0.1:18080:8080"   # OpenPLC web UI (localhost only)
-      - "127.0.0.1:5502:502"     # Modbus TCP exposed to host on 5502
+      - "127.0.0.1:8080:8080"   # OpenPLC web UI (localhost only)
+      - "127.0.0.1:502:502"     # Modbus TCP (root may be required on the host)
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O- http://localhost:8080 || exit 1"]
       interval: 30s
@@ -54,7 +54,7 @@ services:
       is-lab:
         ipv4_address: 172.28.0.11
     ports:
-      - "127.0.0.1:14840:4840"
+      - "127.0.0.1:4840:4840"
 
   # --------------------------------------------------------------
   # MQTT broker -- Eclipse Mosquitto for IIoT discussion
