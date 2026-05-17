@@ -164,9 +164,9 @@
 
 \hint{%
 \textbf{Pre-flight check (run the morning before Day 1):}
-\texttt{cd bachelor/labs/\_stack \&\& docker compose pull \&\& docker compose up -d \&\& docker compose ps}.
-Confirm \texttt{openplc}, \texttt{opcua}, \texttt{mqtt}, \texttt{zeek}, \texttt{student} all show \texttt{Up}.
-Each lecturer machine needs: Docker $\geq$ 24, $\sim$3 GB free for images, host port 8080 (OpenPLC UI) and 1880 (Node-RED) free, and projector-readable terminal font ($\geq$ 18 pt).
+\texttt{bachelor/labs/preflight.sh -{}-pull -{}-bootstrap}.
+All 16 checks must pass: services up, landing page at \url{http://127.0.0.1:8000}, OpenPLC primed with \texttt{conveyor.st}, Modbus 502 open, OPC UA 4840 open, Zeek raises the \texttt{ModbusWatch::Unsolicited\_Write} notice on injection.
+Each lecturer machine needs: Docker $\geq$ 24, $\sim$3 GB free for images, host ports 8000 (landing), 8080 (OpenPLC UI), 502, 4840, 1883 free, and projector-readable terminal font ($\geq$ 18 pt).
 }
 
 \hint{%

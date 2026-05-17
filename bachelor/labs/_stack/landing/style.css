@@ -241,6 +241,17 @@ p { margin: 0 0 0.8em; color: var(--c-text); }
   display: flex; gap: 10px; align-items: center;
   font-size: 0.82rem; color: var(--c-text-soft);
 }
+a.lab-card { display: block; color: inherit; }
+a.lab-card:hover { color: inherit; }
+.lab-open {
+  margin-left: auto;
+  font-weight: 600; color: var(--c-amber);
+  opacity: 0; transform: translateX(-4px);
+  transition: opacity 0.18s, transform 0.18s;
+}
+.lab-card:hover .lab-open {
+  opacity: 1; transform: translateX(0);
+}
 
 /* ---- Pills shared between sections ---- */
 .pill {

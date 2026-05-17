@@ -34,8 +34,14 @@ services:
         ipv4_address: 172.28.0.5
     ports:
       - "127.0.0.1:8000:80"
+    # First mount must not be :ro -- otherwise the nested labs mount
+    # below cannot create its mountpoint at runtime. Nginx never writes
+    # to /usr/share/nginx/html anyway.
     volumes:
-      - ./landing:/usr/share/nginx/html:ro
+      - ./landing:/usr/share/nginx/html
+      # Serve every lab PDF at /labs/NN-topic/NN-topic-lab.pdf so the
+      # landing page's lab cards can deep-link to them.
+      - ../:/usr/share/nginx/html/labs:ro
 
   # --------------------------------------------------------------
   # OpenPLC -- soft PLC with Modbus TCP on 502

@@ -140,11 +140,19 @@ Services:
 
 | Service     | Image                              | Address              | Used by lab(s) |
 |-------------|------------------------------------|----------------------|----------------|
+| `landing`   | nginx:1.27-alpine                  | 127.0.0.1:8000       | start here     |
 | `openplc`   | atripathy86/openplc-runtime        | 172.28.0.10:502/8080 | 02, 04, 06, 08 |
 | `opcua`     | open62541/open62541                | 172.28.0.11:4840     | 04             |
 | `mqtt`      | eclipse-mosquitto:2                | 172.28.0.12:1883     | side-quest     |
 | `student`   | built locally (Debian + tools)     | 172.28.0.20          | every lab      |
 | `zeek`      | zeek/zeek (shares openplc netns)   | sees 172.28.0.10     | 08             |
+
+Once the stack is up, the **lab landing page** at
+<http://127.0.0.1:8000> is the canonical entry point for students:
+brand-consistent overview of all 10 labs (each card deep-links to the
+matching PDF), the 5 services, the helper scripts, a quick reference
+(Modbus function codes, frame anatomy, addresses, one-liners), and a
+troubleshooting strip for the three things that always go wrong.
 
 **Before Day 1:** run `bachelor/labs/preflight.sh` to verify every
 service starts and the smoke-tests pass. Flags:

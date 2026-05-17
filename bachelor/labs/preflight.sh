@@ -101,10 +101,16 @@ echo "  waiting 15 s for services to settle..."
 sleep 15
 
 # Service-up checks
-for svc in openplc opcua mqtt student zeek; do
+for svc in landing openplc opcua mqtt student zeek; do
   check "service ${svc} is Up" \
     bash -c "docker compose ps --status running --services | grep -qx ${svc}"
 done
+
+# Landing page sanity (Lab 02 students start here)
+check "landing page serves http://127.0.0.1:8000" \
+  bash -c 'curl -sf -o /dev/null http://127.0.0.1:8000/'
+check "landing page exposes lab PDFs at /labs/" \
+  bash -c 'curl -sf -o /dev/null http://127.0.0.1:8000/labs/02-ics-fundamentals/02-ics-fundamentals-lab.pdf'
 
 # --- lab-by-lab smoke tests -----------------------------------------
 echo
