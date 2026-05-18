@@ -257,19 +257,43 @@ p { margin: 0 0 0.8em; color: var(--c-text); }
   margin: 0 0 14px;
 }
 .lab-meta {
-  display: flex; gap: 10px; align-items: center;
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
   font-size: 0.82rem; color: var(--c-text-soft);
 }
-a.lab-card { display: block; color: inherit; }
-a.lab-card:hover { color: inherit; }
-.lab-open {
-  margin-left: auto;
-  font-weight: 600; color: var(--c-amber);
-  opacity: 0; transform: translateX(-4px);
-  transition: opacity 0.18s, transform 0.18s;
+
+/* Card title is a real link now (not the whole card), so we can have
+   a secondary action ("solutions") in the meta row without nesting. */
+.lab-title-link {
+  color: var(--c-navy-deep);
+  text-decoration: none;
 }
-.lab-card:hover .lab-open {
-  opacity: 1; transform: translateX(0);
+.lab-card:hover .lab-title-link { color: var(--c-navy); }
+.lab-title-link:hover { color: var(--c-amber-soft); }
+
+.lab-actions {
+  margin-left: auto;
+  display: inline-flex; gap: 10px; align-items: center;
+}
+.lab-action {
+  font-weight: 600; font-size: 0.82rem;
+  color: var(--c-navy);
+  padding: 3px 10px; border-radius: 999px;
+  background: rgba(31, 78, 121, 0.08);
+  transition: background 0.15s, color 0.15s;
+}
+.lab-action:hover {
+  background: var(--c-navy); color: white;
+}
+
+/* Lecturer / TA reference -- visually distinct from the student-facing
+   "Lab PDF" button. Amber pill matches the brand secondary colour. */
+.pill-sol {
+  background: rgba(224, 142, 11, 0.18);
+  color: var(--c-amber);
+}
+.solution-link { text-decoration: none; }
+.solution-link:hover .pill-sol {
+  background: var(--c-amber); color: white;
 }
 
 /* ---- Pills shared between sections ---- */
