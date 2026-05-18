@@ -193,12 +193,11 @@
   <div class="stack-quick">
     <h3>Quick commands</h3>
     <pre><code><span class="c">cd bachelor/labs/_stack</span>
-docker compose up -d              <span class="c"># start everything</span>
-./bootstrap-openplc.sh            <span class="c"># load conveyor.st, start the PLC</span>
+docker compose up -d              <span class="c"># start everything; openplc-init primes the PLC automatically</span>
 docker compose exec student bash  <span class="c"># jump into the workbench</span>
 docker compose down -v            <span class="c"># tear down (drops PCAPs)</span>
 
-../preflight.sh --bootstrap       <span class="c"># validate the whole stack end-to-end</span></code></pre>
+../preflight.sh                   <span class="c"># validate the whole stack end-to-end</span></code></pre>
   </div>
 </section>
 

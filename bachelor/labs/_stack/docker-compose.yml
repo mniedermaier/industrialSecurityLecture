@@ -59,10 +59,39 @@ services:
       - "127.0.0.1:8080:8080"   # OpenPLC web UI (localhost only)
       - "127.0.0.1:502:502"     # Modbus TCP (root may be required on the host)
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O- http://localhost:8080 || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
+      test: ["CMD-SHELL", "curl -sf -o /dev/null http://localhost:8080/login || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  # --------------------------------------------------------------
+  # OpenPLC init -- one-shot bootstrap that uploads conveyor.st and
+  # starts the PLC the moment OpenPLC reports healthy. Without this,
+  # port 502 stays closed until somebody opens the web UI manually.
+  # Re-running `docker compose up -d` just re-runs the bootstrap;
+  # the script is idempotent. To skip it, comment this service out
+  # (or use `docker compose --profile noinit up -d`).
+  # --------------------------------------------------------------
+  openplc-init:
+    image: alpine:3.20
+    container_name: is-openplc-init
+    restart: "no"
+    depends_on:
+      openplc:
+        condition: service_healthy
+    networks:
+      is-lab:
+        ipv4_address: 172.28.0.6
+    environment:
+      OPLC_HOST: openplc:8080
+    volumes:
+      - ./bootstrap-openplc.sh:/bootstrap.sh:ro
+      - ./scripts:/scripts:ro
+    entrypoint:
+      - sh
+      - -c
+      - "apk add --quiet --no-cache bash curl && bash /bootstrap.sh --program /scripts/ladder/conveyor.st"
 
   # --------------------------------------------------------------
   # OPC UA server -- open62541 example

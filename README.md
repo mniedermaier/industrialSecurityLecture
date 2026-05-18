@@ -141,14 +141,20 @@ docker compose down -v         # tear down (drops captured PCAPs)
 
 Services:
 
-| Service     | Image                              | Address              | Used by lab(s) |
-|-------------|------------------------------------|----------------------|----------------|
-| `landing`   | nginx:1.27-alpine                  | 127.0.0.1:8000       | start here     |
-| `openplc`   | atripathy86/openplc-runtime        | 172.28.0.10:502/8080 | 02, 04, 06, 08 |
-| `opcua`     | open62541/open62541                | 172.28.0.11:4840     | 04             |
-| `mqtt`      | eclipse-mosquitto:2                | 172.28.0.12:1883     | side-quest     |
-| `student`   | built locally (Debian + tools)     | 172.28.0.20          | every lab      |
-| `zeek`      | zeek/zeek (shares openplc netns)   | sees 172.28.0.10     | 08             |
+| Service        | Image                              | Address              | Used by lab(s)           |
+|----------------|------------------------------------|----------------------|--------------------------|
+| `landing`      | nginx:1.27-alpine                  | 127.0.0.1:8000       | start here               |
+| `openplc`      | atripathy86/openplc-runtime        | 172.28.0.10:502/8080 | 02, 04, 06, 08           |
+| `openplc-init` | alpine:3.20 (one-shot)             | --                   | auto-primes OpenPLC      |
+| `opcua`        | open62541/open62541                | 172.28.0.11:4840     | 04                       |
+| `mqtt`         | eclipse-mosquitto:2                | 172.28.0.12:1883     | side-quest               |
+| `student`      | built locally (Debian + tools)     | 172.28.0.20          | every lab                |
+| `zeek`         | zeek/zeek (shares openplc netns)   | sees 172.28.0.10     | 08                       |
+
+The `openplc-init` sidecar waits for the OpenPLC web UI to report
+healthy, then uploads `scripts/ladder/conveyor.st` and starts the PLC.
+A plain `docker compose up -d` is therefore everything you need --
+Modbus on port 502 is open within ~20 s, no manual web-UI dance.
 
 Once the stack is up, the **lab landing page** at
 <http://127.0.0.1:8000> is the canonical entry point for students:

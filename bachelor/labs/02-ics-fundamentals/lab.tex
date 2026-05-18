@@ -18,17 +18,21 @@ Bring up the lab Docker stack and confirm that the soft PLC accepts and runs a l
 \begin{stepbox}{1 -- Bring up the stack}
 \begin{lstlisting}[language=bash]
 cd bachelor/labs/_stack
-docker compose up -d
+docker compose up -d        # one shot: brings every service up
 docker compose ps           # all services should show Up
 \end{lstlisting}
+The \texttt{openplc-init} sidecar uploads \texttt{conveyor.st} and starts the PLC automatically, so Modbus on port 502 is open within $\sim$20\,s of \texttt{up -d}.
 \end{stepbox}
 
 \begin{stepbox}{2 -- Open the lab landing page \& the OpenPLC web UI}
 Browse to \url{http://127.0.0.1:8000} for the lab home page (overview of every lab and the stack). Then open \url{http://127.0.0.1:8080} for the OpenPLC web UI; log in with the default OpenPLC credentials (\texttt{openplc} / \texttt{openplc}) and change the password right away. Record the new password in your notes.
 \end{stepbox}
 
-\begin{stepbox}{3 -- Upload the ladder program}
-Upload the file \texttt{bachelor/labs/\_stack/scripts/ladder/conveyor.st} (host-relative path; pick it from your filesystem in the upload dialog). Click \textbf{Start PLC}. Open the \textbf{Monitoring} page and watch \texttt{Motor} toggle when you flip \texttt{Start}. Note the cycle time shown at the bottom of the page.
+\begin{stepbox}{3 -- Inspect the running ladder program}
+The \texttt{openplc-init} sidecar has already uploaded \texttt{conveyor.st} and clicked \textbf{Start PLC} for you. Open the \textbf{Programs} page to see the uploaded program, then open the \textbf{Monitoring} page and watch \texttt{Motor} toggle when you flip \texttt{Start}. Note the cycle time shown at the bottom of the page.
+
+\smallskip
+\emph{Optional:} stop the PLC, then upload \texttt{bachelor/labs/\_stack/scripts/ladder/conveyor.st} yourself from your filesystem to see the workflow end-to-end -- this is what the init container automated.
 \end{stepbox}
 
 \begin{stepbox}{4 -- Read holding registers}

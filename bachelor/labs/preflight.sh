@@ -23,12 +23,11 @@ cd "${STACK_DIR}" || { echo "FATAL: cannot cd to ${STACK_DIR}"; exit 2; }
 
 KEEP=0
 PULL=0
-BOOTSTRAP=0
 for arg in "$@"; do
   case "$arg" in
     --keep)      KEEP=1 ;;
     --pull)      PULL=1 ;;
-    --bootstrap) BOOTSTRAP=1 ;;
+    --bootstrap) ;;  # accepted for back-compat; bootstrap is automatic now.
     -h|--help)
       sed -n '2,15p' "$0"; exit 0 ;;
     *) echo "Unknown flag: $arg"; exit 2 ;;
@@ -44,7 +43,6 @@ fi
 
 PASS=()
 FAIL=()
-WARN=()
 
 check () {
   local name="$1"; shift
@@ -56,22 +54,6 @@ check () {
     echo "${RED}FAIL${OFF}"
     FAIL+=("$name")
     sed 's/^/      | /' /tmp/preflight-$$.out | head -10
-  fi
-  rm -f /tmp/preflight-$$.out
-}
-
-# Same as check() but a failure becomes a WARN, not a FAIL. Use for
-# steps that depend on a one-time manual setup (e.g.\ OpenPLC needs a
-# program uploaded via the web UI before its Modbus listener opens).
-warn_check () {
-  local name="$1"; shift
-  printf "  %-55s " "${name}"
-  if "$@" >/tmp/preflight-$$.out 2>&1; then
-    echo "${GREEN}PASS${OFF}"
-    PASS+=("$name")
-  else
-    echo "${YEL}WARN${OFF}"
-    WARN+=("$name")
   fi
   rm -f /tmp/preflight-$$.out
 }
@@ -97,8 +79,20 @@ if (( PULL )); then
   docker compose pull >/dev/null 2>&1 || true
 fi
 check "docker compose up -d"       docker compose up -d
-echo "  waiting 15 s for services to settle..."
-sleep 15
+echo "  waiting for openplc-init to finish bootstrapping the PLC..."
+# Poll until the one-shot init exits. Cap at 60 s so a stuck pull or
+# broken healthcheck surfaces as a FAIL rather than a hang.
+INIT_OK=0
+for _ in $(seq 1 60); do
+  state="$(docker inspect is-openplc-init --format '{{.State.Status}}:{{.State.ExitCode}}' 2>/dev/null || true)"
+  case "$state" in
+    exited:0) INIT_OK=1; break ;;
+    exited:*) break ;;
+  esac
+  sleep 1
+done
+check "openplc-init completed (PLC programmed)" \
+  bash -c "[ $INIT_OK = 1 ]"
 
 # Service-up checks
 for svc in landing openplc opcua mqtt student zeek; do
@@ -116,34 +110,9 @@ check "landing page exposes lab PDFs at /labs/" \
 echo
 echo "${BOLD}[3/4] Lab smoke tests${OFF}"
 
-# Optional: auto-bootstrap OpenPLC so port 502 is open before any
-# Modbus-dependent check runs. Without this the Lab 02 / Zeek checks
-# WARN until a lecturer uploads the program manually via the web UI.
-if (( BOOTSTRAP )); then
-  echo "  --bootstrap given: priming OpenPLC with conveyor.st ..."
-  if "${STACK_DIR}/bootstrap-openplc.sh" >/tmp/preflight-bootstrap-$$.out 2>&1; then
-    echo "  ${GREEN}bootstrap OK${OFF}"
-  else
-    echo "  ${YEL}bootstrap failed (continuing with WARN-only checks):${OFF}"
-    sed 's/^/      | /' /tmp/preflight-bootstrap-$$.out | head -10
-  fi
-  rm -f /tmp/preflight-bootstrap-$$.out
-fi
-
-# Probe whether OpenPLC has a running program. The Modbus listener on
-# port 502 is only bound once a program is uploaded and started via the
-# web UI -- that is Lab 02 step 3. Without it, all Modbus-dependent
-# checks are expected to fail; we surface this as a WARN, not a FAIL.
-if docker compose exec -T student python3 /labs/scripts/modbus_read.py 2>&1 | grep -q "Registers 0..9"; then
-  PLC_RUNNING=1
-else
-  PLC_RUNNING=0
-  echo "  ${YEL}note:${OFF} OpenPLC has no running program yet (Lab 02 step 3 still pending);"
-  echo "         Modbus-dependent checks below will WARN, not FAIL."
-fi
-
-# Lab 02 / 04 / 06 -- Modbus read
-warn_check "Lab 02/04/06 -- Modbus read returns 10 registers" \
+# The PLC was already programmed by the openplc-init sidecar above, so
+# Modbus on port 502 must be open by now.
+check "Lab 02/04/06 -- Modbus read returns 10 registers" \
   bash -c 'docker compose exec -T student python3 /labs/scripts/modbus_read.py | grep -q "Registers 0..9"'
 
 # Lab 04 -- OPC UA browse
@@ -159,22 +128,14 @@ check "Lab 06 -- nmap available in student" \
   docker compose exec -T student nmap --version
 
 # Lab 08 -- Zeek shares OpenPLC netns and produces a log on Modbus traffic.
-# Only meaningful if the PLC is actually running.
-if (( PLC_RUNNING )); then
-  docker compose exec -T student python3 /labs/scripts/modbus_read.py >/dev/null 2>&1 || true
-  sleep 3
-  check "Lab 08 -- Zeek wrote conn.log"               test -f zeek-logs/conn.log
-  check "Lab 08 -- Zeek wrote modbus.log (port 502)"  test -f zeek-logs/modbus.log
-  docker compose exec -T student python3 /labs/scripts/modbus_inject.py >/dev/null 2>&1 || true
-  sleep 3
-  check "Lab 08 -- ModbusWatch notice triggered" \
-    bash -c 'test -f zeek-logs/notice.log && grep -q "ModbusWatch::Unsolicited_Write" zeek-logs/notice.log'
-else
-  warn_check "Lab 08 -- Zeek wrote conn.log"              test -f zeek-logs/conn.log
-  warn_check "Lab 08 -- Zeek wrote modbus.log (port 502)" test -f zeek-logs/modbus.log
-  warn_check "Lab 08 -- ModbusWatch notice triggered" \
-    bash -c 'test -f zeek-logs/notice.log && grep -q "ModbusWatch::Unsolicited_Write" zeek-logs/notice.log'
-fi
+docker compose exec -T student python3 /labs/scripts/modbus_read.py >/dev/null 2>&1 || true
+sleep 3
+check "Lab 08 -- Zeek wrote conn.log"               test -f zeek-logs/conn.log
+check "Lab 08 -- Zeek wrote modbus.log (port 502)"  test -f zeek-logs/modbus.log
+docker compose exec -T student python3 /labs/scripts/modbus_inject.py >/dev/null 2>&1 || true
+sleep 3
+check "Lab 08 -- ModbusWatch notice triggered" \
+  bash -c 'test -f zeek-logs/notice.log && grep -q "ModbusWatch::Unsolicited_Write" zeek-logs/notice.log'
 
 # --- teardown --------------------------------------------------------
 echo
@@ -190,19 +151,7 @@ fi
 echo
 echo "${BOLD}Summary${OFF}"
 echo "  ${GREEN}PASS${OFF}: ${#PASS[@]}"
-echo "  ${YEL}WARN${OFF}: ${#WARN[@]}"
 echo "  ${RED}FAIL${OFF}: ${#FAIL[@]}"
-
-if (( ${#WARN[@]} > 0 )); then
-  echo
-  echo "${YEL}WARN checks (expected unless OpenPLC has a running program):${OFF}"
-  for w in "${WARN[@]}"; do echo "  - $w"; done
-  echo
-  echo "To clear the warnings: bring up the stack, open"
-  echo "  http://127.0.0.1:8080 (OpenPLC web UI, default openplc / openplc),"
-  echo "upload bachelor/labs/_stack/scripts/ladder/conveyor.st, click Start PLC,"
-  echo "then re-run this script with --keep so the upload persists between runs."
-fi
 
 if (( ${#FAIL[@]} > 0 )); then
   echo

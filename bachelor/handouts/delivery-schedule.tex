@@ -164,8 +164,8 @@
 
 \hint{%
 \textbf{Pre-flight check (run the morning before Day 1):}
-\texttt{bachelor/labs/preflight.sh -{}-pull -{}-bootstrap}.
-All 16 checks must pass: services up, landing page at \url{http://127.0.0.1:8000}, OpenPLC primed with \texttt{conveyor.st}, Modbus 502 open, OPC UA 4840 open, Zeek raises the \texttt{ModbusWatch::Unsolicited\_Write} notice on injection.
+\texttt{bachelor/labs/preflight.sh -{}-pull}.
+All 20 checks must pass: services up, \texttt{openplc-init} primes the PLC with \texttt{conveyor.st} automatically, landing page at \url{http://127.0.0.1:8000}, Modbus 502 open, OPC UA 4840 open, Zeek raises the \texttt{ModbusWatch::Unsolicited\_Write} notice on injection.
 Each lecturer machine needs: Docker $\geq$ 24, $\sim$3 GB free for images, host ports 8000 (landing), 8080 (OpenPLC UI), 502, 4840, 1883 free, and projector-readable terminal font ($\geq$ 18 pt).
 }
 

@@ -88,8 +88,8 @@ curl -s -b "${COOKIES}" -F "file=@${PROGRAM}" \
 
 # OpenPLC assigns a random NNNN.st filename and exposes it via two
 # hidden inputs in the metadata form. We need both to save.
-PROG_FILE="$(grep -oP "value='[0-9]+\.st'" "${TMP_HTML}" | head -1 | cut -d\' -f2)"
-EPOCH="$(grep -oP "value='[0-9]+'" "${TMP_HTML}" | grep -v '\.st' | head -1 | cut -d\' -f2)"
+PROG_FILE="$(grep -oE "value='[0-9]+\.st'" "${TMP_HTML}" | head -1 | cut -d\' -f2)"
+EPOCH="$(grep -oE "value='[0-9]+'" "${TMP_HTML}" | grep -v '\.st' | head -1 | cut -d\' -f2)"
 [[ -n "${PROG_FILE}" && -n "${EPOCH}" ]] \
   || die "could not parse the uploaded filename / epoch from the response"
 
