@@ -1,0 +1,18 @@
+% Placeholder logo for the TH Augsburg example theme.
+% TEXT-ONLY in THA red on transparent background -- NOT the official
+% THA wordmark. Replace with the real licensed asset before any
+% public-facing use.
+%
+% Build with:  pdflatex -output-directory=. logo-source.tex
+\documentclass[border=2pt]{standalone}
+\usepackage{tikz}
+\usepackage[T1]{fontenc}
+\definecolor{thaRed}{HTML}{C30E18}
+\definecolor{thaInk}{HTML}{3F4444}
+\begin{document}
+\begin{tikzpicture}
+  \node[font=\bfseries\Huge, color=thaRed, inner sep=0pt] (mark) {TH};
+  \node[anchor=west, font=\bfseries\Large, color=thaInk, xshift=2mm]
+    at (mark.east) {Augsburg};
+\end{tikzpicture}
+\end{document}

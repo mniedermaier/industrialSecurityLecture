@@ -1,0 +1,20 @@
+% Placeholder logo for the Airbus example theme.
+% TEXT-ONLY in Airbus blue on transparent background -- NOT the
+% official Airbus wordmark. Replace with the real licensed asset
+% before any public-facing use.
+%
+% Build with:  pdflatex -output-directory=. logo-source.tex
+\documentclass[border=2pt]{standalone}
+\usepackage{tikz}
+\usepackage[T1]{fontenc}
+\definecolor{aibBlue}{HTML}{00205B}
+\definecolor{aibCobalt}{HTML}{0099D8}
+\begin{document}
+\begin{tikzpicture}
+  \node[font=\bfseries\Huge, color=aibBlue, inner sep=0pt] (mark) {A};
+  \node[anchor=west, font=\bfseries\Large, color=aibBlue, xshift=1mm]
+    at (mark.east) {IRBUS};
+  \draw[aibCobalt, line width=1.5pt]
+    ([yshift=-1mm]mark.south west) -- ([yshift=-1mm,xshift=20mm]mark.south east);
+\end{tikzpicture}
+\end{document}

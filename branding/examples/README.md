@@ -3,11 +3,17 @@
 Drop-in `branding.tex` files that rebrand the entire course in a single
 copy. See [`../../BRANDING.md`](../../BRANDING.md) for the full mechanism.
 
-| Theme                                              | Primary  | Accent   | Suited to                                       |
-| -------------------------------------------------- | -------- | -------- | ----------------------------------------------- |
-| [`tha/`](tha/branding.tex)                         | `#C30E18` red    | `#3F4444` anthracite | Technische Hochschule Augsburg                  |
-| [`airbus/`](airbus/branding.tex)                   | `#00205B` navy   | `#0099D8` cobalt     | Airbus internal training                        |
-| [`generic-charcoal/`](generic-charcoal/branding.tex) | `#2C3E50` charcoal | `#1ABC9C` teal | Pilots, no strong corporate identity            |
+| Theme                                              | Primary  | Accent   | Placeholder logo                | Suited to                                       |
+| -------------------------------------------------- | -------- | -------- | ------------------------------- | ----------------------------------------------- |
+| [`tha/`](tha/branding.tex)                         | `#C30E18` red    | `#3F4444` anthracite | `tha/logo.pdf` ("TH Augsburg")  | Technische Hochschule Augsburg                  |
+| [`airbus/`](airbus/branding.tex)                   | `#00205B` navy   | `#0099D8` cobalt     | `airbus/logo.pdf` ("AIRBUS")    | Airbus internal training                        |
+| [`generic-charcoal/`](generic-charcoal/branding.tex) | `#2C3E50` charcoal | `#1ABC9C` teal | `generic-charcoal/logo.pdf` (hex + "Your Logo") | Pilots, no strong corporate identity            |
+
+Each theme folder ships its own placeholder logo plus the
+`logo-source.tex` that produced it -- text-only, transparent
+background, in the brand colours but **never the official trademark
+wordmark**. Use them as-is for an internal pilot; replace
+`logo.pdf` with the real licensed asset before any public release.
 
 ## Use it
 
@@ -15,8 +21,10 @@ copy. See [`../../BRANDING.md`](../../BRANDING.md) for the full mechanism.
 # from the repo root:
 cp branding/examples/<theme>/branding.tex branding.tex
 
-# (optional) drop your logo at branding/logo.pdf -- PDF preferred
-# cp /path/to/your/logo.pdf branding/logo.pdf
+# the branding.tex points the build at the theme's own logo
+# (branding/examples/<theme>/logo.pdf). If you have the real licensed
+# wordmark, just overwrite that file:
+# cp /path/to/your/real-logo.pdf branding/examples/<theme>/logo.pdf
 
 make
 ```

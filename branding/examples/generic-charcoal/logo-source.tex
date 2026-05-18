@@ -1,0 +1,19 @@
+% Placeholder logo for the generic-charcoal example theme.
+% Generic mark + "Your Logo" text on transparent background.
+%
+% Build with:  pdflatex -output-directory=. logo-source.tex
+\documentclass[border=2pt]{standalone}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric}
+\usepackage[T1]{fontenc}
+\definecolor{genInk}{HTML}{2C3E50}
+\definecolor{genTeal}{HTML}{1ABC9C}
+\begin{document}
+\begin{tikzpicture}
+  \node[regular polygon, regular polygon sides=6, draw=genInk,
+        line width=1.2pt, minimum size=14mm] (h) {};
+  \node[font=\bfseries\large, color=genTeal] at (h.center) {Y};
+  \node[anchor=west, font=\bfseries\Large, color=genInk, xshift=1.5mm]
+    at (h.east) {Your Logo};
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,18 @@
+% Outline-only placeholder logo -- no hexagon fill, so it lays cleanly
+% over any background colour (light or dark).
+% Build with:  pdflatex -output-directory=. logo-source-transparent.tex
+% Output: logo-source-transparent.pdf -- rename to logo-transparent.pdf
+% or replace branding/logo-transparent.pdf with your own brand asset.
+\documentclass[border=2pt]{standalone}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric}
+\definecolor{logoA}{HTML}{1F4E79}
+\definecolor{logoB}{HTML}{E08E0B}
+\begin{document}
+\begin{tikzpicture}
+  \node[regular polygon, regular polygon sides=6, draw=logoA, line width=1.5pt, minimum size=18mm] (h) {};
+  \node[font=\bfseries\Large, color=logoA] at (h.center) {IS};
+  \node[anchor=west, font=\bfseries\Large, color=logoA] at (h.east) {Industrial};
+  \node[anchor=west, font=\bfseries\Large, color=logoB] at ([yshift=-5mm]h.east) {Security};
+\end{tikzpicture}
+\end{document}
