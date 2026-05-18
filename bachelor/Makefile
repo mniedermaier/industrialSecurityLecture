@@ -56,6 +56,7 @@ clean:
 	@for d in $(SECTION_DIRS); do $(MAKE) -C $$d clean; done
 	@for d in $(EXERCISE_DIRS); do $(MAKE) -C $$d clean; done
 	$(MAKE) -C labs clean
+	cd handouts && rm -f *.aux *.log *.fls *.fdb_latexmk *.out
 
 distclean:
 	@for d in $(SECTION_DIRS); do $(MAKE) -C $$d distclean; done
