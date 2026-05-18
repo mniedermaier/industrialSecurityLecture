@@ -232,7 +232,15 @@ p { margin: 0 0 0.8em; color: var(--c-text); }
   border-radius: var(--radius);
   padding: 22px 22px 18px;
   position: relative;
+  /* Flex column so the description grows and pushes .lab-tags +
+     .lab-actions to the bottom of every card -- identical alignment
+     regardless of how long the description is. */
+  display: flex;
+  flex-direction: column;
   transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+}
+.lab-card p {
+  flex: 1 1 auto;       /* absorb extra vertical space */
 }
 .lab-card:hover {
   transform: translateY(-2px);
@@ -256,13 +264,24 @@ p { margin: 0 0 0.8em; color: var(--c-text); }
   color: var(--c-text-mute); font-size: 0.92rem;
   margin: 0 0 14px;
 }
-.lab-meta {
+/* Tag row (pill + duration) -- sits just under the description. */
+.lab-tags {
   display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
   font-size: 0.82rem; color: var(--c-text-soft);
+  margin-bottom: 12px;
+}
+
+/* Action row (Lab PDF + solutions) -- pinned to the bottom of every
+   card and identically aligned across the grid. Same left edge as
+   the rest of the card content. */
+.lab-actions {
+  display: flex; gap: 8px; align-items: center;
+  padding-top: 12px;
+  border-top: 1px solid var(--c-rule);
 }
 
 /* Card title is a real link now (not the whole card), so we can have
-   a secondary action ("solutions") in the meta row without nesting. */
+   a secondary action ("solutions") in the bottom row without nesting. */
 .lab-title-link {
   color: var(--c-navy-deep);
   text-decoration: none;
@@ -270,15 +289,12 @@ p { margin: 0 0 0.8em; color: var(--c-text); }
 .lab-card:hover .lab-title-link { color: var(--c-navy); }
 .lab-title-link:hover { color: var(--c-amber-soft); }
 
-.lab-actions {
-  margin-left: auto;
-  display: inline-flex; gap: 10px; align-items: center;
-}
 .lab-action {
   font-weight: 600; font-size: 0.82rem;
   color: var(--c-navy);
   padding: 3px 10px; border-radius: 999px;
   background: rgba(31, 78, 121, 0.08);
+  text-decoration: none;
   transition: background 0.15s, color 0.15s;
 }
 .lab-action:hover {
