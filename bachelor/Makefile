@@ -32,15 +32,15 @@ slides:
 notes:
 	@for d in $(SECTION_DIRS); do $(MAKE) -C $$d notes || exit 1; done
 
-handouts: delivery-schedule.pdf acronyms.pdf cheatsheets.pdf
+handouts: handouts/delivery-schedule.pdf handouts/acronyms.pdf handouts/cheatsheets.pdf
 
-delivery-schedule.pdf: delivery-schedule.tex
+handouts/delivery-schedule.pdf: handouts/delivery-schedule.tex
 	cd $(@D) && latexmk -pdf -interaction=nonstopmode -halt-on-error $(<F)
 
-acronyms.pdf: acronyms.tex
+handouts/acronyms.pdf: handouts/acronyms.tex
 	cd $(@D) && latexmk -pdf -interaction=nonstopmode -halt-on-error $(<F)
 
-cheatsheets.pdf: cheatsheets.tex
+handouts/cheatsheets.pdf: handouts/cheatsheets.tex
 	cd $(@D) && latexmk -pdf -interaction=nonstopmode -halt-on-error $(<F)
 
 exercises:
@@ -61,6 +61,4 @@ distclean:
 	@for d in $(SECTION_DIRS); do $(MAKE) -C $$d distclean; done
 	@for d in $(EXERCISE_DIRS); do $(MAKE) -C $$d distclean; done
 	$(MAKE) -C labs distclean
-	rm -f delivery-schedule.pdf acronyms.pdf
-	rm -f delivery-schedule.aux delivery-schedule.log delivery-schedule.fls delivery-schedule.fdb_latexmk delivery-schedule.out
-	rm -f acronyms.aux acronyms.log acronyms.fls acronyms.fdb_latexmk acronyms.out
+	cd handouts && rm -f *.pdf *.aux *.log *.fls *.fdb_latexmk *.out

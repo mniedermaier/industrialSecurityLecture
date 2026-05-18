@@ -52,7 +52,7 @@ Each `bachelor/labs/NN-topic/` folder builds:
 |-------------------------------|----------------------------------------------------------|
 | `NN-topic-lab.pdf`            | 30--90 min hands-on lab sheet for the room.              |
 
-Course-wide handouts live at `bachelor/`:
+Course-wide handouts live at `bachelor/handouts/`:
 
 | File                          | Purpose                                                  |
 |-------------------------------|----------------------------------------------------------|
@@ -85,8 +85,10 @@ Course-wide handouts live at `bachelor/`:
 │   └── logo-source.tex
 ├── bachelor/
 │   ├── Makefile
-│   ├── delivery-schedule.{tex,pdf}
-│   ├── acronyms.{tex,pdf}
+│   ├── handouts/               ← course-wide PDFs (lecturer + student)
+│   │   ├── delivery-schedule.{tex,pdf}
+│   │   ├── acronyms.{tex,pdf}
+│   │   └── cheatsheets.{tex,pdf}
 │   ├── sections/NN-topic/      ← slides.tex → -slides.pdf + -notes.pdf
 │   ├── exercises/NN-topic/     ← exercises.tex + solutions.tex
 │   └── labs/
