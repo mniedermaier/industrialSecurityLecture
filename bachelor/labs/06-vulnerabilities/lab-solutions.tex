@@ -1,0 +1,144 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\labNumber{06}
+\def\labTitle{Real CVE Walk-Through -- Solutions}
+\def\labSection{06}
+\def\labTime{45 min}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Lecturer / TA reference for Lab 06: a fully worked CISA advisory decomposition, an environmental-CVSS re-scoring example, the annotated safe-nmap profile against the lab PLC, the survival check, and a grading rubric.
+\end{goalbox}
+
+\begin{solutionbox}{Part 1, Steps 1--2 -- worked advisory: ICSA-22-102-02}
+Reference advisory: \textbf{ICSA-22-102-02}, \emph{Rockwell Automation Logix Controllers}, originally published \textbf{12 April 2022} by CISA. Use this as the canonical worked example; any current advisory of comparable depth is acceptable from a student.
+
+\begin{center}\footnotesize
+\begin{tabular}{@{}p{3.6cm}p{11.0cm}@{}}
+\toprule
+\textbf{Field} & \textbf{Value} \\
+\midrule
+ICSA ID                 & \texttt{ICSA-22-102-02} \\
+Publish date            & 12 Apr 2022 (updated thereafter by CISA) \\
+Vendor                  & Rockwell Automation \\
+Affected products       & Logix Designer (Studio 5000) + ControlLogix 5570/5580, CompactLogix 5370/5380/5480, GuardLogix 5570/5580, Compact GuardLogix 5370/5380 \\
+Affected firmware       & Controllers running affected versions prior to the fixed firmware listed by the vendor PSIRT (see Rockwell PN1645) \\
+CVE ID                  & \texttt{CVE-2022-1161} (controller side; companion \texttt{CVE-2022-1159} covers the Studio~5000 side) \\
+CVSS v3.1 base score    & \texttt{10.0 (Critical)} \\
+CVSS v3.1 vector        & \texttt{CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H} \\
+CWE                     & \texttt{CWE-20} Improper Input Validation (``forged logic download'' -- user-readable logic differs from logic actually executed) \\
+Pre-conditions          & Network reachability of the controller's EtherNet/IP service (TCP/UDP \texttt{44818}, TCP \texttt{2222}); no authentication required if the controller is not in \emph{Run-mode key} hardware lock; no user interaction \\
+Stated impact           & Attacker can write modified ladder/structured-text logic to the controller while the engineering workstation continues to display the original program -- a stealthy logic-tamper primitive \\
+Known exploitation      & Proof-of-concept disclosed by Claroty (Team82); no confirmed in-the-wild abuse at publish date \\
+Vendor mitigation       & Apply fixed firmware per Rockwell PSIRT advisory \texttt{PN1645}; set the controller mode switch to \textbf{RUN} (hardware key) to block remote program downloads \\
+CISA mitigation         & Minimise network exposure (controllers not Internet-facing), place behind firewalls, isolate from business network, use secure remote access (VPN) and update the VPN, perform impact analysis before deploying \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+{\footnotesize\emph{Sources:} CISA, \emph{ICSA-22-102-02 Rockwell Automation Logix Controllers}, 12 Apr 2022 \textbar{} Rockwell PSIRT \texttt{PN1645}, 2022 \textbar{} Claroty Team82, \emph{Evil PLC \& Forged Logic Download}, 2022.}
+\end{solutionbox}
+
+\begin{solutionbox}{Part 1, Step 3 -- environmental re-scoring (PLC behind a data diode)}
+Same controller, deployed in a small water utility behind a hardware one-way data diode (process LAN $\rightarrow$ historian only; no inbound path):
+
+\begin{itemize}[leftmargin=*, nosep]
+  \item \texttt{MAV:A} -- Modified Attack Vector \emph{Adjacent}. The diode breaks routed L3 reachability; only an attacker already on the local OT segment can talk EtherNet/IP to the controller.
+  \item \texttt{MAC:H} -- Modified Attack Complexity \emph{High}. The attacker must first defeat physical/network access controls (cabinet lock, managed switch, 802.1X) to land on that segment.
+  \item \texttt{MPR:N} -- no authentication on the protocol itself, unchanged.
+  \item \texttt{MUI:N} -- no user interaction needed, unchanged.
+  \item \texttt{MS:U} -- Modified Scope \emph{Unchanged}. The diode prevents the compromised controller from being used as a pivot back into IT; the blast radius stops at the OT cell.
+  \item \texttt{MC:H / MI:H / MA:H} -- once on-segment, impact on the process is still total.
+  \item Environmental requirements (utility is safety-relevant): \texttt{CR:H, IR:H, AR:H}.
+\end{itemize}
+
+Modified vector:
+\begin{quote}
+\ttfamily\small CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H/\\MAV:A/MAC:H/MS:U/CR:H/IR:H/AR:H
+\end{quote}
+
+Environmental score drops from \textbf{10.0 Critical} to roughly \textbf{7.0--7.5 High} (exact value depends on the calculator; accept anything in the \textbf{6.8--7.6} band with the justifications above). Teaching point: the vulnerability is just as dangerous \emph{if} the attacker gets on-segment -- the diode bought \emph{exposure} reduction, not \emph{impact} reduction.
+\end{solutionbox}
+
+\begin{solutionbox}{Part 2 -- safe nmap against the lab PLC}
+Exact command students run inside the student container:
+
+\begin{lstlisting}[language=bash]
+$ docker compose exec student \
+    nmap -sT -Pn -n --max-rate 5 --scan-delay 200ms \
+         -p 502,8080 172.28.0.10
+\end{lstlisting}
+
+Flag-by-flag justification:
+\begin{itemize}[leftmargin=*, nosep]
+  \item \texttt{-sT} -- full TCP connect via the OS stack, \emph{not} raw SYN. Fragile PLC TCP stacks (legacy Schneider, older Siemens S7) have crashed on half-open SYN floods; a clean 3-way handshake plus RST is the safest probe.
+  \item \texttt{-Pn} -- skip host discovery. Many PLCs and ICS gateways drop or rate-limit ICMP; without \texttt{-Pn} nmap would mark the target ``down'' and never scan it.
+  \item \texttt{-n} -- no DNS resolution. Avoids leaking the target IP to a DNS resolver and removes a source of timing jitter.
+  \item \texttt{--max-rate 5} -- cap at 5 packets per second. Well below any documented denial-of-service threshold for ICS devices.
+  \item \texttt{--scan-delay 200ms} -- force at least 200\,ms between probes. Belt-and-braces with \texttt{--max-rate}; the two together guarantee a gentle scan even if nmap recalculates timing.
+  \item \texttt{-p 502,8080} -- only the two ports the lab actually uses (Modbus/TCP and the OpenPLC web UI). No port sweep, no UDP, no fingerprinting probes.
+\end{itemize}
+
+Expected output (abridged):
+\begin{lstlisting}[language=bash]
+Starting Nmap 7.94 ( https://nmap.org ) at 2026-... CET
+Nmap scan report for 172.28.0.10
+Host is up (0.00050s latency).
+
+PORT     STATE SERVICE
+502/tcp  open  mbap
+8080/tcp open  http-proxy
+
+Nmap done: 1 IP address (1 host up, 2 ports scanned) in ~1.6s
+\end{lstlisting}
+\end{solutionbox}
+
+\begin{solutionbox}{Part 2 -- forbidden flags and why}
+Do \textbf{not} run any of the following against a real PLC (or this lab, which mimics one):
+\begin{itemize}[leftmargin=*, nosep]
+  \item \texttt{-sV} (version detection) -- sends protocol-specific probes (\texttt{NULL}, Modbus malformed PDUs, HTTP \texttt{OPTIONS}, etc.). Documented to lock ladder-logic memory regions on several controllers and to crash older Schneider Modicon Quantum CPUs during banner grabs.
+  \item \texttt{-O} (OS fingerprint) -- sends crafted TCP/IP packets (out-of-order flags, weird window sizes). Legacy ICS TCP stacks have rebooted under \texttt{-O}.
+  \item \texttt{--script} / \texttt{-sC} -- NSE scripts vary wildly in safety; \texttt{modbus-discover}, \texttt{s7-info}, etc.\ have all triggered comms faults on production PLCs.
+  \item \texttt{-A} -- shorthand for \texttt{-O -sV -sC --traceroute}: combines everything above. \textbf{Never} use it on OT.
+\end{itemize}
+
+{\footnotesize\emph{Sources:} Digital Bond / Project Basecamp, \emph{ICS Device Failure Modes During Active Scanning}, 2012 \textbar{} ICS-CERT, \emph{Recommended Practice: Updating Antivirus in an Industrial Control System}, 2011 -- both document the historical fragility.}
+\end{solutionbox}
+
+\begin{solutionbox}{Part 2 -- post-scan survival check}
+After the nmap run, the student must re-run the Lab 02 read script:
+\begin{lstlisting}[language=bash]
+$ docker compose exec student python3 /labs/scripts/modbus_read.py
+Registers 0..9: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+\end{lstlisting}
+A successful read of \textbf{exactly 10 registers} proves the Modbus/TCP server is still responsive and the IEC task is still cycling. If the script throws \texttt{ConnectionRefusedError} or hangs past 5\,s, the PLC stack did not survive the scan -- collect the nmap command actually issued, the container logs (\texttt{docker compose logs openplc}), and stop further scanning until the runtime is restarted.
+\end{solutionbox}
+
+\begin{solutionbox}{Common student mistakes}
+\begin{itemize}[leftmargin=*, nosep]
+  \item \textbf{\texttt{nmap -sS}} -- raw SYN scan; needs \texttt{root}/\texttt{CAP\_NET\_RAW} in the container and is exactly the half-open behaviour that has crashed legacy PLC stacks. Mark down even though the lab container ``survives'' it.
+  \item \textbf{Default scan with no rate cap} -- \texttt{nmap 172.28.0.10} alone fires $\sim$1000 probes at line rate; cite that pps figure when grading.
+  \item \textbf{Wrong target IP} -- scanning \texttt{127.0.0.1} from inside \texttt{is-student} hits the student container, not OpenPLC. Correct target is \texttt{172.28.0.10}.
+  \item \textbf{\texttt{-A} aggressive scan} -- collects everything (\texttt{-O -sV -sC --traceroute}). Auto-fail this part.
+  \item \textbf{Skipping the survival check} -- nmap completing successfully is not evidence the PLC is healthy; only the follow-up \texttt{modbus\_read.py} is.
+  \item \textbf{Citing the wrong vendor advisory} -- students sometimes paraphrase a news article instead of the CISA ICSA page; require the \texttt{ICSA-YY-NNN-NN} identifier and the vendor PSIRT number.
+\end{itemize}
+\end{solutionbox}
+
+\begin{rubricbox}
+\begin{itemize}[leftmargin=*, nosep]
+  \item \textbf{3 pts} -- advisory decomposition complete: ICSA ID, vendor, affected models + firmware band, CVE ID(s), CVSS v3.1 vector \emph{and} score, CWE, vendor mitigation, CISA mitigation.
+  \item \textbf{2 pts} -- environmental re-score: at least \texttt{MAV}, \texttt{MAC}, \texttt{MS} modifiers justified in writing; numerical result within $\pm$0.5 of the worked answer.
+  \item \textbf{2 pts} -- safe-nmap command run exactly as specified (\texttt{-sT -Pn -n --max-rate 5 --scan-delay 200ms -p 502,8080}) against \texttt{172.28.0.10}; output captured.
+  \item \textbf{1 pt} -- post-scan \texttt{modbus\_read.py} returns the expected 10-register vector.
+  \item \textbf{2 pts} -- short written paragraph (3--5 sentences) on \emph{why} \texttt{-sV}, \texttt{-O}, \texttt{-A}, \texttt{--script} are unsafe against real PLCs, with at least one concrete vendor/incident reference.
+\end{itemize}
+Total: \textbf{10 pts}. Auto-deduct 2 pts for any forbidden flag in the submitted command history; auto-fail (0 pts on Part 2) if the student scanned an IP outside the lab subnet \texttt{172.28.0.0/24}.
+\end{rubricbox}
+
+\end{document}

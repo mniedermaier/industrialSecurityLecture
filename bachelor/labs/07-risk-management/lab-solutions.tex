@@ -1,0 +1,86 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\labNumber{07}
+\def\labTitle{Risk Matrix Workshop -- Solutions}
+\def\labSection{07}
+\def\labTime{60 min}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Lecturer / TA reference: sample plant scenario, a fully populated 5$\times$5 matrix with five worked risks, justification language, facilitation notes for the inevitable colour argument, and a grading rubric.
+\end{goalbox}
+
+\begin{solutionbox}{Sample scenario -- ``Acme Specialty Batch \#3''}
+A small contract-manufacturing site: one jacketed batch reactor (2\,m\textsuperscript{3}), single SIS logic solver (SIL\,2, separate from BPCS), two operators per shift across three shifts, one engineering workstation, one Historian VM, and an MES that pushes batch records to the customer portal over the internet (TLS, no VPN). Annual revenue from this line $\approx$ EUR\,8\,M; a lost batch is worth EUR\,40\,k.
+\end{solutionbox}
+
+\begin{solutionbox}{Sample 5$\times$5 matrix (five plotted risks)}
+Likelihood: \textbf{1}\,Rare, \textbf{2}\,Unlikely, \textbf{3}\,Possible, \textbf{4}\,Likely, \textbf{5}\,Very\,Likely.\quad
+Consequence: \textbf{1}\,Insignificant, \textbf{2}\,Minor, \textbf{3}\,Moderate, \textbf{4}\,Major, \textbf{5}\,Catastrophic.
+
+\definecolor{rmgreen}{HTML}{2E7D32}
+\definecolor{rmyellow}{HTML}{F1C40F}
+\definecolor{rmorange}{HTML}{E67E22}
+\definecolor{rmred}{HTML}{C0392B}
+
+\begin{center}\footnotesize
+\setlength{\tabcolsep}{4pt}\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}c|ccccc@{}}
+ & \textbf{C1} & \textbf{C2} & \textbf{C3} & \textbf{C4} & \textbf{C5} \\ \hline
+\textbf{L5} & \cellcolor{rmyellow} & \cellcolor{rmyellow}\textbf{R5} & \cellcolor{rmorange} & \cellcolor{rmred} & \cellcolor{rmred} \\
+\textbf{L4} & \cellcolor{rmgreen} & \cellcolor{rmyellow} & \cellcolor{rmorange}\textbf{R2} & \cellcolor{rmred} & \cellcolor{rmred} \\
+\textbf{L3} & \cellcolor{rmgreen} & \cellcolor{rmyellow} & \cellcolor{rmyellow}\textbf{R4} & \cellcolor{rmred}\textbf{R1} & \cellcolor{rmred} \\
+\textbf{L2} & \cellcolor{rmgreen} & \cellcolor{rmgreen} & \cellcolor{rmyellow} & \cellcolor{rmorange} & \cellcolor{rmred}\textbf{R3} \\
+\textbf{L1} & \cellcolor{rmgreen} & \cellcolor{rmgreen} & \cellcolor{rmgreen} & \cellcolor{rmyellow} & \cellcolor{rmorange} \\
+\end{tabular}
+\end{center}
+
+\begin{itemize}[leftmargin=*, nosep]
+  \item \textbf{R1 -- Unauthenticated Modbus write changes a reactor setpoint.} L\,=\,3 (Possible): Modbus/TCP has no auth and the BPCS network has been touched by contractor laptops. C\,=\,4 (Major, safety): an out-of-band setpoint can drive an exothermic runaway before the SIS trips; SIS is independent but operators rely on BPCS alarms for early warning. \textbf{Red.}
+  \item \textbf{R2 -- USB-borne malware reaches the engineering workstation.} L\,=\,4 (Likely): USB transfer is the documented update path for the PLC vendor toolchain. C\,=\,3 (Moderate): malware on the EWS most plausibly corrupts project files and forces a reload, costing $\sim$1--2 batches; safety unaffected because the SIS is air-gapped. \textbf{Orange.}
+  \item \textbf{R3 -- Vendor remote-access account compromised.} L\,=\,2 (Unlikely): account exists, MFA is on, used $\sim$6$\times$/year. C\,=\,5 (Catastrophic): vendor account can push firmware to both BPCS \emph{and} SIS logic solver -- single point of compromise reaches the safety layer. \textbf{Red.}
+  \item \textbf{R4 -- Historian database encrypted by ransomware.} L\,=\,3 (Possible): Historian VM is domain-joined and patched on the IT cadence. C\,=\,3 (Moderate): batch records for billing are mirrored to the MES (separate DB) so revenue is preserved; loss is $\sim$90\,days of trend data needed for process tuning and audits. \textbf{Yellow.}
+  \item \textbf{R5 -- Operator misconfigures a valve via HMI.} L\,=\,5 (Very Likely): happens on average once a quarter per the site's deviation log. C\,=\,2 (Minor): single-batch loss, caught by SIS or downstream QA; no safety, no environmental release. \textbf{Yellow.}
+\end{itemize}
+\end{solutionbox}
+
+\begin{solutionbox}{Facilitation notes -- let the argument run}
+The point of the workshop is \textbf{not} to converge on the ``correct'' matrix. Two competent teams given the same scenario will produce different placements because likelihood is a frequency estimate over a population of one and consequence depends on what the team values (lives, money, license-to-operate). \emph{That disagreement is the deliverable.} Do not arbitrate cell colours -- ask each team to defend their L and C scores in one sentence, then move on. Time-box Step\,2 at 25\,min; teams will happily argue R1 for the full hour if you let them.
+\end{solutionbox}
+
+\begin{solutionbox}{Common student mistakes}
+\begin{itemize}[leftmargin=*, nosep]
+  \item \textbf{Everything is Major.} Default-Major inflation makes the matrix useless; force a separation between ``batch loss'' (Moderate) and ``injury / release'' (Major+).
+  \item \textbf{Conflating safety and financial impact on one axis.} Either run two parallel matrices (safety, business) or define consequence as ``worst of the four sub-dimensions'' -- and write it down. Mixing the two silently is the most common defect.
+  \item \textbf{Treating colour bands as objective.} Red/orange/yellow/green are \emph{risk appetite}, not physics. A pharma site and a parts shop will paint the same cell differently and both are right.
+  \item \textbf{Confusing inherent and residual risk.} Ask: ``Did you score before or after the existing safeguards?'' Most teams quietly do residual -- make them say so.
+  \item \textbf{Likelihood as a probability percent.} Students try to write ``35\,\%''; the scale is ordinal, not interval. Define each level in plain language (e.g.\ L4\,=\,``expect at least once per year'').
+\end{itemize}
+\end{solutionbox}
+
+\begin{solutionbox}{Discussion prompts for the closing 10\,minutes}
+\begin{itemize}[leftmargin=*, nosep]
+  \item \emph{``Team A put R1 in red, Team B put it in orange. Whose risk appetite is wrong?''} -- Neither. The matrix is a communication tool, not a truth machine; its job is to make the disagreement visible so management can set policy.
+  \item \emph{``You scored R3 as Unlikely because MFA is on. What if the vendor's IdP is breached?''} -- Introduces dependency risk and forces the team to articulate the assumption behind their L score.
+  \item \emph{``Which of your top-three risks would move two cells if the SIS were on the same network as the BPCS?''} -- Drives home that architecture choices change the matrix, not just controls.
+  \item \emph{``If you ran this workshop again next year, which risk would have moved most?''} -- Surfaces velocity / trend, which a static matrix hides.
+\end{itemize}
+\end{solutionbox}
+
+\begin{rubricbox}
+\begin{itemize}[leftmargin=*, nosep]
+  \item \textbf{2 pts} -- Likelihood and Consequence scales defined in plain language with anchors per level (not bare numbers).
+  \item \textbf{4 pts} -- Ten risks plotted in the matrix; \textbf{full marks for any placement} that carries a defensible one-sentence justification for both L and C. Deduct 0.5\,pt per risk that is placed by gut feel with no justification.
+  \item \textbf{2 pts} -- Top three risks rendered as Cyber-HAZOP rows (guide word, deviation, cyber cause, existing safeguards, gap).
+  \item \textbf{1 pt} -- Three mitigations with cost / time bands.
+  \item \textbf{1 pt} -- 5-line CFO summary that argues for the investments in business language, not jargon.
+\end{itemize}
+Total: \textbf{10 pts}. Do \emph{not} deduct points for ``wrong'' colours -- only for missing or unjustified placements. Award a bonus point if the team explicitly distinguished \emph{inherent} vs.\ \emph{residual} risk in their notation.
+\end{rubricbox}
+
+\end{document}

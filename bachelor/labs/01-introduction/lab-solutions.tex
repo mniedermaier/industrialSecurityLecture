@@ -1,0 +1,102 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\labNumber{01}
+\def\labTitle{Where Is the Industrial Security? -- Solutions}
+\def\labSection{01}
+\def\labTime{30 min}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Lecturer / TA reference: sample completed deliverables, model answers
+to the open-ended questions, and a grading rubric for the paper-only
+observation lab.
+\end{goalbox}
+
+\begin{solutionbox}{Step 1 -- Sample inventory table}
+Accept any eight devices the student can plausibly point to. The mix
+below shows the three classes the rubric expects to see.
+
+\vspace{2pt}
+\small
+\begin{tabular}{@{}p{2.7cm}p{1.1cm}p{4.6cm}p{4.4cm}@{}}
+\toprule
+\textbf{System} & \textbf{Class} & \textbf{Worst-case consequence} & \textbf{Owner / maintainer} \\
+\midrule
+Lecture-hall projector       & IT    & Lecture cancelled; image spoofing      & Faculty AV / IT services \\
+Wi-Fi access point           & IT    & Credential theft, lateral access       & University IT \\
+Badge reader at lab door     & IIoT  & Unauthorised physical entry            & Facility mgmt + integrator \\
+Elevator controller          & OT    & Trapped passengers; injury             & Building owner + OEM contract \\
+Building HVAC (AHU)          & OT    & Loss of conditioning; mould; downtime  & Facility mgmt \\
+Fire alarm panel             & OT    & Missed/false evacuation; life safety   & Facility mgmt (regulated) \\
+Smart electricity sub-meter  & IIoT  & Billing fraud; grid-side data leak     & DSO / utility \\
+Vending machine (telemetry)  & IIoT  & Cash loss; pivot into payment net      & Vendor (operator-owned hw) \\
+\bottomrule
+\end{tabular}
+\normalsize
+\end{solutionbox}
+
+\begin{solutionbox}{Step 1 -- Model IT / OT / IIoT calls}
+\textbf{Decision rule to apply when grading:} \emph{IT} = handles data,
+no physical actuation; \emph{OT} = controls a physical process, often
+with safety/availability priority; \emph{IIoT} = network-connected
+device that bridges both (telemetry or remote control over IP).
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Projector / Wi-Fi AP -- IT.} Pure information assets; CIA priority C > I > A.
+  \item \textbf{Elevator, HVAC, fire panel -- OT.} Real-time control of a physical process; priority A > I > C; safety-relevant.
+  \item \textbf{Badge reader, smart meter, telemetry vending -- IIoT.} OT-style function (door release, metering) reachable over IP; both attack surfaces apply.
+\end{itemize}
+A defensible alternative classification with sound reasoning earns
+full marks -- this is a discussion lab, not a quiz.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 2 -- Stakeholder map (example: elevator)}
+Expected nodes and the CIA priority each stakeholder pushes:
+\emph{Operator} (building manager) -- \textbf{Availability};
+\emph{Owner} (university) -- \textbf{Availability + Integrity} (liability);
+\emph{Integrator} (lift service company) -- \textbf{Integrity} (safe firmware, signed updates);
+\emph{Vendor / OEM} -- \textbf{Integrity + Confidentiality} (IP protection);
+\emph{Regulator} (TUV / national lift inspectorate) -- \textbf{Safety \& Integrity} via certified configuration.
+Award the point if the diagram shows at least four of these five roles with at least one CIA label per role.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 3 -- Reflection, model answer}
+Expected line of argument: the \emph{operator} (or facility manager)
+will push back hardest against a control that interrupts normal
+operation -- e.g.\ a forced reboot for patching, an MFA prompt on an
+HMI, or a network segmentation that blocks a vendor's remote-support
+tunnel. This is \emph{legitimate} because their KPI is uptime and
+safety of the running process; an unplanned stop on an elevator,
+boiler or production line can cause injury, regulatory breach, or
+six-figure losses far exceeding the residual cyber risk the control
+was meant to mitigate. Good answers note that the fix is not to
+overrule the operator but to schedule the control inside a maintenance
+window and to involve the integrator/vendor early.
+\end{solutionbox}
+
+\begin{solutionbox}{Discussion points to surface}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item CIA triad inverts between IT (C-I-A) and OT (A-I-C).
+  \item ``Smart'' anything is usually IIoT -- so the attack surface is doubled, not halved.
+  \item Ownership is rarely the same as operation: vendor remote access is the recurring blind spot.
+  \item Safety regulator > security policy when the two collide (fire panel, lift).
+\end{itemize}
+\end{solutionbox}
+
+\begin{rubricbox}
+Total 10 pts; pass mark 5.
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Step 1 inventory (4 pts):} 8 distinct systems (2), correct class with one-line reasoning (1), worst-case + owner filled in (1).
+  \item \textbf{Step 2 stakeholder map (3 pts):} $\geq$4 stakeholder roles (1), CIA label per role (1), arrows/relationships shown (1).
+  \item \textbf{Step 3 reflection (2 pts):} identifies the right stakeholder (1), gives a legitimate operational reason, not just ``they are lazy'' (1).
+  \item \textbf{Hygiene (1 pt):} legible, no device names photographed/scanned (warnbox respected).
+\end{itemize}
+\textbf{Auto-fail:} any evidence the student probed, photographed, or
+network-scanned a real device on campus -- re-issue the lab.
+\end{rubricbox}
+
+\end{document}

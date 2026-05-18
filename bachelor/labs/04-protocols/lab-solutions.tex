@@ -1,0 +1,179 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\labNumber{04}
+\def\labTitle{Modbus and OPC UA -- Solutions}
+\def\labSection{04}
+\def\labTime{45--60 min}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Lecturer / TA reference: expected PCAP decodes, register / coil values,
+the comparison-table model answer, and grading rubric.
+\end{goalbox}
+
+\section*{Part A -- Modbus}
+
+\begin{solutionbox}{A1 -- Honest read (expected output)}
+With a freshly started OpenPLC the holding registers are zero-initialised:
+\begin{lstlisting}
+Registers 0..9: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+\end{lstlisting}
+Any non-zero value indicates either a previous lab run that left state
+behind or a PLC program that writes to \texttt{\%MW0..\%MW9}. A quick
+\texttt{docker compose restart plc} resets the registers.
+\end{solutionbox}
+
+\begin{solutionbox}{A2 -- tshark decode of the captured PCAP}
+\texttt{tshark -r lab04-mb.pcap -V -Y modbus} produces one request /
+response pair per polled block. The Modbus PDU for the read should look
+like this (abridged):
+\begin{lstlisting}
+Modbus/TCP
+    Transaction Identifier: 1
+    Protocol Identifier: 0
+    Length: 6
+    Unit Identifier: 1
+Modbus
+    .000 0011 = Function Code: Read Holding Registers (3)
+    Reference Number: 0
+    Word Count: 10
+\end{lstlisting}
+The matching response carries the byte count and the ten 16-bit register
+values:
+\begin{lstlisting}
+Modbus/TCP
+    Transaction Identifier: 1
+    Length: 23
+    Unit Identifier: 1
+Modbus
+    .000 0011 = Function Code: Read Holding Registers (3)
+    Byte Count: 20
+    Register 0 (UINT16): 0
+    Register 1 (UINT16): 0
+    ... (Register 2..9 also 0)
+\end{lstlisting}
+Key teaching point: the entire exchange is cleartext, there is no
+session, no authentication token, no MAC.
+\end{solutionbox}
+
+\begin{solutionbox}{A3 -- Inject without authentication}
+\texttt{modbus\_inject.py} issues a \texttt{Write Single Coil} (FC
+\texttt{0x05}) at address 0 with value \texttt{0xFF00}. The server
+acknowledges with an echo of the request -- no challenge, no error.
+Observable side effects:
+\begin{itemize}[leftmargin=*, nosep]
+  \item In the OpenPLC \emph{Monitoring} page, \texttt{QX0.0} flips to
+        \texttt{TRUE} (green dot) immediately and stays on.
+  \item A follow-up \texttt{modbus\_read.py} using \texttt{Read Coils}
+        (FC \texttt{0x01}) returns \texttt{1} at address 0.
+  \item Nothing is logged on the PLC -- there is no audit trail of the
+        unauthorised write.
+\end{itemize}
+This is the core ``aha'' moment: an unauthenticated, cleartext byte
+flipped a physical output bit.
+\end{solutionbox}
+
+\section*{Part B -- OPC UA}
+
+\begin{solutionbox}{B1 -- Sample output of \texttt{opcua\_browse.py}}
+The open62541 example server exposes the standard root and a couple of
+demo nodes:
+\begin{lstlisting}
+Connected to: opc.tcp://172.28.0.11:4840
+Browsing Objects:
+ - 0:Server
+ - 1:the.answer
+ - 1:current-time
+ - 1:Demo
+\end{lstlisting}
+Exact node names vary slightly between open62541 versions; \texttt{0:Server}
+and at least one user-namespace node ($\texttt{ns=1}$) must be present.
+\end{solutionbox}
+
+\begin{solutionbox}{B2 -- tshark decode of the OPC UA handshake}
+\texttt{tshark -r lab04-ua.pcap -V -d tcp.port==4840,opcua -Y opcua}
+shows the textbook OPC UA bring-up:
+\begin{enumerate}[leftmargin=*, nosep]
+  \item \texttt{HEL} (Hello) from client -- advertises buffer sizes and
+        the endpoint URL.
+  \item \texttt{ACK} (Acknowledge) from server -- agrees on buffer sizes.
+  \item \texttt{OPN} OpenSecureChannel request / response -- crucially,
+        \texttt{SecurityPolicyURI} is\\
+        \texttt{http://opcfoundation.org/UA/SecurityPolicy\#None}.
+  \item \texttt{MSG} CreateSession + ActivateSession with
+        \texttt{UserIdentityToken = Anonymous}.
+  \item \texttt{MSG} Browse request / response, then \texttt{CLO}.
+\end{enumerate}
+Because the policy is \emph{None}, every field after the OPN is visible
+in plaintext in Wireshark -- node IDs, browse names, values. There is
+no signature, no encryption, and no certificate exchange.
+\end{solutionbox}
+
+\section*{1-page comparison -- model answer}
+
+\renewcommand{\arraystretch}{1.25}
+\begin{center}
+\small
+\begin{tabular}{@{}p{2.6cm}p{4.4cm}p{7.2cm}@{}}
+\toprule
+\textbf{Dimension} & \textbf{Modbus TCP} & \textbf{OPC UA (this server, defaults)} \\
+\midrule
+Authentication   & None                              & Anonymous endpoint enabled \\
+Integrity        & None (no MAC)                     & Sign mode disabled by default \\
+Confidentiality  & Cleartext                         & Cleartext (SecurityPolicy\,=\,None) \\
+Operational      & Trivial, ubiquitous               & Heavier, but capable of TLS + cert auth when configured \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\medskip
+\noindent\textbf{Conclusion.} OPC UA is \emph{capable} of being secure
+when configured (e.g.\ \texttt{Aes256\_Sha256\_RsaPss},
+\texttt{SignAndEncrypt}, certificate-based user authentication, no
+anonymous endpoint). The lab server, however, demonstrates the
+\emph{default} posture, which is no better than Modbus -- the wire is
+still readable and writable to anyone with network reach.
+
+\begin{solutionbox}{Common student mistakes}
+\begin{itemize}[leftmargin=*, nosep]
+  \item Forgetting the \texttt{-d tcp.port==4840,opcua} hint to tshark
+        / Wireshark. Without it the OPC UA frames show up as generic
+        TCP and the dissector never runs.
+  \item Believing TLS is ``on by default'' in OPC UA. It is not -- the
+        spec defines security policies, but the chosen
+        \texttt{SecurityPolicy} is whatever the endpoint advertises,
+        and most example servers ship with \texttt{None}.
+  \item Confusing FC \texttt{0x05} (Write Single Coil) with FC
+        \texttt{0x06} (Write Single Register) when reading the
+        injection capture.
+  \item Reading the response byte count (20) as the register count
+        instead of the byte count (each register is 2 bytes).
+\end{itemize}
+\end{solutionbox}
+
+\begin{rubricbox}
+Full marks (100\,\%) require:
+\begin{itemize}[leftmargin=*, nosep]
+  \item Both PCAPs handed in (\texttt{lab04-mb.pcap} and
+        \texttt{lab04-ua.pcap}), each containing the relevant
+        request / response pair.
+  \item Annotated hex dump (or tshark \texttt{-V} excerpt) of one
+        Modbus read showing the function code and reference number.
+  \item Comparison table with all four rows
+        (authentication / integrity / confidentiality / operational)
+        filled correctly for both protocols.
+  \item Explicit statement that OPC UA's security is
+        \emph{configuration-dependent} and that the lab server runs
+        with \texttt{SecurityPolicy = None} and the anonymous endpoint.
+\end{itemize}
+Partial credit: $-20\,\%$ per missing PCAP, $-10\,\%$ per missing or
+wrong table row, $-10\,\%$ for omitting the configuration-dependent
+caveat.
+\end{rubricbox}
+
+\end{document}

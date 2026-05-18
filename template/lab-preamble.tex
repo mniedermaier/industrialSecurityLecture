@@ -94,6 +94,21 @@
   title={\faClipboardList\ Deliverable}
 }
 
+% --- Solution-sheet boxes (used only by lab-solutions.tex) ----------
+\newtcolorbox{solutionbox}[1]{
+  enhanced, breakable, arc=2pt, boxrule=0pt,
+  colback=labCheck!7, colframe=labCheck, leftrule=3pt,
+  fonttitle=\bfseries\small, coltitle=white, colbacktitle=labCheck,
+  title={\faCheckCircle\ #1}
+}
+
+\newtcolorbox{rubricbox}{
+  enhanced, breakable, arc=2pt, boxrule=0pt,
+  colback=labSec!7, colframe=labSec, leftrule=3pt,
+  fonttitle=\bfseries\small, coltitle=white, colbacktitle=labSec,
+  title={\faBalanceScale\ Grading rubric}
+}
+
 \titleformat{\section}{\large\bfseries\color{labAccent}}{\thesection}{0.5em}{}
 
 \newcommand{\labheader}{%

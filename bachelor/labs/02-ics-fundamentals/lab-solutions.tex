@@ -1,0 +1,83 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\labNumber{02}
+\def\labTitle{First Contact with OpenPLC -- Solutions}
+\def\labSection{02}
+\def\labTime{30--45 min}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Lecturer / TA reference for Lab 02. Lists the expected outputs of each step, explains \textbf{why} the holding registers stay zero, flags the recurring student mistakes, and gives a grading rubric.
+\end{goalbox}
+
+\begin{solutionbox}{Step 1 -- expected \texttt{docker compose ps}}
+After \texttt{docker compose up -d} from \texttt{bachelor/labs/\_stack}, six services should report \textbf{Up} (the \texttt{openplc-init} sidecar is one-shot and exits 0):
+
+\begin{center}\footnotesize
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Container} & \textbf{Status} & \textbf{Ports (host)} \\
+\midrule
+\texttt{is-landing}      & Up           & \texttt{127.0.0.1:8000->80/tcp} \\
+\texttt{is-openplc}      & Up (healthy) & \texttt{127.0.0.1:8080->8080}, \texttt{127.0.0.1:502->502} \\
+\texttt{is-openplc-init} & Exited (0)   & --- \\
+\texttt{is-opcua}        & Up           & \texttt{127.0.0.1:4840->4840} \\
+\texttt{is-mqtt}         & Up           & \texttt{127.0.0.1:1883->1883} \\
+\texttt{is-student}      & Up           & --- \\
+\texttt{is-zeek}         & Up           & (shares \texttt{is-openplc} netns) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\texttt{is-openplc} reaches \textbf{healthy} within $\sim$5--15\,s; \texttt{is-openplc-init} then runs, uploads \texttt{conveyor.st}, hits \textbf{Start PLC}, and exits within another $\sim$10\,s.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 3 -- Monitoring page}
+On \url{http://127.0.0.1:8080/monitoring} the student should see:
+\begin{itemize}[leftmargin=*, nosep]
+  \item \textbf{Status:} \texttt{Running} (green).
+  \item \textbf{Program:} \texttt{conveyor} (or \texttt{conveyor.st}).
+  \item Variables \texttt{Start}, \texttt{Stop}, \texttt{Guard1}, \texttt{Guard2}, \texttt{Motor}, \texttt{Lamp} listed with live values. By default \texttt{Stop}, \texttt{Guard1}, \texttt{Guard2} read \texttt{TRUE}; \texttt{Start}, \texttt{Motor}, \texttt{Lamp} read \texttt{FALSE}.
+  \item Forcing \texttt{Start := TRUE} latches \texttt{Motor} and \texttt{Lamp} to \texttt{TRUE} (seal-in); forcing \texttt{Stop := FALSE} drops them.
+  \item \textbf{Cycle time:} typically \textbf{20--40\,ms} on a Raspberry Pi class host (the IEC task interval is \texttt{T\#20ms}; observed jitter on a busy laptop is well within this window). Anything $>$100\,ms suggests the host is overloaded or running on emulated x86\_64.
+\end{itemize}
+\end{solutionbox}
+
+\begin{solutionbox}{Step 4 -- expected \texttt{modbus\_read.py} output}
+\begin{lstlisting}[language=bash]
+$ docker compose exec student python3 /labs/scripts/modbus_read.py
+Registers 0..9: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+\end{lstlisting}
+\textbf{Why all zero?} The script reads ten \emph{holding registers} (\texttt{\%MW}, Modbus FC03) starting at address 0. \texttt{conveyor.st} only manipulates discrete I/O: it reads \texttt{Start}/\texttt{Stop}/\texttt{Guard*} from \texttt{\%IX} (discrete inputs, FC02) and drives \texttt{Motor}/\texttt{Lamp} on \texttt{\%QX} (coils, FC01/FC05). No \texttt{\%MW} word is ever written, so every holding register stays at its power-on default of \texttt{0}. This is the intended teaching moment: students must distinguish coils/discrete inputs from holding/input registers before Lab 03.
+\end{solutionbox}
+
+\begin{solutionbox}{Common student mistakes}
+\begin{itemize}[leftmargin=*, nosep]
+  \item \textbf{Wrong working directory.} Running \texttt{docker compose up -d} from the repo root or from \texttt{bachelor/labs/02-ics-fundamentals/} fails with \emph{``no configuration file provided''}. Compose only finds the stack from \texttt{bachelor/labs/\_stack/}.
+  \item \textbf{``I started the PLC manually and now upload fails''.} The \texttt{openplc-init} sidecar already did this. Re-uploading while the runtime is running returns an HTTP 500 on the OpenPLC web UI -- stop the PLC first.
+  \item \textbf{Connecting to port 502 from inside \texttt{is-student}.} Some students copy the host URL and try \texttt{127.0.0.1:502} from inside the student container; that loops back to the student container, not OpenPLC. The script correctly targets \texttt{172.28.0.10:502} (the OpenPLC service IP on the \texttt{is-lab} bridge).
+  \item \textbf{Conversely from the host.} Running \texttt{nc 172.28.0.10 502} on the host fails -- that subnet is internal to Docker. From the host use \texttt{127.0.0.1:502}; from any container use \texttt{172.28.0.10:502} or the DNS name \texttt{openplc}.
+  \item \textbf{Port 502 already in use on the host.} On Linux, another Modbus tool (or a previous lab run with a stale container) may already hold \texttt{127.0.0.1:502}. \texttt{docker compose down} then \texttt{up -d} clears it.
+  \item \textbf{Default OpenPLC credentials left unchanged.} Step 2 explicitly asks them to rotate the password. Check the deliverable screenshot -- if it still says \emph{``Welcome openplc''} with the stock UI hints, dock points.
+  \item \textbf{Screenshot of an empty Monitoring page.} If they grab it before \texttt{Start PLC} ran, \texttt{Status} reads \texttt{Stopped} and no variables are listed. Ask for a re-take.
+  \item \textbf{Cycle time of \texttt{0\,ms} or blank.} Means the PLC is not actually running; usually the runtime crashed because they uploaded a syntactically broken \texttt{.st} from the optional Step 3 detour. Re-upload \texttt{conveyor.st}.
+\end{itemize}
+\end{solutionbox}
+
+\begin{rubricbox}
+\begin{itemize}[leftmargin=*, nosep]
+  \item \textbf{2 pts} -- \texttt{docker compose ps} shows OpenPLC \emph{Up (healthy)} and \texttt{openplc-init} exited 0.
+  \item \textbf{2 pts} -- Default OpenPLC password changed; new password recorded in the lab notes.
+  \item \textbf{3 pts} -- Monitoring screenshot shows \texttt{Status: Running}, program \texttt{conveyor}, and a plausible cycle time (20--40\,ms).
+  \item \textbf{2 pts} -- \texttt{modbus\_read.py} output captured and matches \texttt{[0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}.
+  \item \textbf{1 pt} -- Short written explanation of \emph{why} the registers are zero (holding registers vs.\ coils/discrete inputs). Award full credit only if both Modbus object types are named correctly.
+\end{itemize}
+Total: \textbf{10 pts}. Deduct 1 pt if any deliverable is missing the observed cycle time; deduct 2 pts if the student exposed port 502 to a non-loopback interface (security regression).
+\end{rubricbox}
+
+\end{document}
