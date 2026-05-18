@@ -32,6 +32,12 @@
 \usepackage{amssymb}
 \usepackage{tcolorbox}
 \tcbuselibrary{skins, breakable}
+\usepackage{needspace}
+
+% Discourage solo lines split across pages.
+\widowpenalty=10000
+\clubpenalty=10000
+\raggedbottom
 
 \input{../../../template/tikz-styles.tex}
 
@@ -67,6 +73,15 @@
 \cfoot{\thepage}
 
 % --- task / solution boxes -----------------------------------------
+% `before={...}` guards every task/solution box with \needspace so the
+% box doesn't start with only one or two lines of breathing room at the
+% bottom of a page. If less than ~9 lines remain, LaTeX bumps the box
+% to the next page; otherwise it starts here and breaks normally if it
+% runs long.
+% Boxes are `breakable` so very long solutions don't blow the page,
+% but `before={\needspace{14\baselineskip}}` pushes them to a fresh
+% page whenever fewer than ~14 lines remain. That covers the vast
+% majority of single-question splits in practice.
 \newtcolorbox{taskbox}[1]{
   enhanced, breakable,
   colback=isLight, colframe=isOT,
@@ -75,7 +90,9 @@
   colbacktitle=isOT,
   title={#1},
   arc=2pt, boxrule=0.6pt,
-  left=2mm, right=2mm, top=2mm, bottom=2mm
+  left=2mm, right=2mm, top=2mm, bottom=2mm,
+  before={\par\vspace{2mm}\needspace{14\baselineskip}\par},
+  after={\par\vspace{2mm}}
 }
 
 \newtcolorbox{solutionbox}{
@@ -86,7 +103,9 @@
   colbacktitle=isNet,
   title={Solution},
   arc=2pt, boxrule=0.6pt,
-  left=2mm, right=2mm, top=2mm, bottom=2mm
+  left=2mm, right=2mm, top=2mm, bottom=2mm,
+  before={\par\vspace{2mm}\needspace{14\baselineskip}\par},
+  after={\par\vspace{2mm}}
 }
 
 \newtcolorbox{hintbox}{
