@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       python3 python3-pip python3-venv \
       tcpdump tshark nmap iproute2 iputils-ping \
       curl ca-certificates less vim-tiny \
-      mosquitto-clients \
+      mosquitto-clients procps \
  && rm -rf /var/lib/apt/lists/* \
  && pip3 install --break-system-packages --no-cache-dir \
       "pymodbus[serial]==3.6.9" \
