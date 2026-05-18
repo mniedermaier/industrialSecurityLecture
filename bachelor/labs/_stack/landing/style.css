@@ -22,6 +22,7 @@
   --c-success:     #2E7D32;
   --c-warn:        #B23A48;
   --c-tag-plc:     #1F4E79;
+  --c-tag-init:    #4A6582;
   --c-tag-ua:      #2E7D32;
   --c-tag-mqtt:    #6A4FBE;
   --c-tag-student: #B0712B;
@@ -35,6 +36,16 @@
 
 * { box-sizing: border-box; }
 
+html {
+  scroll-behavior: smooth;
+  /* Leaves room under the sticky topbar so anchored sections don't
+     hide behind it. */
+  scroll-padding-top: 72px;
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
 html, body {
   margin: 0;
   padding: 0;
@@ -45,6 +56,14 @@ html, body {
   background: var(--c-bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Focus ring for keyboard navigation. Visible on links, lab cards,
+   service notes, etc. without polluting mouse-click highlight. */
+:focus-visible {
+  outline: 2px solid var(--c-amber);
+  outline-offset: 2px;
+  border-radius: 3px;
 }
 
 code, pre, .mono {
@@ -312,6 +331,7 @@ a.lab-card:hover { color: inherit; }
   background: var(--c-bg-band); padding: 1px 6px; margin: 0;
 }
 .service-plc     .service-icon { background: var(--c-tag-plc); }
+.service-init    .service-icon { background: var(--c-tag-init); font-size: 0.72rem; letter-spacing: 0.04em; }
 .service-ua      .service-icon { background: var(--c-tag-ua); }
 .service-mqtt    .service-icon { background: var(--c-tag-mqtt); }
 .service-student .service-icon { background: var(--c-tag-student); }
@@ -463,3 +483,33 @@ code {
 .footer-inner { max-width: 1200px; margin: 0 auto; }
 .footer p { margin: 4px 0; }
 .footer-meta { font-size: 0.85rem; color: rgba(255, 255, 255, 0.5); }
+
+/* ============================ PRINT ============================ */
+@media print {
+  html, body { font-size: 10pt; color: #000; background: #fff; }
+  .topbar, .hero-decor, .hero-cta, .btn { display: none !important; }
+  .hero {
+    background: #fff !important; color: #000 !important;
+    padding: 8mm 0 !important; page-break-after: avoid;
+  }
+  .hero h1, .hero .lede, .hero .eyebrow, .hero-meta {
+    color: #000 !important;
+  }
+  .section, .section-alt { padding: 6mm 0 !important; background: #fff !important; }
+  .section-head { margin-bottom: 4mm !important; }
+  h1, h2, h3 { color: #000 !important; page-break-after: avoid; }
+  .lab-card, .service-card, .script-card, .ref-card, .trouble-card {
+    box-shadow: none !important;
+    border: 0.4pt solid #aaa !important;
+    page-break-inside: avoid;
+  }
+  pre {
+    background: #f4f4f4 !important; color: #000 !important;
+    border: 0.4pt solid #aaa !important;
+    page-break-inside: avoid;
+  }
+  pre .c { color: #555 !important; }
+  a, a:visited { color: #000 !important; text-decoration: underline; }
+  .footer { background: #fff !important; color: #555 !important;
+            border-top: 0.4pt solid #aaa; padding: 4mm 0 !important; }
+}

@@ -4,6 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Industrial Security Labs</title>
+
+<meta name="description" content="Industrial Security (Bachelor) lab environment: 10 hands-on labs on one Docker stack -- OpenPLC, OPC UA, MQTT, Zeek.">
+<meta name="theme-color" content="#1F4E79">
+<meta name="color-scheme" content="light">
+
+<!-- Open Graph for nice link previews when sharing on Slack/Teams/etc. -->
+<meta property="og:title" content="Industrial Security Labs">
+<meta property="og:description" content="10 hands-on industrial control system labs on one self-contained Docker stack.">
+<meta property="og:type" content="website">
+
+<!-- Favicon (SVG works in all modern browsers; scales to every size). -->
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="apple-touch-icon" href="favicon.svg">
+<link rel="mask-icon" href="favicon.svg" color="#1F4E79">
+
 <link rel="stylesheet" href="style.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -156,7 +171,15 @@
       <h3>openplc</h3>
       <p>OpenPLC runtime &ndash; soft PLC with Modbus TCP on 502.</p>
       <code>172.28.0.10:502 / :8080</code>
-      <p class="service-note">Web UI: <a href="http://127.0.0.1:8080" target="_blank">127.0.0.1:8080</a><br>default creds: <code>openplc / openplc</code></p>
+      <p class="service-note">Web UI: <a href="http://127.0.0.1:8080" target="_blank" rel="noopener">127.0.0.1:8080</a><br>default creds: <code>openplc / openplc</code></p>
+    </div>
+
+    <div class="service-card service-init">
+      <div class="service-icon">INIT</div>
+      <h3>openplc-init</h3>
+      <p>One-shot sidecar &ndash; waits for OpenPLC to be healthy, uploads <code>conveyor.st</code>, starts the PLC. Exits cleanly.</p>
+      <code>runs once on up</code>
+      <p class="service-note">Re-prime after a restart with <code>docker compose up -d --no-deps --force-recreate openplc-init</code>.</p>
     </div>
 
     <div class="service-card service-ua">
