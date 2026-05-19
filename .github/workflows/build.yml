@@ -56,7 +56,7 @@ jobs:
 
       - name: Upload PDFs as build artefact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: industrialSecurityLecture-pdfs-${{ github.sha }}
           path: _artefacts/
@@ -65,7 +65,7 @@ jobs:
 
       - name: Upload LaTeX logs on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: latex-logs-${{ github.sha }}
           path: |
