@@ -1,0 +1,437 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\courseSubtitle{Section 09 -- Standards, Compliance, Governance}
+\def\sectionNumber{09}
+\def\sectionTitle{Standards, Compliance, and Governance}
+
+\input{../../../template/slides-preamble.tex}
+
+\begin{document}
+
+\sectionoverviewframe
+
+\learningobjectives{
+  \item Navigate the IEC 62443 family of standards.
+  \item Understand the role of NIST CSF and NIST SP 800-82.
+  \item Recognise major regulations: NIS2, KRITIS, NERC CIP, TSA, CIRCIA.
+  \item Sketch the structure of an OT security programme.
+}
+
+\section{Standards}
+
+\begin{frame}{The IEC 62443 Family}
+\centering
+\begin{tikzpicture}[node distance=8mm]
+  \node[isbox, fill=isOT!20, draw=isOT, minimum width=38mm, minimum height=12mm] (root) {IEC 62443};
+  \node[isbox, fill=isOT!10, draw=isOT, below=14mm of root, xshift=-42mm, minimum width=26mm, font=\scriptsize, align=center] (g) {1-x\\General};
+  \node[isbox, fill=isOT!10, draw=isOT, below=14mm of root, xshift=-14mm, minimum width=26mm, font=\scriptsize, align=center] (p) {2-x\\Asset owner};
+  \node[isbox, fill=isOT!10, draw=isOT, below=14mm of root, xshift=14mm, minimum width=26mm, font=\scriptsize, align=center] (s) {3-x\\System};
+  \node[isbox, fill=isOT!10, draw=isOT, below=14mm of root, xshift=42mm, minimum width=26mm, font=\scriptsize, align=center] (c) {4-x\\Component};
+  \foreach \n in {g,p,s,c}{\draw[flow] (root.south) -- (\n.north);}
+\end{tikzpicture}
+\par\vspace{3mm}
+\source{IEC 62443 series (joint with ISA/IEC) \textbar{} ISA-99 committee, ongoing.}
+\note{
+  IEC 62443 is the gold standard for industrial automation security and the only family written specifically for OT, but \emph{no plant on the planet is fully compliant with all 14+ parts}. The split is the load-bearing idea: 1-x concepts, 2-x for the asset owner (the utility, the factory), 3-x for the system integrator, 4-x for the component vendor (the PLC, the HMI). Use this to push back on vendor marketing: a PLC cannot be \emph{62443 compliant} on its own --- it can only be \emph{62443-4-2 certified}. Ask the class: if you are the operator of a wastewater plant, which parts are \emph{your} legal and contractual responsibility?
+}
+\end{frame}
+
+\begin{frame}{IEC 62443 Security Levels}
+\centering
+\begin{tikzpicture}[x=1cm, y=0.85cm]
+  \foreach \sl/\name/\col in {
+    1/{Casual / coincidental violation}/isOT,
+    2/{Simple, low-resource attacker}/isPLC,
+    3/{Sophisticated, moderate resources}/isAccent,
+    4/{Sophisticated, nation-state}/isAttack}{
+    \pgfmathsetmacro{\w}{1.4 + (\sl-1)*0.6}
+    \draw[fill=\col!15, draw=\col, thick] (0, -\sl) rectangle (\w, -\sl+0.7);
+    \node[font=\scriptsize\bfseries, anchor=center] at (\w/2, -\sl+0.35) {SL\,\sl};
+    \node[font=\scriptsize, anchor=west] at (4.8, -\sl+0.35) {\name};
+  }
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{notebox}{Per-zone target}
+Each zone gets a target SL (\textbf{SL-T}) chosen by \emph{consequence} and the expected \emph{threat actor}. \textbf{SL-C} = what the equipment can achieve; \textbf{SL-A} = what is actually achieved in the field. Gap between SL-T and SL-A = your work programme.
+\end{notebox}
+\note{
+  The SL scale is an \emph{attacker model}, not a feature checklist --- this is the single most-misunderstood part of 62443. SL1 is accidental misuse (an engineer who fat-fingers something), SL2 is a casual attacker with low resources, SL3 is a sophisticated actor with moderate resources, SL4 is a well-funded nation-state. Pre-empt the cynicism: SL3 is \emph{not} achievable everywhere --- for most legacy brownfield plants, SL2 is the realistic ceiling because the field devices simply cannot enforce strong authentication or cryptographic integrity. The per-zone SL-T is chosen from consequence (what happens if it fails?) plus expected threat actor. Ask: is your office printer SL1 or SL2? What about the safety PLC on a hydrogen line?
+}
+\end{frame}
+
+\begin{frame}{NIST Cybersecurity Framework}
+\centering
+\begin{tikzpicture}[scale=0.9, transform shape]
+  \def\R{2.0}
+  \foreach \deg/\name/\col in {
+    90/Govern/isOT,
+    30/Identify/isPLC,
+    330/Protect/isAccent,
+    270/Detect/isHMI,
+    210/Respond/isNet,
+    150/Recover/isMute}{
+    \node[isbox, fill=\col!15, draw=\col, font=\scriptsize, minimum width=20mm]
+      at (\deg:\R) {\name};
+  }
+  \draw[thick, isMute, dashed] (0,0) circle (\R+1.2);
+  \node[font=\scriptsize\bfseries] at (0,0) {CSF 2.0};
+\end{tikzpicture}
+\par\vspace{1mm}
+{\footnotesize Outcome-based, sector-neutral. NIST SP 800-82 Rev.\,3 is the ICS-specific companion.}
+\source{NIST, \emph{Cybersecurity Framework 2.0}, Feb 2024 \textbar{} NIST SP 800-82 Rev.\,3, Sep 2023.}
+\note{
+  CSF 2.0 added \emph{Govern} as a sixth function in February 2024 --- before that, governance was buried inside Identify, which let boards pretend it was an IT problem. The CSF is outcome-based and sector-neutral: it tells you \emph{what} to achieve, not \emph{how}. NIST SP 800-82 Rev.\,3 (September 2023) is the OT-specific companion that maps CSF outcomes to ICS realities --- e.g., \emph{Detect} on a serial Modbus link does not look like \emph{Detect} on an enterprise LAN. Common pairing in industry: CSF for the board slides, 62443 for the engineering work, 800-82 to translate between them.
+}
+\end{frame}
+
+\section{Regulations}
+
+\begin{frame}{Sectoral \& Regional Regulations}
+\centering
+\begin{tikzpicture}[node distance=6mm]
+  \node[isbox, fill=isIT!15, draw=isIT, minimum width=46mm] (eu) {EU -- NIS2};
+  \node[isbox, fill=isIT!15, draw=isIT, minimum width=44mm, below=of eu, font=\scriptsize] (de) {DE -- KRITIS, IT-SiG 2.0, BSI};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=44mm, below=of de, font=\scriptsize] (cira) {EU -- CRA};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=44mm, right=8mm of eu, font=\scriptsize] (us1) {US -- NERC CIP (electric)};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=44mm, below=of us1, font=\scriptsize] (us2) {US -- TSA SD (pipelines)};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=44mm, below=of us2, font=\scriptsize] (us3) {US -- CIRCIA reporting};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=100mm, below=10mm of cira, font=\scriptsize] (sec)
+    {Sector: IEC 62443, IEC 61850, ANSI/ISA-84};
+\end{tikzpicture}
+\source{NIS2: Directive (EU) 2022/2555 \textbar{} CRA: Regulation (EU) 2024/2847 \textbar{} KRITIS: BSI-Kritisverordnung \textbar{} NERC CIP-002--CIP-014.}
+\note{
+  Two dates students should memorise: NIS2 (Directive (EU) 2022/2555) transposition deadline was 17 October 2024 --- most member states missed it, but the duties apply anyway. The CRA (Regulation (EU) 2024/2847) was signed 23 October 2024 and most provisions enter force on 11 December 2027, with vulnerability-reporting duties biting earlier. KRITIS has had real teeth in Germany since 2015 via the IT-Sicherheitsgesetz and the BSI-Kritisverordnung; thresholds dropped significantly under IT-SiG 2.0. On the US side, NERC CIP (CIP-002 through CIP-014) is the only mandatory cyber regime with multi-million-dollar fines per violation per day --- the electric sector takes it seriously. Transition cue: \emph{your factory in Stuttgart making car parts --- which of these apply?} Answer: probably not KRITIS (below thresholds), maybe NIS2 (manufacturing of motor vehicles is an Annex II \emph{important entity} sector), definitely CRA the moment you ship a connected product.
+}
+\end{frame}
+
+\section{Programme}
+
+\begin{frame}{Building an OT Security Programme}
+\vspace{-2mm}
+\centering
+\begin{tikzpicture}[node distance=0.8mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, minimum height=5mm, font=\footnotesize] (a) {1. Governance -- charter, RACI, executive sponsor};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, minimum height=5mm, font=\footnotesize, below=of a] (b) {2. Asset inventory -- ground truth};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, minimum height=5mm, font=\footnotesize, below=of b] (c) {3. Risk assessment -- IEC 62443-3-2};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, minimum height=5mm, font=\footnotesize, below=of c] (d) {4. Architecture -- zones, conduits, segmentation};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, minimum height=5mm, font=\footnotesize, below=of d] (e) {5. Controls -- baseline per SL-T};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, minimum height=5mm, font=\footnotesize, below=of e] (f) {6. Operations -- patching, monitoring, IR};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, minimum height=5mm, font=\footnotesize, below=of f] (g) {7. Training \& awareness -- engineers and IT};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, minimum height=5mm, font=\footnotesize, below=of g] (h) {8. Measurement -- KPIs, audits, lessons learned};
+\end{tikzpicture}
+\note{
+  This is the operational shape of any 62443-2-1 programme. The order matters: governance first, because without an executive sponsor the rest dies in a budget review; asset inventory second, because you cannot protect what you do not know exists --- and most operators discover 20--40\% more devices than they expected on day one. Risk assessment per 62443-3-2 produces the zones, conduits, and SL-Ts that drive every downstream decision. Pre-empt the cynicism here too: \emph{compliance is not security} --- but skipping any of these eight rows is exactly how breaches happen. Ask: in a 200-person engineering plant, who actually owns step 1?
+}
+\end{frame}
+
+\begin{frame}{IEC 62443-2-1 -- Asset Owner Programme}
+\centering
+\begin{tikzpicture}[node distance=3mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small] (a) {Cybersecurity management system (CSMS) -- the OT-side ISMS};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of a] (b) {Risk analysis, system architecture, security policies};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of b] (c) {Patch management, incident response, training};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of c] (d) {Supplier requirements (62443-2-4) and SDL (62443-4-1)};
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{For asset owners}
+2-1 is the part you implement as a utility or operator. It is the auditable backbone.
+\end{notebox}
+\note{
+  62443-2-1 is the OT-side equivalent of ISO/IEC 27001 --- a cybersecurity management system (CSMS) with policies, processes, and evidence. If your customer asks \emph{are you 62443 compliant?} as an operator, what they really want to see is a 2-1 conformance statement plus your 3-2 risk assessment. The supplier requirements in 62443-2-4 are how you push security duties down your supply chain --- in EU contracts post-NIS2, this is increasingly contractual rather than optional. 4-1 (the secure development lifecycle) is the vendor mirror: SBOM, threat modelling, vulnerability handling. Note that 2-1 was substantially revised in 2024 to align with NIS2 and the CRA's vendor duties.
+}
+\end{frame}
+
+\begin{frame}{IEC 62443-4-2 -- Component Requirements}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=50mm, font=\small] (id) {Identification \& authentication};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=50mm, font=\small, right=of id] (uc) {Use control};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=50mm, font=\small, below=of id] (di) {Data integrity};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=50mm, font=\small, right=of di] (dc) {Data confidentiality};
+  \node[isbox, fill=isNet!15, draw=isNet, minimum width=50mm, font=\small, below=of di] (rd) {Restricted data flow};
+  \node[isbox, fill=isNet!15, draw=isNet, minimum width=50mm, font=\small, right=of rd] (te) {Timely event response};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=104mm, font=\small, below=of rd] (ra) {Resource availability};
+\end{tikzpicture}
+\par\vspace{2mm}
+{\footnotesize Seven Foundational Requirements (FRs), each refined into System Requirements (SRs) per SL.}
+\note{
+  These seven Foundational Requirements (FRs) are the universal vocabulary of OT security --- once you internalise them, every vendor datasheet starts to make sense. Each FR breaks into Component Requirements (CRs) and System Requirements (SRs), and each requirement is repeated at SL1, SL2, SL3, SL4 with increasing rigor. Example: \emph{Identification \& authentication} at SL1 might mean shared passwords, at SL2 unique users, at SL3 multi-factor, at SL4 cryptographically bound hardware tokens. Resource availability is the odd one out --- it is the FR most directly tied to safety and the one IT security people consistently underestimate. When you certify a PLC, you certify it \emph{against a specific SL across these seven FRs} --- often SL2-capable for most FRs, SL1 for one or two stragglers.
+}
+\end{frame}
+
+\begin{frame}{NIST SP 800-82 Rev.\,3}
+\begin{itemize}
+  \item ICS-specific companion to NIST SP 800-53.
+  \item Published 2023; mapping tables to IEC 62443 included.
+  \item Tiered guidance: low / moderate / high impact systems.
+  \item Strong focus on \textbf{safety} and \textbf{operational continuity} -- not just confidentiality.
+\end{itemize}
+\vspace{2mm}
+\begin{notebox}{When to reach for it}
+US federal contractors, sector-CISA regulated entities, and any team that prefers outcome-based controls to a prescriptive standard.
+\end{notebox}
+\note{
+  SP 800-82 Rev.\,3 (September 2023) is the long-awaited rewrite that finally brings ICS guidance in line with the modern threat landscape --- it has explicit chapters on cloud-connected OT, 5G, and zero-trust patterns. The mapping tables to 62443 are gold: they let a US team that lives in NIST-land talk to a European partner that lives in IEC-land without translating from scratch. The safety-first framing is the genuine differentiator from IT security guidance --- it accepts that you cannot simply reboot a turbine to apply a patch. Reach for 800-82 when you want \emph{outcomes with examples} rather than the more bureaucratic 62443 conformance language.
+}
+\end{frame}
+
+\begin{frame}{EU Cyber Resilience Act (CRA)}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=34mm, minimum height=14mm, align=center, font=\scriptsize] (m) {Manufacturer\\(vendor)};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=34mm, minimum height=14mm, align=center, font=\scriptsize, right=of m] (p) {Product with\\digital elements};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=34mm, minimum height=14mm, align=center, font=\scriptsize, right=of p] (u) {EU market\\(operator)};
+  \draw[flow] (m) -- (p); \draw[flow] (p) -- (u);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{importantbox}{New duties}
+Manufacturers must provide security updates, vulnerability handling, and an SBOM. CE marking now covers cybersecurity too.
+\end{importantbox}
+\source{Regulation (EU) 2024/2847 of the European Parliament and Council (Cyber Resilience Act), 23 Oct 2024.}
+\note{
+  The CRA is the EU's answer to \emph{ship-and-forget} vendors: any \emph{product with digital elements} placed on the EU market --- a PLC, a router, a smart sensor, even a software library --- now carries lifetime cybersecurity duties. Manufacturers must provide security updates for the expected product lifetime (default 5 years), publish an SBOM, run a coordinated vulnerability disclosure process, and report actively exploited vulnerabilities to ENISA within 24 hours. CE marking now legally covers cybersecurity, which means market surveillance authorities can pull non-compliant products from shelves. Most provisions enter force 11 December 2027; vulnerability-reporting duties bite earlier in September 2026. For OT vendors this is genuinely transformational --- the days of selling a PLC with a 15-year support tail and no patches are over.
+}
+\end{frame}
+
+\begin{frame}{ENISA OT Recommendations}
+\begin{itemize}
+  \item Risk-based, sector-tailored controls (energy, transport, water).
+  \item Strong emphasis on \emph{supply chain} obligations.
+  \item Continuous monitoring (network + endpoint) for OT estates.
+  \item Cross-border incident-information-sharing framework.
+\end{itemize}
+\begin{notebox}{For EU operators}
+ENISA guidance is non-binding but shapes how national CERTs read NIS2 duties.
+\end{notebox}
+\note{
+  ENISA does not regulate but it heavily influences --- the \emph{Good practices for the security of IACS} series (2020 onwards) is the de-facto reference national CERTs and CSIRTs cite when interpreting NIS2 \emph{appropriate measures}. The supply-chain emphasis matches CRA's manufacturer duties: an operator is now expected to demand SBOM and vulnerability-handling evidence from suppliers and to record it. Continuous monitoring as ENISA defines it is broader than IDS --- it includes asset-discovery delta tracking, configuration drift, and behavioural anomaly detection on OT protocols (Modbus, S7, DNP3). The cross-border framework matters because incidents in OT often span jurisdictions --- a water-utility breach in Bavaria can quickly become a federal and EU-level reporting event under NIS2 Article 23.
+}
+\end{frame}
+
+\begin{frame}{Maturity Models in OT}
+\centering
+\begin{tikzpicture}[x=2.5cm]
+  \foreach \i/\name/\col in {
+    0/Initial/isMute,
+    1/Managed/isOT,
+    2/Defined/isPLC,
+    3/{Quantitatively\\managed}/isAccent,
+    4/Optimising/isNet}{
+    \node[isbox, fill=\col!15, draw=\col, font=\scriptsize, minimum width=22mm, minimum height=14mm, align=center]
+      at (\i,0) {\name};
+  }
+\end{tikzpicture}
+\par\vspace{2mm}
+{\footnotesize Common references: \textbf{C2M2} (DOE), \textbf{CMMC} (US DoD), and IEC 62443's own programme maturity.}
+\note{
+  Maturity models answer a different question than control frameworks: not \emph{do you do X?} but \emph{how reliably and repeatably do you do X?}. C2M2 (the US Department of Energy's Cybersecurity Capability Maturity Model) is the most-used one in critical-infrastructure self-assessments --- it is free, self-administered, and produces a defensible heatmap. CMMC is the US Department of Defense version with mandatory third-party certification for contractors. Most plants land at Managed (level 1) or Defined (level 2); reaching Quantitatively Managed requires real telemetry on security KPIs that very few OT teams have. The honest message to engineering teams: aim for level 2 with evidence rather than level 3 with hand-waving --- auditors and incident responders will both appreciate the difference.
+}
+\end{frame}
+
+\begin{frame}{Audit Preparation Checklist}
+\begin{itemize}
+  \item Up-to-date asset inventory with firmware versions
+  \item Documented zones \& conduits (preferably in a CMDB)
+  \item Risk register with named owners and review dates
+  \item Patch and change-management records
+  \item Backup logs with restore-test evidence
+  \item Incident-response playbooks plus a recent tabletop report
+  \item Training attendance for operators and engineers
+\end{itemize}
+\begin{tipbox}{Tip}
+The first audit is hardest. Treat it as a baseline scan -- gaps you find are not failures, they are your roadmap.
+\end{tipbox}
+\note{
+  This list is what a NIS2 supervisory authority, a NERC CIP auditor, or a 62443-2-1 assessor will actually ask to see --- in roughly this order. The most common failure modes: an asset inventory that is six months stale, zones-and-conduits that exist on a PowerPoint slide but not in a CMDB, and backup logs without restore-test evidence (a backup you have never restored is a wish, not a backup). The tabletop report is often the cheapest single artefact to produce and the one that most impresses auditors --- two hours of structured discussion with operators creates more security uplift than a quarter of patching. Emphasise the tip: the first audit is a baseline, not a verdict --- the regulator's job is partly to help you produce a credible roadmap.
+}
+\end{frame}
+
+%% Frame 1: IEC 62443 Certification Paths
+\begin{frame}{IEC 62443 --- Certification Paths}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.72, transform shape]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=120mm, font=\small] (a)
+    {\textbf{ISASecure CSA} \ Component Security Assurance --- single device (PLC, RTU, HMI) against 62443-4-1+4-2 at SL\,1--4};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=120mm, font=\small, below=of a] (b)
+    {\textbf{ISASecure SSA} \ System Security Assurance --- integrated system (DCS) against 62443-3-3 at SL\,1--4};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=120mm, font=\small, below=of b] (c)
+    {\textbf{ISASecure SDLA} \ Secure Development Lifecycle --- vendor's \emph{process} against 62443-4-1};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=120mm, font=\small, below=of c] (d)
+    {\textbf{Achilles Communications} \ (GE/Wurldtech) network-robustness fuzz/storm testing --- L1 \& L2};
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{tipbox}{How to read a vendor claim}
+``62443-4-2 SL\,2 capable'' is a \emph{self-claim}; ``ISASecure CSA SL\,2 certified, cert \#xxxx'' is a third-party lab result. Always ask for the certificate number and look it up on \texttt{isasecure.org}.
+\end{tipbox}
+\source{ISASecure, \emph{CSA / SSA / SDLA Certification Schemes}, ISA Security Compliance Institute, 2024 \textbar{} GE Digital, \emph{Achilles Communications Certification}, Wurldtech.}
+\note{
+  SDLA is to a vendor what ISO 27001 is to a SaaS company --- certifies the \emph{process}, not the product. CSA is FIPS-140-style box certification for a single component; SSA is system-level (whole integrated DCS/SCADA stack). Achilles (now GE/Wurldtech) predates ISASecure and only fuzzes network robustness --- L1 storm/malformed survival, L2 protocol-aware. Hierarchy: CSA-certified PLC requires vendor to first hold SDLA. When procurement says ``62443 compliant,'' push back --- ask which part, which SL, self-attestation or third-party cert with a number on isasecure.org public registry.
+}
+\end{frame}
+
+%% Frame 2: NIST CSF 2.0 --- The OT Mapping
+\begin{frame}{NIST CSF 2.0 --- The OT Mapping}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.85, transform shape]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=120mm, font=\scriptsize, align=left] (a)
+    {\textbf{Govern} (new in 2.0) --- board oversight, risk strategy, supply chain --- \emph{maps to} 62443-2-1 CSMS};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=120mm, font=\scriptsize, align=left, below=of a] (b)
+    {\textbf{Identify} --- asset inventory, risk assessment --- \emph{maps to} 62443-3-2 (zones \& risk)};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=120mm, font=\scriptsize, align=left, below=of b] (c)
+    {\textbf{Protect} --- access control, data security --- \emph{maps to} 62443-3-3 FRs 1--4};
+  \node[isbox, fill=isNet!15, draw=isNet, minimum width=120mm, font=\scriptsize, align=left, below=of c] (d)
+    {\textbf{Detect} --- continuous monitoring --- \emph{maps to} 62443-3-3 FR\,6};
+  \node[isbox, fill=isHMI!15, draw=isHMI, minimum width=120mm, font=\scriptsize, align=left, below=of d] (e)
+    {\textbf{Respond} --- incident handling --- \emph{maps to} 62443-2-1 CSMS \S\,8};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=120mm, font=\scriptsize, align=left, below=of e] (f)
+    {\textbf{Recover} --- restoration, lessons learned --- \emph{maps to} 62443-3-3 FR\,7};
+\end{tikzpicture}
+\par\vspace{1mm}
+{\footnotesize \textbf{NIST SP 800-82 Rev.\,3} (Sep 2023) is the OT companion that translates CSF outcomes into ICS realities.}
+\source{NIST, \emph{Cybersecurity Framework 2.0}, Feb 2024 \textbar{} NIST SP 800-82 Rev.\,3, Sep 2023 \textbar{} NIST, \emph{CSF 2.0 to IEC 62443 Crosswalk}, 2024.}
+\note{
+  CSF is to OT security what OWASP ASVS or NIST 800-53 control families are to web security --- outcome vocabulary for board slides. New \emph{Govern} function (Feb 2024) is the big change: before 2.0 governance was buried inside Identify; now CSO has board-level coverage mapping to NIS2 Art.\,20 management-body duties. The 62443 mappings are formal --- NIST publishes a crosswalk so US (CSF/800-82) and European (62443) partners produce single compliance report. CSF is outcome-based; the \emph{how} comes from 800-82 (OT) or 800-53 (general). Matters for NIS2 supervisory authorities accepting CSF/62443 mapping as evidence of \emph{appropriate measures}.
+}
+\end{frame}
+
+%% Frame 3: IEC 61511 --- Functional Safety
+\begin{frame}{IEC 61511 --- Functional Safety for the Process Industry}
+\centering
+\begin{tikzpicture}[x=1.1cm, y=0.85cm]
+  \foreach \sl/\pfd/\name/\col in {
+    1/{$10^{-2}$--$10^{-1}$}/{Minor injury}/isOT,
+    2/{$10^{-3}$--$10^{-2}$}/{Serious injury}/isPLC,
+    3/{$10^{-4}$--$10^{-3}$}/{Single fatality}/isAccent,
+    4/{$10^{-5}$--$10^{-4}$}/{Multiple fatalities}/isAttack}{
+    \pgfmathsetmacro{\w}{1.6 + (\sl-1)*0.7}
+    \draw[fill=\col!15, draw=\col, thick] (0, -\sl) rectangle (\w, -\sl+0.7);
+    \node[font=\scriptsize\bfseries, anchor=center] at (\w/2, -\sl+0.35) {SIL\,\sl};
+    \node[font=\tiny, anchor=west] at (4.8, -\sl+0.5) {PFD/h: \pfd};
+    \node[font=\tiny, anchor=west] at (4.8, -\sl+0.2) {\name};
+  }
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{notebox}{Safety + security = both standards}
+\textbf{IEC 61511:2016} (process SIS) pre-dates 62443 and governs \emph{random failures}. \textbf{ISA TR84.00.09} (2017, rev.\,2024) is the bridge: it tells a 61511 safety team how to add 62443 cyber considerations.
+\end{notebox}
+\source{IEC 61511-1:2016 \emph{Functional safety --- Safety instrumented systems for the process industry} \textbar{} ISA TR84.00.09-2017 \emph{Cybersecurity Related to the SIS Lifecycle}.}
+\note{
+  No IT analogue --- IT does not normally kill people. ``Probability budget for catastrophic failure'': SIL 3 means safety function may fail to act on demand no more than 1 in 1,000--10,000 demands. Each step up the SIL ladder costs $\sim$10$\times$ more in redundancy, diagnostics, proof-test rigor. IEC 61511 is the process-industry application of generic IEC 61508. ISA TR84.00.09 is the bridge: formally inserts \emph{cyber} as a demand source into 61511 hazard and risk assessment. TRITON / TRISIS (2017, Saudi petrochemical) forced this conversation --- attackers compromised a Schneider Triconex SIS specifically to disable safety. After TRITON, you cannot do 61511 without 62443.
+}
+\end{frame}
+
+%% Frame 4: ISO/IEC 27019
+\begin{frame}{ISO/IEC 27019 --- Energy-Sector Extension of 27001}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.75, transform shape]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=46mm, minimum height=16mm, align=center, font=\small] (a)
+    {\textbf{ISO/IEC 27001}\\\scriptsize ISMS --- generic};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=46mm, minimum height=16mm, align=center, font=\small, right=of a] (b)
+    {\textbf{ISO/IEC 27002}\\\scriptsize Control catalogue};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=100mm, minimum height=14mm, align=center, font=\small, below=of a, xshift=24mm] (c)
+    {\textbf{ISO/IEC 27019:2017} \ --- adds energy-utility controls\\\scriptsize generation, transmission, distribution, gas, district heating};
+  \node[isbox, fill=isNet!15, draw=isNet, minimum width=100mm, minimum height=12mm, align=center, font=\scriptsize, below=of c] (d)
+    {Complementary to IEC 62443 --- 27019 governs the \emph{management system}, 62443 the \emph{engineering controls}};
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{notebox}{When you meet it}
+EU TSOs and DSOs (transmission/distribution system operators) use 27019 because it is the only ISMS standard that explicitly addresses energy-process control. German BSI IT-Sicherheitskatalog \S\,11 EnWG \emph{requires} a 27019-aligned ISMS for grid operators.
+\end{notebox}
+\source{ISO/IEC 27019:2017 \emph{Information security controls for the energy utility industry} \textbar{} BSI, \emph{IT-Sicherheitskatalog gem.\ \S\,11 Abs.\,1a EnWG}, 2015.}
+\note{
+  27001 is the ISO ISMS every IT shop knows; 27019 is its energy-utility extension --- additional controls for process control systems, telecontrol, RTUs, unique availability constraints of a power grid. Does not replace 62443; different layer. 27019 is management-system flavoured (policies, roles, audit evidence) certifiable under ISO 17021; 62443 is engineering flavoured (zones, conduits, SL-T, FRs per device). Where students meet 27019: every German TSO (50Hertz, Amprion, TenneT, TransnetBW) and most DSOs are \emph{legally required} under \S\,11 EnWG to hold a BSI-recognised ISMS certificate; BSI IT-Sicherheitskatalog points at 27019.
+}
+\end{frame}
+
+%% Frame 5: NIS2 vs NERC CIP
+\begin{frame}{NIS2 vs NERC CIP --- Side by Side}
+\centering
+\renewcommand{\arraystretch}{0.82}
+\scriptsize
+\begin{tabular}{|p{22mm}|p{42mm}|p{42mm}|}
+\hline
+\rowcolor{slidePanel}
+ & \textbf{EU --- NIS2 (+ DE KRITIS)} & \textbf{US --- NERC CIP / TSA SD} \\
+\hline
+Instrument   & Directive (EU) 2022/2555 + national law (DE: BSI-KritisV) & NERC CIP-002--CIP-014 (electric); TSA SD-1580/82 (pipelines) \\
+\hline
+Scope        & 18 sectors, \emph{essential} \& \emph{important} entities & Bulk Electric System; major pipelines \\
+\hline
+Authority    & National CSIRT + competent authority (DE: BSI) & FERC$\to$NERC (electric); TSA/DHS (pipelines) \\
+\hline
+Reporting    & Early warning 24\,h; incident 72\,h; final 1\,month & CIP-008: 1\,h for Reportable Cyber Security Incidents \\
+\hline
+Max fine     & up to EUR10M or 2\% global turnover (essential) & up to \$1M per violation per day (NERC) \\
+\hline
+Management   & Personal liability for mgmt body (Art.\,20) & Registered-entity officer accountability \\
+\hline
+\end{tabular}
+\par\vspace{2mm}
+\begin{importantbox}{The shared shape}
+Both regimes now demand: documented risk management, mandatory incident reporting, supply-chain duties, named accountable officers. The deltas are timelines and fine ceilings.
+\end{importantbox}
+\source{Directive (EU) 2022/2555 (NIS2), 14 Dec 2022 \textbar{} NERC, \emph{CIP-002 -- CIP-014 Reliability Standards} \textbar{} US TSA, \emph{Security Directive Pipeline-2021-02D}, 2023.}
+\note{
+  NIS2 is the EU's GDPR-for-cyber moment --- a directive with personal liability for the board, broad scope, proper fines. NERC CIP is older and narrower but has \emph{teeth} --- only cyber regime that has actually levied multi-million-dollar fines (Duke Energy \$10M in 2019). NIS2 covers 18 sectors and explicitly includes manufacturing of motor vehicles, food, chemicals as Annex II important entities --- so the Stuttgart car-parts plant from §02's running example falls inside. NERC CIP is electricity-only; pipelines fell under TSA after Colonial. Reporting: NERC 1\,h is tightest; NIS2 24\,h is tight by EU standards. NIS2 Art.\,20 personal liability is the genuinely new lever.
+}
+\end{frame}
+
+%% Frame 6: EU Cyber Resilience Act
+\begin{frame}{The Cyber Resilience Act --- Vendor Product Duties}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.78, transform shape]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=120mm, font=\scriptsize, align=left] (a)
+    {\textbf{SBOM} --- machine-readable software bill of materials for every product with digital elements};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=120mm, font=\scriptsize, align=left, below=of a] (b)
+    {\textbf{Vulnerability handling} --- coordinated disclosure; report actively-exploited vulns to ENISA in 24\,h};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=120mm, font=\scriptsize, align=left, below=of b] (c)
+    {\textbf{Security updates} --- free, for expected product lifetime (default 5\,years from placing on market)};
+  \node[isbox, fill=isNet!15, draw=isNet, minimum width=120mm, font=\scriptsize, align=left, below=of c] (d)
+    {\textbf{Secure-by-default} --- no default passwords; attack-surface minimisation; integrity protection};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=120mm, font=\scriptsize, align=left, below=of d] (e)
+    {\textbf{CE marking} --- now legally includes cybersecurity; market surveillance can pull non-compliant products};
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{warnbox}{Hard deadline for ICS vendors}
+Most provisions enter force \textbf{11 December 2027}; vulnerability-reporting duties bite \textbf{11 September 2026}. Any PLC, RTU, HMI, gateway or library sold into the EU after that date carries lifetime duties --- no grandfathering.
+\end{warnbox}
+\source{Regulation (EU) 2024/2847 (Cyber Resilience Act), 23 Oct 2024 \textbar{} ENISA, \emph{CRA Single Reporting Platform} (in development).}
+\note{
+  CRA is what EU would have written if SolarWinds and Log4Shell had a regulatory child --- mandatory SBOM, mandatory CVD, mandatory lifetime updates, all bundled into CE marking. For OT vendors this is transformational. Traditional ICS commercial model: sell a PLC, support it 15--20 years, never patch firmware. Post-CRA: every product with digital elements ships with 5-year minimum security-update tail, public CVD contact, 24-hour ENISA reporting for actively-exploited zero-days. Schneider, Siemens, Rockwell, ABB, Honeywell, Emerson all restructuring product-security organisations around this. Dates: 11 Sep 2026 (vuln reporting), 11 Dec 2027 (rest). No grandfather for products placed on market after those dates.
+}
+\end{frame}
+
+
+\begin{frame}{Summary -- Section \sectionNumber}
+\begin{takeawaybox}{What to remember from this section}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item IEC 62443 provides the engineering vocabulary; NIST CSF gives the outcomes language.
+  \item Security Levels (SL 1--4) tie risk to required control rigor.
+  \item Regulations now demand board-level accountability and incident reporting.
+  \item A programme is governance, inventory, risk, architecture, controls, ops, training, measurement.
+\end{itemize}
+\end{takeawaybox}
+\note{
+  The four take-aways are the absolute minimum a graduate of this lecture should be able to recite at a job interview. If a candidate cannot distinguish the engineering vocabulary (62443 zones, conduits, SLs) from the outcomes vocabulary (CSF Govern--Identify--Protect--Detect--Respond--Recover), they will struggle in any cross-functional OT security role. Reinforce the single most important industry truism one more time: \emph{compliance is not security}, but every breach post-mortem of the last decade reads like a list of skipped 62443 foundational requirements. Post-NIS2 and post-CRA, board-level accountability and 24-hour incident reporting are no longer optional --- treat them as design constraints from day one. Final transition: next section we move from \emph{what should we do?} into \emph{how do we actually defend a live process?}
+}
+\end{frame}
+
+\referencesframe{
+  \item IEC 62443 series. \emph{Industrial communication networks -- IT security for networks and systems} (joint ISA/IEC).
+  \item NIST. \emph{Cybersecurity Framework 2.0}, Feb 2024.
+  \item Stouffer, K. et al. \emph{NIST SP 800-82 Rev.\,3 -- Guide to OT Security}, Sep 2023.
+  \item NIST SP 800-53 Rev.\,5. \emph{Security and Privacy Controls for Information Systems and Organizations}, 2020.
+  \item Directive (EU) 2022/2555. \emph{NIS2 Directive}, 14 Dec 2022.
+  \item Regulation (EU) 2024/2847. \emph{Cyber Resilience Act}, 23 Oct 2024.
+  \item Germany BSI. \emph{BSI-Kritisverordnung (BSI-KritisV)} and \emph{IT-Sicherheitsgesetz 2.0}.
+  \item ENISA. \emph{Good practices for the security of IACS}, 2020 onwards.
+  \item NERC. \emph{CIP Reliability Standards}, CIP-002 through CIP-014.
+  \item US TSA. \emph{Pipeline / Rail Security Directives}, 2021 onwards.
+  \item US CISA. \emph{CIRCIA -- Cyber Incident Reporting for Critical Infrastructure Act}, in rule-making.
+  \item DOE. \emph{Cybersecurity Capability Maturity Model (C2M2)}, current.
+}
+
+\closingframe
+
+\end{document}

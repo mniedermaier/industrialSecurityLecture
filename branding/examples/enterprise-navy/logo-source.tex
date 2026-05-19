@@ -1,0 +1,20 @@
+% Generic placeholder logo for the Enterprise-navy example theme.
+% Hexagon mark + "Your Logo" text on transparent background, drawn in
+% the theme's primary + secondary colours. No trademarks involved.
+%
+% Build with:  pdflatex -output-directory=. logo-source.tex
+\documentclass[border=2pt]{standalone}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric}
+\usepackage[T1]{fontenc}
+\definecolor{entNavy}{HTML}{00205B}
+\definecolor{entCobalt}{HTML}{0099D8}
+\begin{document}
+\begin{tikzpicture}
+  \node[regular polygon, regular polygon sides=6, draw=entNavy,
+        line width=1.5pt, minimum size=14mm] (h) {};
+  \node[font=\bfseries\large, color=entCobalt] at (h.center) {Y};
+  \node[anchor=west, font=\bfseries\Large, color=entNavy, xshift=1.5mm]
+    at (h.east) {Your Logo};
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,173 @@
+# All-in-one lab stack for the Industrial Security (Bachelor) course.
+#
+# Bring everything up with:
+#   docker compose up -d
+#
+# Bring it all down with:
+#   docker compose down -v
+#
+# Services run on a private bridge network `is-lab` (172.28.0.0/16).
+# Host port-forwards are kept minimal -- exec into the `student` container
+# for most lab interactions so nothing leaks onto the host network.
+
+name: industrial-security-labs
+
+networks:
+  is-lab:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+services:
+
+  # --------------------------------------------------------------
+  # Landing page -- polished HTML overview of the whole stack.
+  # Open http://127.0.0.1:8000 after `docker compose up -d`.
+  # --------------------------------------------------------------
+  landing:
+    image: nginx:1.27-alpine
+    container_name: is-landing
+    restart: unless-stopped
+    networks:
+      is-lab:
+        ipv4_address: 172.28.0.5
+    ports:
+      - "127.0.0.1:8000:80"
+    # First mount must not be :ro -- otherwise the nested labs mount
+    # below cannot create its mountpoint at runtime. Nginx never writes
+    # to /usr/share/nginx/html anyway.
+    volumes:
+      - ./landing:/usr/share/nginx/html
+      # Serve every lab PDF at /labs/NN-topic/NN-topic-lab.pdf so the
+      # landing page's lab cards can deep-link to them.
+      - ../:/usr/share/nginx/html/labs:ro
+
+  # --------------------------------------------------------------
+  # OpenPLC -- soft PLC with Modbus TCP on 502
+  # Used by labs 1, 2, and 6.
+  # --------------------------------------------------------------
+  openplc:
+    image: atripathy86/openplc-runtime:latest
+    platform: linux/amd64
+    container_name: is-openplc
+    restart: unless-stopped
+    networks:
+      is-lab:
+        ipv4_address: 172.28.0.10
+    ports:
+      - "127.0.0.1:8080:8080"   # OpenPLC web UI (localhost only)
+      - "127.0.0.1:502:502"     # Modbus TCP (root may be required on the host)
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf -o /dev/null http://localhost:8080/login || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  # --------------------------------------------------------------
+  # OpenPLC init -- one-shot bootstrap that uploads conveyor.st and
+  # starts the PLC the moment OpenPLC reports healthy. Without this,
+  # port 502 stays closed until somebody opens the web UI manually.
+  # Re-running `docker compose up -d` just re-runs the bootstrap;
+  # the script is idempotent. To skip it, comment this service out
+  # (or use `docker compose --profile noinit up -d`).
+  # --------------------------------------------------------------
+  openplc-init:
+    image: alpine:3.20
+    container_name: is-openplc-init
+    restart: "no"
+    depends_on:
+      openplc:
+        condition: service_healthy
+    networks:
+      is-lab:
+        ipv4_address: 172.28.0.6
+    environment:
+      OPLC_HOST: openplc:8080
+    volumes:
+      - ./bootstrap-openplc.sh:/bootstrap.sh:ro
+      - ./scripts:/scripts:ro
+    entrypoint:
+      - sh
+      - -c
+      - "apk add --quiet --no-cache bash curl && bash /bootstrap.sh --program /scripts/ladder/conveyor.st"
+
+  # --------------------------------------------------------------
+  # OPC UA server -- open62541 example
+  # Used by lab 4.
+  # --------------------------------------------------------------
+  opcua:
+    image: open62541/open62541:master
+    container_name: is-opcua
+    restart: unless-stopped
+    networks:
+      is-lab:
+        ipv4_address: 172.28.0.11
+    ports:
+      - "127.0.0.1:4840:4840"
+
+  # --------------------------------------------------------------
+  # MQTT broker -- Eclipse Mosquitto for IIoT discussion
+  # Used as a side-quest / demo, optional.
+  # --------------------------------------------------------------
+  mqtt:
+    image: eclipse-mosquitto:2
+    container_name: is-mqtt
+    restart: unless-stopped
+    networks:
+      is-lab:
+        ipv4_address: 172.28.0.12
+    ports:
+      - "127.0.0.1:1883:1883"
+    volumes:
+      - ./mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
+  # --------------------------------------------------------------
+  # Student workstation -- a small Linux image preloaded with the
+  # CLI tools needed for every lab: python3, pymodbus, nmap, tcpdump,
+  # tshark, curl. Use:
+  #   docker compose exec student bash
+  # --------------------------------------------------------------
+  student:
+    build: ./student
+    container_name: is-student
+    networks:
+      is-lab:
+        ipv4_address: 172.28.0.20
+    volumes:
+      - ./scripts:/labs/scripts:ro
+      - ./captures:/labs/captures      # persists PCAPs to the host
+    stdin_open: true
+    tty: true
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+
+  # --------------------------------------------------------------
+  # Zeek IDS -- passive sniffer attached to the OpenPLC netns.
+  # Sharing OpenPLC's network namespace (network_mode: service:openplc)
+  # is what lets Zeek's `eth0` see all traffic to/from the PLC --
+  # otherwise Docker's bridge isolation would hide it.
+  # Logs go to ./zeek-logs on the host.
+  # Used by lab 08.
+  # --------------------------------------------------------------
+  zeek:
+    image: zeek/zeek:latest
+    container_name: is-zeek
+    restart: unless-stopped
+    network_mode: "service:openplc"
+    depends_on:
+      - openplc
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - ./zeek-logs:/usr/local/zeek/logs
+      - ./zeek/local.zeek:/usr/local/zeek/share/zeek/site/local.zeek:ro
+    # Zeek writes logs to its CWD by default -- pin that to the mounted
+    # logs directory so they land on the host at ./zeek-logs/.
+    working_dir: /usr/local/zeek/logs
+    # -C ignores TCP/UDP checksums. The Docker bridge presents packets
+    # before NIC checksum offload, so Zeek would otherwise drop them.
+    command: ["zeek", "-C", "-i", "eth0", "/usr/local/zeek/share/zeek/site/local.zeek"]

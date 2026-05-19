@@ -1,0 +1,257 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\sectionNumber{07}
+\def\sectionTitle{Risk Management}
+\def\sheetKind{Solution Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\noindent\textbf{Marking note.} Each solution box gives a sample answer plus
+\emph{rubric hints}: what a good answer must contain, common mistakes, and the
+standards a student is expected to cite. The numerical values used in LOPA and
+FAIR sub-tasks are \emph{indicative} -- accept any defensible range that the
+student justifies.
+
+\vspace{0.6em}
+
+\begin{solutionbox}
+\textbf{Exercise 7.1 -- 5$\times$5 Risk Matrix.}
+A defensible policy: green = (likelihood + consequence) $\le 3$;
+yellow = $4$--$5$; orange = $6$; red = $\ge 7$. Sample placement:
+(a) historian ransomware -- Likely / Moderate (yellow): annoying but no
+process impact if backups work; (b) spoofed Modbus write to dosing
+setpoint -- Possible / Major (orange): public-health consequence;
+(c) stolen laptop with cached HMI password -- Possible / Major (orange):
+direct path to setpoints; (d) cellular link loss 30~min -- Likely /
+Minor (yellow): local PLC keeps running; (e) vendor session left open
+weekend -- Possible / Catastrophic (red): unsupervised privileged access
+to safety-relevant equipment.
+\textbf{Rubric:} student must (i) state the colour rule explicitly,
+(ii) justify each placement with reference to the OT consequence
+dimensions, (iii) recognise (e) as the highest because of unsupervised
+privileged access. Common mistake: putting (a) in red because
+``ransomware sounds bad'' without considering containment.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 7.2 -- Bow-Tie (chlorine setpoint).}
+Sample causes (left): C1~insider with HMI rights changes setpoint;
+C2~Modbus write injection from compromised engineering laptop;
+C3~operator typo during shift handover (human error).
+Consequences (right): K1~under-chlorination $\to$ microbial breakthrough
+(safety / public health); K2~over-chlorination $\to$ taste complaints \&
+EPA / drinking-water-regulator reporting (regulatory); K3~plant shutdown
+to flush and re-sample (production).
+Preventive barriers: P1~role-based access on HMI with named accounts
+(procedural / technical); P2~Modbus write allow-list at the IDS / firewall
+on the conduit between HMI and PLC (technical).
+Mitigating barriers: M1~independent online residual analyser with hardware
+alarm and auto-shutoff (technical / physical); M2~written customer-notification
+SOP $\le 1$~h after detection (procedural).
+\textbf{Rubric:} barriers must be \emph{independent} of the cause they
+protect against; a barrier that runs on the same compromised HMI does not
+count. Good answers explicitly label each barrier (procedural / technical /
+physical).
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 7.3 -- Cyber-HAZOP on P-101.}
+\emph{No flow:} attacker writes pump-speed setpoint to 0 via Modbus
+$\to$ loss of cooling, exotherm in R-201.
+\emph{More flow:} attacker raises setpoint above design $\to$ pump
+cavitation, mechanical damage, possible loss of suction.
+\emph{Less flow:} attacker degrades setpoint slowly (ramp below alarm
+rate-of-change) $\to$ creeping temperature rise undetected by the
+$\pm 20\%$ deviation alarm.
+\emph{Reverse flow:} attacker disables check-valve actuator and stops
+pump $\to$ reactor contents back-flow into supply, contamination.
+\emph{As well as:} attacker injects a spoofed ``flow OK'' value in
+parallel with the real one $\to$ operator sees normal reading while
+real flow is zero (loss of view).
+\textbf{Rubric:} answers must distinguish the \emph{cyber} cause from a
+random equipment failure (e.g.\ ``setpoint written by attacker'', not
+``pump fails''). Cite IEC~61882 for the guide words and
+ISA~TR84.00.09 for the cyber adaptation. ``Loss of view'' (the
+``as well as'' case) is the subtle one and earns full marks.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 7.4 -- LOPA Calculation.}
+Credited IPLs with typical PFDs (per CCPS LOPA):
+BPCS flow loop -- \emph{not} an IPL because the initiating event is its
+failure (independence rule); high-T alarm + operator response
+$\text{PFD}=1\times 10^{-1}$; SIS SIL-2 trip $\text{PFD}=1\times 10^{-2}$;
+PSV $\text{PFD}=1\times 10^{-2}$. Residual:
+$f_\text{mit} = 0.1 \cdot 10^{-1} \cdot 10^{-2} \cdot 10^{-2}
+              = 1\times 10^{-6}/\text{year}$
+(one event per million years -- well within most company appetites for a
+runaway exotherm).
+\textbf{Key assumption:} the three layers are \emph{independent}. If the
+SIS shares the same engineering workstation as the BPCS, a single cyber
+compromise removes both layers and the math is wrong; IEC~61511 mandates
+this independence.
+\textbf{Rubric:} full marks require (i) excluding the BPCS loop as an
+IPL because it is the initiating event source, (ii) multiplying PFDs
+correctly, (iii) naming the independence assumption. Common mistake:
+crediting the BPCS twice.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 7.5 -- CCE Phase~1.}
+Sample top-three unacceptable outcomes for a speciality-chemicals site:
+\textbf{(1)}~toxic release from a storage tank into the neighbouring
+community -- ranked first because it is the only outcome that can
+produce off-site fatalities and the only one that almost certainly
+ends the licence to operate.
+\textbf{(2)}~runaway exotherm in a batch reactor causing on-site fatality
+and a multi-week shutdown -- ranked second: catastrophic to staff and
+the business but contained to the fence-line.
+\textbf{(3)}~rail-loading mis-routing causing wrong-product delivery
+to a customer (e.g.\ a strong acid labelled as solvent) -- ranked
+third: severe regulatory / liability exposure and brand damage but
+recoverable.
+\textbf{Next phase:} CCE Phase~2 -- \emph{System-of-systems analysis}
+-- maps the cyber / digital and supply-chain dependencies for each of
+the prioritised consequences (what would have to fail to realise
+outcome 1?).
+\textbf{Rubric:} reject lists of $>5$ consequences (Phase~1 is about
+ruthless prioritisation). Accept reasonable ranking criteria as long as
+they are explicit (off-site harm, irreversibility, licence to operate).
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 7.6 -- Risk Response.}
+\textbf{Transfer.} Right: cyber-insurance to cover business-interruption
+loss after ransomware on a corporate ERP (large, low-probability,
+non-safety). Wrong: transferring a safety risk (``insurance will pay
+if someone dies'') -- the residual harm to humans is not transferred;
+mitigate or avoid instead.
+\textbf{Accept.} Right: a legacy serial RS-232 link to a stand-alone
+analyser, air-gapped, with no remote write path -- documented,
+signed-off, reviewed annually. Wrong: accepting an Internet-exposed
+HMI because ``no incident yet'' -- this is acceptance by default,
+not by decision; avoid (remove the exposure).
+\textbf{Mitigate.} Right: deploy MFA, segmentation and EDR on the
+engineering-workstation tier to reduce both likelihood and consequence
+of ransomware. Wrong: mitigating around a fundamentally unsafe
+practice such as routine remote programming of an SIS during operation
+-- the right answer is \emph{avoid} (key-switch in RUN, no remote writes).
+\textbf{Avoid.} Right: decommission the unused dial-up modem on the
+PLC. Wrong: ``avoiding'' a critical vendor remote-support tunnel that
+the operator depends on for emergency fixes -- you lose recovery
+capability; mitigate (brokered, recorded, MFA) instead.
+\textbf{Rubric:} students must give a concrete OT artefact for each,
+not generic IT examples. Marking the wrong-choice case is the
+discriminator.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 7.7 -- Merck v.\ Ace American.}
+The insurer denied USD~1.4~bn of Merck's NotPetya loss by invoking the
+``hostile or warlike action'' exclusion, arguing that NotPetya was a
+Russian state-attributed attack on Ukraine and therefore an act of war.
+The New Jersey Appellate Division held that the exclusion clause, as
+written in Merck's all-risk property policy, had historically been
+understood to cover \emph{kinetic} military action; it could not be
+stretched, without notice to the insured, to cover a state-attributed
+cyber operation in a peace-time commercial network. Merck was therefore
+covered.
+\textbf{Consequences for an OT operator in 2026:} (i) modern policies have
+been re-written with explicit ``cyber-war'' or
+``state-attributed attack'' exclusions (Lloyd's market bulletin 2022)
+-- read them carefully; (ii) expect attribution clauses that defer to
+government attribution statements (NCSC, CISA), sub-limits for
+critical-infrastructure operators, and required control baselines
+(MFA, EDR, immutable backups) as preconditions to cover.
+\textbf{Why insurance is not a substitute for safety mitigation:}
+insurance pays money after the fact; it does not bring back staff,
+reverse a toxic release, or restore a regulator's trust. For any
+risk whose consequence dimension is \emph{safety} or
+\emph{environment}, ALARP / inherent-safety reasoning applies and the
+risk must be driven down regardless of insurability.
+\textbf{Rubric:} full marks require recognising both the policy-wording
+point and the safety-vs-financial-loss distinction.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 7.8 -- FAIR Estimate (historian ransomware).}
+Sample values (defensible, not authoritative):
+\textbf{TEF} = 2 / year -- ransomware actors reach Internet-exposed
+corporate assets routinely; reaching the historian requires crossing
+into Level~3, so the rate is lower than for IT (use a most-likely value
+with a range, e.g.\ 1--5/year).
+\textbf{Vulnerability} = 0.10 -- current controls (network segmentation,
+EDR, monthly offline backup, MFA on jump host) defeat most actions;
+roughly one in ten attempts succeed end-to-end.
+\textbf{Loss Magnitude:} primary -- $\approx$~EUR~80{,}000
+(IR retainer EUR~30k, internal labour EUR~20k, restore + revalidation
+EUR~30k); secondary -- $\approx$~EUR~70{,}000 (regulator notification,
+late-reporting fines, customer credits) $\Rightarrow$ \textbf{LM}
+$\approx$~EUR~150{,}000.
+\textbf{Loss Exposure} $= 2 \times 0.10 \times 150{,}000$
+$= \text{EUR}~30{,}000$ / year.
+\textbf{Biggest uncertainty:} the \emph{Vulnerability} factor -- it
+depends on the realism of the offline backup test; if backups have
+never been restored end-to-end, the true Vuln is closer to 0.5 and the
+loss exposure jumps to EUR~150{,}000 / year.
+\textbf{Rubric:} accept any internally consistent number set, but the
+student must (i) show the arithmetic, (ii) name a primary and a
+secondary loss category, (iii) identify the dominant uncertainty.
+Reject single point estimates with no range or assumption.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 7.9 -- Risk Register Row.}
+Sample row for the lab:
+\textbf{ID:} \texttt{R-OT-014}.
+\textbf{Description:} ``Default credentials on lab OpenPLC web HMI
+permit unauthenticated setpoint writes from any host on the lab VLAN,
+risking unintended physical actuation of the demo conveyor.''
+\textbf{Likelihood:} \emph{Likely} (4/5) -- the credentials are
+documented in the vendor manual and known to all students.
+\textbf{Consequence:} \emph{Moderate} (3/5) -- demo equipment can pinch
+fingers; no chemical or process risk in this lab.
+\textbf{Owner:} Lab supervisor (Prof.\ X).
+\textbf{Treatment:} \emph{Mitigate} -- change default password,
+restrict HMI to lab-host /24, enable session timeout (10~min).
+\textbf{Residual rating:} \emph{Unlikely / Minor} (yellow) after
+treatment.
+\textbf{Review date:} 30~September~2026 (start of winter semester).
+\textbf{Rubric:} reject rows with vague ownership (``IT'') or no
+review date. The residual rating must be \emph{lower} than the
+inherent rating, and the student must say so explicitly.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 7.10 -- False Precision.}
+\textbf{What is wrong:} (i)~two decimals on a 10-point qualitative
+scale imply $\sim$1\,\% measurement resolution that the inputs do not
+support; (ii)~no confidence interval / range is given, so the score
+hides its own uncertainty; (iii)~the weighting and aggregation of
+factors is opaque -- a single ``score'' suggests the factors are
+independent and commensurable, which they almost never are.
+\textbf{Questions to the vendor:}
+(1)~What is the underlying data (CVE feed? asset inventory? telemetry?)
+and how recent is it?
+(2)~How are factor weights chosen and have they been calibrated against
+real incident data?
+(3)~Are the factors statistically independent, or are you
+double-counting (e.g.\ ``patch level'' and ``CVE count'' on the same PLC)?
+(4)~What is the confidence interval / sensitivity of the score? Show
+me the same calculation with $\pm 1$ standard deviation on each input.
+\textbf{Defensible alternative:} report a NIST~SP~800-30 semi-quantitative
+band (Very Low / Low / Moderate / High / Very High) with the rationale,
+or a FAIR loss-exposure range in money with explicit min / most-likely / max
+values (Jones \& Freund). Either makes the uncertainty visible
+instead of laundering it through a false-precision number.
+\textbf{Rubric:} students must hit all three methodological issues in
+part~(1) and at least three of the four vendor questions; bonus marks
+for naming sensitivity analysis or Monte~Carlo as the way to surface
+the confidence interval.
+\end{solutionbox}
+
+\end{document}

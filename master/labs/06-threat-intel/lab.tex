@@ -1,0 +1,45 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\labNumber{06}
+\def\labTitle{Intel-Driven Hunt in the Bachelor Lab}
+\def\labSection{06}
+\def\labTime{2--3 hours}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Take a real, recent OT-relevant ATT\&CK technique. Form a hunt hypothesis. Execute it against the Bachelor Docker lab Zeek logs. Iterate until you can either confirm or deny.
+\end{goalbox}
+
+\begin{stepbox}{1 -- Pick a TTP}
+From the ATT\&CK for ICS matrix, pick one of: T0855 (Unauthorised Command Message), T0859 (Valid Accounts), T0846 (Remote System Discovery), T0867 (Lateral Tool Transfer). Note the canonical detection guidance.
+\end{stepbox}
+
+\begin{stepbox}{2 -- Translate to lab telemetry}
+For your chosen TTP, identify what would be visible in: Zeek \texttt{conn.log}, \texttt{modbus.log}, \texttt{notice.log}, or in OpenPLC's web-UI access log.
+\end{stepbox}
+
+\begin{stepbox}{3 -- Generate baseline}
+\begin{lstlisting}[language=bash]
+cd bachelor/labs/_stack && docker compose up -d
+docker compose exec student python3 /labs/scripts/modbus_poll_loop.py &
+sleep 300
+\end{lstlisting}
+\end{stepbox}
+
+\begin{stepbox}{4 -- Inject and hunt}
+Trigger your chosen TTP (e.g.\ \texttt{modbus\_inject.py}). Search the Zeek logs for the signal. Document the time-to-detection and the precision (false positives in 5 min of baseline).
+\end{stepbox}
+
+\begin{stepbox}{5 -- Refine}
+If your hunt was noisy, tighten the query. If it missed, broaden it. Document the iteration.
+\end{stepbox}
+
+\begin{deliverbox}
+A 1-page hunt report: TTP, hypothesis, query, baseline-noise level, detection result, refinement. Bonus: a Zeek script that turns the hunt into a continuous notice.
+\end{deliverbox}
+\end{document}

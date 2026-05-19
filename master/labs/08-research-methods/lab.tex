@@ -1,0 +1,41 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\labNumber{08}
+\def\labTitle{Reproducibility Audit + Mini-Replication}
+\def\labSection{08}
+\def\labTime{4 hours}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Pick a recent ICS-security paper. Audit its reproducibility. Replicate one small experiment from it. Write up the result -- including what could not be replicated and why.
+\end{goalbox}
+
+\begin{stepbox}{1 -- Pick a paper}
+Recent (\(\leq\) 3 years), peer-reviewed, ICS topic, code/data ideally on GitHub or Zenodo. Suggested venues: USENIX Security, IEEE S\&P, NDSS, CCS, ACSAC.
+\end{stepbox}
+
+\begin{stepbox}{2 -- Audit the artefact}
+Score (0--5): code availability, data availability, container, README clarity, dependency pinning. Document what is missing.
+\end{stepbox}
+
+\begin{stepbox}{3 -- Replicate one figure}
+Pick one chart or table that should be reproducible. Re-run the code, regenerate the figure. If you cannot, document the blocker (missing dependency, missing data, vendor licence).
+\end{stepbox}
+
+\begin{stepbox}{4 -- Write up}
+2-page note: paper citation, audit score, replication outcome, lessons for your own future work.
+\end{stepbox}
+
+\begin{deliverbox}
+The 2-page note + the regenerated figure (or the exact error message that blocked you).
+\end{deliverbox}
+
+\begin{warnbox}
+If a paper's artefact is broken, write to the authors politely. Many will fix it or accept a pull request. Public shaming is unprofessional.
+\end{warnbox}
+\end{document}

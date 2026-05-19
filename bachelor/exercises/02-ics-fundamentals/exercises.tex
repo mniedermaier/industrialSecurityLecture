@@ -1,0 +1,209 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\sectionNumber{02}
+\def\sectionTitle{ICS and SCADA Fundamentals}
+\def\sheetKind{Exercise Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\section*{Goal of this sheet}
+Reason about the building blocks of an industrial control system the way an
+engineer on shift does: from a single scan cycle on a PLC, through ladder
+logic on the rung, up to the HMI, historian, engineering workstation, and the
+safety layer that sits beside all of them. Each task is a short
+plant-floor scenario; aim for technical, specific answers rather than
+slide-level definitions.
+
+\begin{taskbox}{Exercise 2.1 -- Worst-Case Scan-Cycle Latency}
+A Siemens S7-1500 controls a bottling line. Its program runs with a measured
+cycle time of 12\,ms. A digital input wired to a photoelectric
+sensor must trigger an air-blast reject within 40\,ms of a bad
+bottle passing the sensor. The output card has a quoted hardware response of
+2\,ms; the input filter is configured to 3\,ms.
+\begin{enumerate}
+  \item Compute the worst-case end-to-end latency from a bottle breaking the
+    beam to the air valve actually opening. Show your work; assume the bottle
+    arrives just \emph{after} the input-read phase of the current cycle.
+  \item Does the system meet the 40\,ms budget? By how much?
+  \item Name one change (other than ``buy a faster PLC'') that would shave
+    the worst-case latency, and one that would make it predictably worse.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 2.2 -- Read This Ladder Rung}
+Consider the following ladder rung on an Allen-Bradley CompactLogix L24ER.
+\texttt{X1} is a NO contact from the Start pushbutton, \texttt{X2} is a NC
+contact from the Stop pushbutton, \texttt{X3} is a NO contact from a level
+switch (asserted when the tank is \emph{not} full), and \texttt{Y1} drives the
+fill-pump contactor. \texttt{Y1} also feeds back as a NO seal-in contact
+around \texttt{X1}.
+\begin{verbatim}
+    |   X1      X2(NC)    X3        Y1   |
+    |--] [---+--]/[------] [-------(   )-|
+    |        |                            |
+    |   Y1   |                            |
+    |--] [---+                            |
+\end{verbatim}
+\begin{enumerate}
+  \item Walk through what happens when the operator briefly presses Start
+    (\texttt{X1} goes high for 200\,ms) while the tank is half
+    full.
+  \item What happens at the moment \texttt{X3} drops out (tank reaches the
+    high-level switch)?
+  \item What happens if the wire to the Stop pushbutton is cut? Is that the
+    desired behaviour? Explain in one sentence.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 2.3 -- Why Is SIS Isolated from the BPCS?}
+A green\-field ethylene cracker is being designed. A junior engineer
+proposes saving cost by running the safety interlocks as additional logic
+on the same Schneider M580 that already runs the Basic Process Control
+System (BPCS), arguing that the M580 supports redundancy.
+\begin{enumerate}
+  \item Give two \emph{technical} reasons why the safety logic must run on a
+    separate, SIL-rated controller (e.g.\ Schneider Triconex or Siemens
+    HIMA) rather than sharing the BPCS controller.
+  \item Give one \emph{regulatory or standards-based} reason. Name the
+    standard.
+  \item Sketch in two or three sentences how a TRITON-style attack would be
+    made harder by the separation you just justified.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 2.4 -- You Inherit a Windows XP HMI}
+You take over the OT team at a mid-sized brewery. The pasteurisation line
+runs a Wonderware InTouch (now AVEVA InTouch) HMI from 2008 on Windows XP
+Embedded. Replacement is firmly off the table for at least the next
+12~months: the HMI graphics are tied to a custom recipe-management add-on
+whose vendor is bankrupt.
+\begin{enumerate}
+  \item List the five most realistic mitigations you would apply within the
+    next quarter. For each one, give a single concrete action (vendor,
+    product, or configuration), not just a principle.
+  \item Identify which mitigation gives you the most risk reduction per euro,
+    and justify in one sentence.
+  \item Name one mitigation that sounds attractive but you would
+    \emph{reject}, and say why.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 2.5 -- OPC UA on Pump P-101}
+Pump P-101 has a Balluff BCM vibration sensor that exposes its readings as
+an OPC UA server on the plant network. A maintenance engineer wants to
+read the velocity-RMS variable from her laptop using UAExpert.
+\begin{enumerate}
+  \item List what the engineer's laptop minimally needs in order to read the
+    variable: network reachability, client software, and any
+    OPC UA-specific items (think security policy, user token,
+    certificates).
+  \item An attacker on the same VLAN wants to read the same variable. What
+    do they need that the engineer also needs, and what (if anything) do
+    they additionally need, given a typical out-of-the-box deployment?
+  \item Name one configuration change that would still let the engineer
+    work but materially raise the bar for the attacker.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 2.6 -- Historian Used for Billing}
+The historian at a district heating plant runs AVEVA PI System. Hourly
+energy-delivered totals are read from PI by the billing system and become
+the legal basis for customer invoices.
+\begin{enumerate}
+  \item List three integrity controls you would deploy on this historian
+    that you would \emph{not} bother deploying on an identical historian
+    used only for engineering research.
+  \item For each control, name where it lives (PI Server, PI Asset
+    Framework, the OS, the network, the billing system) and one specific
+    feature or product that implements it.
+  \item Briefly: which control would you also add if the regulator could
+    issue an unannounced audit (one sentence)?
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 2.7 -- Open-Book: S7-1500 Scan-Time Limits}
+Open-book exercise. Using the official Siemens S7-1500 system manual
+(document ID \texttt{6ES7~System Manual}, current edition on
+\texttt{support.industry.siemens.com}):
+\begin{enumerate}
+  \item State the minimum cycle time the user can configure for a cyclic OB
+    on an S7-1500 CPU, and the default maximum cycle-time monitoring value.
+  \item Cite the section or table number you used.
+  \item Explain in one or two sentences \emph{why} Siemens exposes both a
+    minimum and a maximum, rather than just letting the CPU run as fast as
+    it can.
+\end{enumerate}
+\begin{hintbox}
+The relevant chapter is ``Cycle and reaction times''. Different CPU SKUs
+(1511, 1513, 1515, 1517, 1518) have slightly different numbers; pick one
+and name it.
+\end{hintbox}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 2.8 -- Spot the Bug: Misplaced Seal-In}
+A maintenance technician hands you the following rung from a
+Rockwell~Studio~5000 project for a conveyor motor. \texttt{Start} and
+\texttt{Stop} are pushbuttons; \texttt{Run} is the motor-contactor output.
+The intent is a standard latched start/stop.
+\begin{verbatim}
+    |   Start    Stop(NC)               Run  |
+    |--] [------]/[------+-------------(   )-|
+    |                    |                   |
+    |   Start            |                   |
+    |--] [---------------+                   |
+\end{verbatim}
+\begin{enumerate}
+  \item What is wrong with this rung compared to a correct start/stop
+    latch?
+  \item Describe exactly what the operator sees when she presses and
+    releases Start, and then presses Stop.
+  \item Redraw the corrected rung (text-art is fine), explicitly naming the
+    contact that should be used for the seal-in.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 2.9 -- Component Mapping (One per Major Role)}
+For each of the six descriptions below, name the single most appropriate
+component from the set
+\{\textbf{PLC}, \textbf{RTU}, \textbf{HMI}, \textbf{Historian},
+\textbf{Engineering WS}, \textbf{SIS}\} and, in one sentence, justify why
+the others would be wrong.
+\begin{enumerate}
+  \item Runs a 5\,ms scan cycle of ladder logic on the
+    factory floor and drives the I/O cards directly.
+  \item Trips an emergency shut-down valve within 100\,ms
+    when reactor pressure exceeds 18\,bar, independent of the BPCS.
+  \item Holds the only authoritative copy of the project file and the
+    credentials to download new firmware to thirty CompactLogix CPUs.
+  \item Polls a remote substation over a private DNP3 link with poor
+    radio coverage and buffers events when the link is down.
+  \item Compresses ten years of 1\,s-resolution tag values and
+    serves them to a Power BI dashboard via OLEDB.
+  \item Displays a P\&ID-style mimic of the boiler house with live values
+    and an alarm summary bar to the night-shift operator.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 2.10 -- Lab: OpenPLC + Modbus TCP}
+Complete \texttt{labs/lab-01-openplc} on your own machine.
+\begin{enumerate}
+  \item Install OpenPLC Runtime and OpenPLC Editor.
+  \item Implement the corrected start/stop latch from Exercise 2.8 in
+    Ladder Diagram.
+  \item Drive it from a soft HMI of your choice (ScadaBR, Node-RED
+    dashboard, or Ignition Maker Edition).
+  \item Capture the Modbus TCP traffic with Wireshark while you press
+    Start and Stop. Identify the function codes the HMI uses.
+  \item Briefly note: is there anything in the captured frames that would
+    stop an attacker on the same network from issuing the same writes?
+\end{enumerate}
+\begin{hintbox}
+Section 04 dissects Modbus in detail; bring the pcap from this lab.
+\end{hintbox}
+\end{taskbox}
+
+\end{document}

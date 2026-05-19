@@ -1,0 +1,74 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\labNumber{01}
+\def\labTitle{Firmware Reverse Engineering -- First Cut}
+\def\labSection{01}
+\def\labTime{2--3 hours}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+End-to-end first cut: take a lawfully-sourced firmware image, identify its architecture and filesystem, find at least one hard-coded credential or weak crypto pattern, and produce a 1-page write-up suitable for a coordinated-disclosure email.
+\end{goalbox}
+
+\begin{stepbox}{Tooling}
+On a Linux VM (Debian / Ubuntu / Kali):
+\begin{lstlisting}[language=bash]
+sudo apt install -y binwalk squashfs-tools cpio xxd file strings unzip
+# Ghidra: download from https://ghidra-sre.org and install per docs
+pip install --user firmware-mod-kit  # optional
+\end{lstlisting}
+\end{stepbox}
+
+\begin{stepbox}{1 -- Source the image}
+Pick one that is safe to handle:
+\begin{itemize}
+  \item OpenWrt for a router model you own.
+  \item Discontinued home-router firmware from the vendor archive.
+  \item Vendor partner programme (Siemens Industry Online, Rockwell PCDC) if you have access.
+\end{itemize}
+Record the URL, the published hash, your local hash, and the date.
+\end{stepbox}
+
+\begin{stepbox}{2 -- Triage}
+\begin{lstlisting}[language=bash]
+file firmware.bin
+binwalk -A firmware.bin       # architecture hints
+binwalk -E firmware.bin       # entropy plot
+binwalk -e firmware.bin       # extract everything
+\end{lstlisting}
+Note bootloader / kernel / filesystem offsets.
+\end{stepbox}
+
+\begin{stepbox}{3 -- Filesystem mount}
+\begin{lstlisting}[language=bash]
+cd _firmware.bin.extracted
+unsquashfs *.squashfs       # or use the existing extraction
+cat squashfs-root/etc/passwd
+ls squashfs-root/usr/sbin
+\end{lstlisting}
+\end{stepbox}
+
+\begin{stepbox}{4 -- Strings hunt}
+\begin{lstlisting}[language=bash]
+grep -rIE 'password|secret|token|admin' squashfs-root/etc squashfs-root/usr/sbin
+strings -n 8 squashfs-root/usr/sbin/lighttpd | grep -iE 'pass|key'
+\end{lstlisting}
+\end{stepbox}
+
+\begin{stepbox}{5 -- One Ghidra dive}
+Open the most interesting binary in Ghidra. Auto-analyse. Find one symbol that looks like authentication or update verification. Read the decompiled C and document one weakness.
+\end{stepbox}
+
+\begin{deliverbox}
+A 1-page write-up containing: source + hash, architecture, filesystem layout, one finding with reproduction steps, CWE classification, and the disclosure email you would send.
+\end{deliverbox}
+
+\begin{warnbox}
+Do not test findings against any device you do not own. Do not publish exploit code before vendor disclosure. Keep proof-of-concept code in a private repository.
+\end{warnbox}
+\end{document}

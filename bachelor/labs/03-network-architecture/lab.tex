@@ -1,0 +1,462 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\labNumber{03}
+\def\labTitle{Network Architecture -- Purdue, Zones, and Conduits}
+\def\labSection{03}
+\def\labTime{75--90 min}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Treat the lab Docker stack as a tiny plant. (a) Discover every host on the
+\texttt{172.28.0.0/16} network and pin each one to a Purdue level.
+(b) Probe which TCP ports are reachable from the \emph{student} container --
+those are the \emph{conduits} that exist today.
+(c) Capture one Modbus poll, count packets per direction, and decide whether
+each source--destination pair is in policy.
+(d) Write a deny-by-default \texttt{nftables} ruleset that enforces the zone
+boundaries you drew.
+\end{goalbox}
+
+\begin{notebox}{}
+\textbf{IT analogy first.} A Purdue level is just a \emph{DMZ tier}: L0--L2
+is the inside LAN (databases, internal services), L3 is your application
+tier, L3.5 is the classical DMZ (reverse proxies, jump hosts), L4--L5 is
+the office / Internet edge. A \emph{zone} is an AWS VPC + security group; a
+\emph{conduit} is one explicit security-group rule between two VPCs. The
+only OT twist is that the wire itself is part of the boundary, so VLAN
+hopping and switch-port misconfiguration become a security problem, not
+just a networking problem.
+\end{notebox}
+
+\section*{Pre-flight}
+
+\begin{stepbox}{0 -- Bring up the stack and shell into the student}
+You did this in Lab 02; the same commands apply.
+\begin{lstlisting}[language=bash]
+cd bachelor/labs/_stack
+docker compose up -d
+docker compose ps          # every service should show "Up" / "running"
+\end{lstlisting}
+
+Every command below runs \emph{inside} the \texttt{student} container --
+that container plays the role of an engineering workstation parked on the
+plant network. Open a shell in it:
+
+\begin{lstlisting}[language=bash]
+docker compose exec student bash
+# you are now 172.28.0.20 on the is-lab bridge network
+ip -4 addr show eth0 | grep inet
+ip route
+\end{lstlisting}
+
+Expected: one IPv4 address \texttt{172.28.0.20/16} on \texttt{eth0} and a
+default route via \texttt{172.28.0.1} (the Docker bridge gateway). If you
+do not see \texttt{172.28.0.20}, stop and fix the stack before continuing.
+\end{stepbox}
+
+\section*{Part A -- Host discovery and Purdue mapping}
+
+\begin{stepbox}{1 -- Sweep the lab subnet with nmap}
+From inside the student container:
+\begin{lstlisting}[language=bash]
+nmap -sn -n 172.28.0.0/24
+\end{lstlisting}
+
+\texttt{-sn} skips port scanning and just pings (ICMP + ARP on a local
+bridge). \texttt{-n} disables DNS. You should see at least five hosts up:
+
+\begin{lstlisting}
+Nmap scan report for 172.28.0.1     # Docker bridge gateway
+Nmap scan report for 172.28.0.5     # landing  (web overview)
+Nmap scan report for 172.28.0.6     # openplc-init (sidecar, may be gone)
+Nmap scan report for 172.28.0.10    # openplc  (soft PLC, Modbus)
+Nmap scan report for 172.28.0.11    # opcua    (OPC UA server)
+Nmap scan report for 172.28.0.12    # mqtt     (Mosquitto broker)
+Nmap scan report for 172.28.0.20    # student  (you)
+\end{lstlisting}
+
+The \texttt{openplc-init} container is a short-lived bootstrap and may
+already be \texttt{Exited}; nmap will then not list \texttt{.6}. That is
+fine.
+\end{stepbox}
+
+\begin{stepbox}{2 -- Fingerprint each host (per-port banner)}
+\texttt{-sV} probes the open ports and tries to identify the service. Run
+it once per host so the output is readable:
+\begin{lstlisting}[language=bash]
+nmap -Pn -sV -p 1-10000 172.28.0.10   # openplc
+nmap -Pn -sV -p 1-10000 172.28.0.11   # opcua
+nmap -Pn -sV -p 1-10000 172.28.0.12   # mqtt
+nmap -Pn -sV -p 1-10000 172.28.0.5    # landing
+\end{lstlisting}
+
+Roughly what you should see:
+
+\begin{lstlisting}
+172.28.0.10  502/tcp  open  modbus
+             8080/tcp open  http-proxy   (OpenPLC web UI)
+172.28.0.11  4840/tcp open  opcua-binary (open62541)
+172.28.0.12  1883/tcp open  mqtt         (Mosquitto)
+172.28.0.5   80/tcp   open  http         (nginx -- landing page)
+\end{lstlisting}
+
+\texttt{-Pn} skips host discovery (treat host as up); useful because some
+containers may not respond to ICMP. If \texttt{-sV} guesses ``unknown''
+just record the raw port -- the OPC UA fingerprint is sometimes blank.
+\end{stepbox}
+
+\begin{stepbox}{3 -- Map each host to a Purdue level}
+On paper or in your notes, fill in the table below. Think about
+\emph{function}, not IP.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{|l|l|l|l|}
+\hline
+\textbf{Host} & \textbf{Role in the ``plant''} & \textbf{Purdue level} & \textbf{IT analogue} \\
+\hline
+172.28.0.10 (openplc)  & ?  & ?  & ? \\
+172.28.0.11 (opcua)    & ?  & ?  & ? \\
+172.28.0.12 (mqtt)     & ?  & ?  & ? \\
+172.28.0.5  (landing)  & ?  & ?  & ? \\
+172.28.0.20 (student)  & ?  & ?  & ? \\
+\hline
+\end{tabular}
+\end{center}
+
+\textbf{Hint.} OpenPLC controls a (simulated) physical process $\rightarrow$
+that is L1 (basic control) and the simulated I/O behind it is L0. The OPC
+UA server is the canonical SCADA/HMI plant-data broker $\rightarrow$ L2.
+MQTT is normally an IIoT broker that aggregates plant data for upper tiers
+$\rightarrow$ L3 or L3.5. The landing page is just an enterprise-facing
+HTML overview $\rightarrow$ L4. The student container is an engineering
+workstation; in a real plant it would sit at L2 or in the iDMZ.
+
+\emph{One sentence per host explaining why.}
+\end{stepbox}
+
+\begin{stepbox}{4 -- Draw the zones-and-conduits diagram}
+Take any tool you like -- pen and paper, \texttt{draw.io},
+\texttt{excalidraw}, \texttt{mermaid} -- and draw the lab stack as zones
+and conduits:
+
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item One rectangle per \emph{zone}, labelled with a Purdue level and an
+        IEC 62443 SL-T target (1--4). At minimum: a \textbf{Control zone}
+        (PLC + its I/O), a \textbf{Supervisory zone} (HMI / OPC UA), an
+        \textbf{IIoT/iDMZ zone} (MQTT broker), an \textbf{Enterprise
+        zone} (landing page).
+  \item One arrow per \emph{conduit}. Label each arrow with the protocol
+        and TCP port (e.g.\ ``Modbus/TCP 502'').
+  \item Mark the conduit you would replace with a \textbf{hardware data
+        diode} if this were a safety-critical plant.
+\end{itemize}
+
+\textbf{IT analogue:} this is the same diagram you would draw for a
+three-tier web app -- web tier, app tier, DB tier -- except the boxes are
+labelled by Purdue level and the only sanctioned arrows are conduits.
+\end{stepbox}
+
+\section*{Part B -- What is actually reachable?}
+
+\begin{stepbox}{5 -- From the student, probe every service}
+The student container can talk to \emph{everything} because the Docker
+bridge does not enforce inter-container ACLs. Verify it:
+\begin{lstlisting}[language=bash]
+# TCP connect on every well-known industrial port
+for h in 172.28.0.5 172.28.0.10 172.28.0.11 172.28.0.12; do
+  echo "--- $h ---"
+  nmap -Pn -n --open -p 80,502,1883,4840,8080 $h
+done
+\end{lstlisting}
+
+You should see \texttt{.5:80}, \texttt{.10:502}, \texttt{.10:8080},
+\texttt{.11:4840}, \texttt{.12:1883} all \textbf{open}. The student
+container therefore has a path to \emph{every} Purdue level -- enterprise
+web, IIoT broker, supervisory OPC UA, and L1 Modbus. \textbf{In a real
+plant this is exactly what you want a firewall to prevent.}
+\end{stepbox}
+
+\begin{stepbox}{6 -- Enumerate today's conduits}
+Each \texttt{open} port observed in step 5 is a conduit that exists right
+now in the stack. Write them down in this form:
+
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{|l|l|l|l|l|}
+\hline
+\textbf{From zone} & \textbf{To zone} & \textbf{Protocol} & \textbf{Port} & \textbf{In policy?} \\
+\hline
+student (engineering WS) & openplc (L1) & Modbus/TCP    & 502  & ?  \\
+student (engineering WS) & openplc (L1) & HTTP (web UI) & 8080 & ?  \\
+student (engineering WS) & opcua  (L2)  & OPC UA binary & 4840 & ?  \\
+student (engineering WS) & mqtt   (L3)  & MQTT          & 1883 & ?  \\
+student (engineering WS) & landing(L4)  & HTTP          & 80   & ?  \\
+\hline
+\end{tabular}
+\end{center}
+
+\textbf{Question to answer in your notes:} of these five conduits, which
+two are obviously legitimate for an engineering workstation, and which
+three are red flags? (Hint: an engineer should never reach the
+\emph{enterprise} web tier through the plant network, and they should not
+have a TCP path to a public IIoT broker either.)
+\end{stepbox}
+
+\section*{Part C -- Capture a real conduit and count the packets}
+
+\begin{stepbox}{7 -- Start tcpdump in one shell}
+Open a \emph{second} shell into the student container (leave the first
+one for the Modbus client):
+\begin{lstlisting}[language=bash]
+docker compose exec student bash
+mkdir -p /labs/captures
+tcpdump -i eth0 -nn -w /labs/captures/lab03.pcap host 172.28.0.10
+\end{lstlisting}
+
+\texttt{tcpdump} writes a pcap of every frame between this host and the
+PLC. The capture is mounted to \texttt{bachelor/labs/\_stack/captures/}
+on your host so you can open it in Wireshark later.
+\end{stepbox}
+
+\begin{stepbox}{8 -- Generate one Modbus exchange in the first shell}
+Back in your first student shell:
+\begin{lstlisting}[language=bash]
+python3 /labs/scripts/modbus_read.py
+\end{lstlisting}
+
+Expected output: \texttt{Registers 0..9: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}
+(values depend on the running ladder).
+
+Now stop tcpdump in the second shell with \texttt{Ctrl-C}. You should see
+something like \texttt{14 packets captured} -- the TCP handshake (3) plus
+the Modbus read request/response pair with their ACKs plus the FIN/ACK
+teardown (4).
+\end{stepbox}
+
+\begin{stepbox}{9 -- Count packets per direction with tshark}
+Still inside the student container:
+\begin{lstlisting}[language=bash]
+# total packets
+tshark -r /labs/captures/lab03.pcap | wc -l
+
+# packets student -> plc
+tshark -r /labs/captures/lab03.pcap \
+       -Y 'ip.src == 172.28.0.20 && ip.dst == 172.28.0.10' | wc -l
+
+# packets plc -> student
+tshark -r /labs/captures/lab03.pcap \
+       -Y 'ip.src == 172.28.0.10 && ip.dst == 172.28.0.20' | wc -l
+
+# only Modbus application-layer messages
+tshark -r /labs/captures/lab03.pcap -Y 'mbtcp' \
+       -T fields -e ip.src -e ip.dst -e mbtcp.trans_id -e modbus.func_code
+\end{lstlisting}
+
+Typical result: roughly equal counts in each direction (every TCP packet
+is acknowledged), and exactly \emph{two} Modbus application-layer
+messages -- function code \texttt{3} request (read holding registers) and
+function code \texttt{3} response.
+
+\textbf{Why this matters.} In a real plant, ``one read every 200\,ms''
+becomes thousands of packets per minute on a single conduit. Knowing
+\emph{request/response pairs vs.\ raw packet count} is the difference
+between a useful baseline and a misleading one when you later write IDS
+signatures (Lab 08).
+\end{stepbox}
+
+\begin{stepbox}{10 -- List unique source--destination pairs}
+\begin{lstlisting}[language=bash]
+tshark -r /labs/captures/lab03.pcap \
+       -T fields -e ip.src -e ip.dst \
+  | sort -u
+\end{lstlisting}
+
+Expected: exactly two lines -- \texttt{172.28.0.20 $\rightarrow$ 172.28.0.10}
+and \texttt{172.28.0.10 $\rightarrow$ 172.28.0.20}. If you see more, you
+either captured broadcasts or some other student talked to the PLC during
+your capture window. Note any extra pair in your notes -- in a real
+investigation, every unexpected pair is a potential lateral-movement
+indicator.
+\end{stepbox}
+
+\section*{Part D -- Propose a firewall ruleset}
+
+\begin{stepbox}{11 -- Draft a deny-by-default nftables ruleset}
+\textbf{You do not apply this to the stack -- you write it.} The
+exercise is to design the rules that \emph{would} enforce the zone
+boundaries you drew in step 4.
+
+\textbf{Policy in plain language:}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Allow the engineering workstation (\texttt{172.28.0.20}) to read
+        Modbus on the PLC (\texttt{172.28.0.10:502/tcp}).
+  \item Allow the engineering workstation to reach the OpenPLC engineering
+        web UI on \texttt{172.28.0.10:8080/tcp}.
+  \item Allow the supervisory zone (here also \texttt{172.28.0.20} -- a
+        real plant would have a separate HMI host) to talk OPC UA to
+        \texttt{172.28.0.11:4840/tcp}.
+  \item Allow the PLC to push telemetry to the IIoT broker on
+        \texttt{172.28.0.12:1883/tcp} -- \emph{outbound only from the
+        PLC}, never inbound to it (iron rule: push from OT, pull from IT).
+  \item Deny everything else, log the deny.
+\end{itemize}
+
+A minimal \texttt{nftables} sketch (write this in a file, do not run it):
+
+\begin{lstlisting}[language=bash]
+# /etc/nftables.conf  (proposed -- not applied)
+table inet plant {
+  chain forward {
+    type filter hook forward priority 0; policy drop;
+
+    ct state established,related accept
+
+    # Engineering WS  -->  PLC (Modbus + engineering web)
+    ip saddr 172.28.0.20 ip daddr 172.28.0.10 tcp dport { 502, 8080 } accept
+
+    # Supervisory (same host in this lab)  -->  OPC UA server
+    ip saddr 172.28.0.20 ip daddr 172.28.0.11 tcp dport 4840 accept
+
+    # PLC pushes telemetry  -->  MQTT broker (one-way: PLC initiates)
+    ip saddr 172.28.0.10 ip daddr 172.28.0.12 tcp dport 1883 \
+        ct state new,established accept
+
+    # Anything else: log and drop
+    log prefix "plant-drop: " flags all counter drop
+  }
+}
+\end{lstlisting}
+
+\textbf{Things to notice} (write a one-line note for each):
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item The \emph{first} matching rule is \texttt{ct state established}.
+        Without it, the response packet from the PLC back to the
+        workstation is dropped and your TCP session never completes.
+  \item There is no rule that allows the broker
+        (\texttt{172.28.0.12}) to initiate anything inbound to the PLC.
+        That is the ``push from OT, pull from IT'' iron rule from the
+        slides expressed in iptables/nftables vocabulary.
+  \item Every deny is logged. In a real plant that log is the input to
+        the IDS in Lab 08.
+\end{itemize}
+\end{stepbox}
+
+\begin{stepbox}{12 -- Same idea as an iptables ruleset (optional)}
+If you grew up on iptables, here is the equivalent first three rules --
+just for comparison. Do not apply.
+\begin{lstlisting}[language=bash]
+iptables -P FORWARD DROP
+iptables -A FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A FORWARD -s 172.28.0.20 -d 172.28.0.10 -p tcp \
+         -m multiport --dports 502,8080 -j ACCEPT
+iptables -A FORWARD -s 172.28.0.20 -d 172.28.0.11 -p tcp \
+         --dport 4840 -j ACCEPT
+iptables -A FORWARD -s 172.28.0.10 -d 172.28.0.12 -p tcp \
+         --dport 1883 -j ACCEPT
+iptables -A FORWARD -j LOG --log-prefix "plant-drop: "
+iptables -A FORWARD -j DROP
+\end{lstlisting}
+\end{stepbox}
+
+\section*{Troubleshooting}
+
+\begin{stepbox}{T -- What if it does not work}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item \texttt{nmap -sn} returns nothing $\rightarrow$ you are running it
+        from your host, not from inside the student container. Use
+        \texttt{docker compose exec student bash} first.
+  \item \texttt{nmap -sV} on \texttt{172.28.0.10:502} shows
+        \texttt{filtered} $\rightarrow$ the openplc-init sidecar has not
+        finished. Wait $\sim$20\,s after \texttt{up -d} or check
+        \texttt{docker logs is-openplc-init}.
+  \item \texttt{tcpdump: eth0: You don't have permission} $\rightarrow$
+        the student container is missing \texttt{NET\_RAW}; re-run
+        \texttt{docker compose up -d} so it picks up
+        \texttt{cap\_add: NET\_RAW} from the compose file.
+  \item \texttt{tshark} complains it cannot dissect
+        \texttt{modbus/mbtcp} $\rightarrow$ on some builds the field
+        is \texttt{mbtcp} not \texttt{modbus}; both filters work in the
+        examples above.
+  \item Your capture has zero packets $\rightarrow$ you ran
+        \texttt{modbus\_read.py} \emph{before} tcpdump was listening.
+        Order matters: start the dump first, then the client.
+\end{itemize}
+\end{stepbox}
+
+\section*{Stretch goal}
+
+\begin{stepbox}{S -- Policy audit from a fresh capture}
+Generate a slightly noisier capture and audit every flow against your
+own ruleset:
+\begin{lstlisting}[language=bash]
+# in one shell
+tcpdump -i eth0 -nn -w /labs/captures/lab03-audit.pcap \
+        'host 172.28.0.10 or host 172.28.0.11 or host 172.28.0.12'
+
+# in a second shell, generate a mix
+python3 /labs/scripts/modbus_read.py
+python3 /labs/scripts/opcua_browse.py
+python3 /labs/scripts/mqtt_publish.py  || true   # OK if broker silent
+
+# stop the dump (Ctrl-C in shell 1), then:
+tshark -r /labs/captures/lab03-audit.pcap \
+       -T fields -e ip.src -e ip.dst -e tcp.dstport \
+  | sort -u
+\end{lstlisting}
+
+For each unique \texttt{(src, dst, dport)} triple decide: would my
+nftables rules from step 11 \textbf{accept} or \textbf{drop} this flow?
+Anything that should be dropped but currently passes through the Docker
+bridge is a real-world finding -- record it.
+\end{stepbox}
+
+\begin{deliverbox}
+Hand in a single PDF with:
+\begin{enumerate}\setlength{\itemsep}{2pt}
+  \item The host table from step 3 (Purdue level + one-sentence
+        justification per host).
+  \item The zones-and-conduits diagram from step 4 (drawing or
+        screenshot). Mark the data-diode candidate.
+  \item The conduit table from step 6, with the ``in policy / red flag''
+        column filled in.
+  \item Your packet counts from step 9 (total, per-direction, Modbus
+        application-layer) and the unique src/dst list from step 10.
+  \item Your \texttt{nftables} ruleset from step 11, plus the three
+        one-line notes at the bottom of the step.
+\end{enumerate}
+Optional: stretch-goal audit table from step S.
+\end{deliverbox}
+
+\section*{References}
+
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item T.J. Williams, \emph{The Purdue Enterprise Reference
+        Architecture}, Computers in Industry, 1994.
+  \item IEC 62443-3-2:2020, \emph{Security risk assessment for system
+        design} (zones and conduits).
+  \item IEC 62443-3-3:2013, FR\,5 -- \emph{Restricted Data Flow}.
+  \item K. Stouffer et al., \emph{NIST SP 800-82 Rev.\,3 -- Guide to OT
+        Security}, Sep 2023.
+  \item Idaho National Lab, \emph{Improving Industrial Control System
+        Cybersecurity with Defense-in-Depth Strategies}, 2016.
+  \item Netfilter project, \texttt{nftables} wiki:
+        \url{https://wiki.nftables.org/}.
+\end{itemize}
+
+\begin{warnbox}
+Everything in this lab runs inside the lab containers. Do \emph{not}
+point \texttt{nmap}, \texttt{tcpdump}, or any of these scripts at hosts,
+PLCs, or networks that you do not own. On a production OT network, even
+a passive \texttt{nmap -sV} can crash legacy equipment -- vendors have
+documented PLCs that fault on a single TCP SYN to an unexpected port.
+The Docker stack here is intentionally flat (no firewall between
+containers) so you can \emph{see} the problem that real plants use the
+techniques in this lab to fix.
+\end{warnbox}
+\end{document}

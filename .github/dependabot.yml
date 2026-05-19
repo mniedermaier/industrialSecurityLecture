@@ -1,0 +1,17 @@
+version: 2
+updates:
+  # Keep the GitHub Actions used in our workflows up to date.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    labels: [ci, dependencies]
+
+  # Keep the student container's pinned base image up to date.
+  - package-ecosystem: "docker"
+    directory: "/bachelor/labs/_stack/student"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 3
+    labels: [docker, dependencies, labs]

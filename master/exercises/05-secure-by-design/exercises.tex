@@ -1,0 +1,41 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\sectionNumber{05}
+\def\sectionTitle{Secure-by-Design Architectures}
+\def\sheetKind{Exercise Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 5.1 -- FEED-Phase Workshop}
+Imagine a greenfield 200-MW combined-cycle gas turbine. Draft a 1-page document for the FEED phase that:
+\begin{itemize}
+  \item Lists the four zones with target SLs.
+  \item Names every conduit + protocol + direction.
+  \item Identifies one place where a data diode is appropriate and one where it is not.
+\end{itemize}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 5.2 -- Vendor SDL Checklist}
+Build the security clauses for a PLC vendor RFQ:
+\begin{enumerate}
+  \item IEC 62443-4-1 conformance evidence.
+  \item SBOM format + delivery cadence.
+  \item Vulnerability handling SLA.
+  \item Long-term support window.
+  \item Signed firmware + signed program downloads.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 5.3 -- Acceptance Test Procedure}
+Write the ATP for one of: (a) HMI workstation, (b) SCADA server, (c) site firewall. Include hardening checks, baseline traffic capture, vuln scan, backup/restore drill.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 5.4 -- Brownfield Roadmap}
+For an existing 1990s refinery, produce a 5-year migration roadmap (Y1: visibility, Y2: segment + MFA, ...). Each year: deliverables, owner, cost band, risk reduced.
+\end{taskbox}
+
+\end{document}

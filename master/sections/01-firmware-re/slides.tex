@@ -1,0 +1,180 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\courseSubtitle{Section 01 -- Firmware Reverse Engineering}
+\def\sectionNumber{01}
+\def\sectionTitle{Firmware Reverse Engineering}
+
+\input{../../../template/slides-preamble.tex}
+
+\begin{document}
+
+\sectionoverviewframe
+
+\learningobjectives{
+  \item Source firmware images lawfully and verify their integrity.
+  \item Identify the architecture, bootloader, and root filesystem inside an image.
+  \item Use \texttt{binwalk}, \texttt{firmware-mod-kit}, and Ghidra to peel a firmware.
+  \item Recognise common backdoors and hard-coded secrets.
+  \item Explain the responsible-disclosure path for ICS findings.
+}
+
+\section{Why Firmware Matters}
+
+\begin{frame}{Why Firmware Reverse Engineering for ICS?}
+\centering
+\begin{tikzpicture}[node distance=8mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=32mm, font=\small] (vend) {Vendor};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of vend, minimum width=32mm, font=\small] (img) {Firmware image};
+  \node[plc, right=of img, minimum width=22mm] (plc) {PLC};
+  \draw[flow] (vend) -- (img); \draw[flow] (img) -- (plc);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{importantbox}{The opaque box}
+Without firmware analysis the asset owner only sees what the vendor chooses to document. Backdoors, hard-coded credentials, and weak crypto often hide here.
+\end{importantbox}
+\end{frame}
+
+\begin{frame}{Famous ICS Firmware Findings}
+\begin{itemize}
+  \item \textbf{Project Basecamp (2012)} -- 16 PLC families with hard-coded credentials.
+  \item \textbf{Schneider M340 (2018)} -- Modicon firmware downgrade without signing.
+  \item \textbf{Siemens S7-1200 (2019)} -- engineering-tool backdoor for bootloader updates.
+  \item \textbf{CODESYS Runtime (2023)} -- \emph{Code16} suite, 16 CVEs affecting hundreds of products.
+  \item \textbf{Boa web server} -- abandoned upstream, still in many ICS HMIs (Microsoft, 2022).
+\end{itemize}
+\begin{notebox}{Pattern}
+Long product lifecycles + slow vendor patching + shared third-party code $=$ systemic risk.
+\end{notebox}
+\end{frame}
+
+\section{Sourcing and Triage}
+
+\begin{frame}{Lawfully Acquiring a Firmware Image}
+\begin{itemize}
+  \item Vendor support portal (per warranty / contract).
+  \item Downloaded from a device you own (read-out tools, JTAG).
+  \item Public update CDN (URLs often discoverable via cached references).
+  \item Manufacturer's open partner programme (Siemens Industry Online, Rockwell PCDC).
+\end{itemize}
+\begin{warnbox}{Compliance}
+Reverse engineering is often legally permitted for security research and interoperability. Check your jurisdiction; in the EU see Directive 2009/24/EC and the CRA's research safe-harbour.
+\end{warnbox}
+\end{frame}
+
+\begin{frame}[fragile]{First Pass with \texttt{binwalk}}
+\begin{lstlisting}[language=bash]
+$ binwalk -e firmware.bin
+DECIMAL    HEX        DESCRIPTION
+0          0x0        uImage header, header size: 64 bytes, ...
+64         0x40       LZMA compressed data, ...
+1572864    0x180000   Squashfs filesystem, little endian, ...
+\end{lstlisting}
+\vspace{2mm}
+\begin{notebox}{Signals}
+File magic at well-known offsets, recognisable compression algorithms, sane image checksum -- and you have probably found bootloader, kernel, and root filesystem.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{Triage Workflow}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=30mm, font=\small] (a) {Identify ISA};
+  \node[isbox, fill=isOT!15, draw=isOT, right=of a, minimum width=30mm, font=\small] (b) {Extract FS};
+  \node[isbox, fill=isOT!15, draw=isOT, right=of b, minimum width=30mm, font=\small] (c) {Find entry points};
+  \node[isbox, fill=isOT!15, draw=isOT, right=of c, minimum width=30mm, font=\small] (d) {Disassemble};
+  \draw[flow] (a)--(b); \draw[flow] (b)--(c); \draw[flow] (c)--(d);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{tipbox}{Cheap wins first}
+Before opening Ghidra, run \texttt{strings}, \texttt{grep -i pass\textbar key\textbar token}, and look at \texttt{/etc/passwd}. Many findings sit on the surface.
+\end{tipbox}
+\end{frame}
+
+\section{Deep Analysis}
+
+\begin{frame}{Architecture Identification}
+\centering
+\begin{tikzpicture}[node distance=4mm, x=3.2cm]
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=30mm, font=\small] at (0,0) {ARM (Cortex-M / A)};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=30mm, font=\small] at (1,0) {MIPS (legacy)};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=30mm, font=\small] at (2,0) {PowerPC};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=30mm, font=\small] at (3,0) {Renesas RX/RH};
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{Detection tools}
+\texttt{file}, \texttt{binwalk -A}, \texttt{cpu\_rec}, and the Ghidra ``Auto Analyze'' loader. Cross-check against the chip on the actual board if you can.
+\end{notebox}
+\end{frame}
+
+\begin{frame}[fragile]{Hunting Hard-coded Secrets}
+\begin{lstlisting}[language=bash]
+$ strings -n 8 -a firmware.bin | grep -iE 'password|key|secret|admin'
+admin
+Admin123
+SerialPort_default_key=4f6b5e...
+$ binwalk -E firmware.bin     # high-entropy regions often hide keys
+\end{lstlisting}
+\begin{importantbox}{Red flags}
+Strings like ``admin'' adjacent to ``pass...'', high-entropy 16/32-byte blobs near init code, repeated keys across firmware versions.
+\end{importantbox}
+\end{frame}
+
+\begin{frame}{Ghidra for ICS Firmware}
+\centering
+\begin{tikzpicture}[node distance=6mm]
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=40mm, font=\small] (load) {Load + auto-analyse};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of load, minimum width=40mm, font=\small] (decomp) {Find protocol handlers};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of decomp, minimum width=40mm, font=\small] (audit) {Audit auth / crypto};
+  \draw[flow] (load) -- (decomp); \draw[flow] (decomp) -- (audit);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{tipbox}{Workflow tip}
+For repeat work, save your Ghidra project per vendor family. Common findings (Modbus parser, web admin, OTA verifier) tend to recur across products.
+\end{tipbox}
+\end{frame}
+
+\section{Responsible Disclosure}
+
+\begin{frame}{The Disclosure Path}
+\centering
+\begin{tikzpicture}[node distance=6mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=28mm, font=\small] (find) {Finding};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of find, minimum width=28mm, font=\small] (vend) {Vendor PSIRT};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of vend, minimum width=28mm, font=\small] (cert) {National CERT};
+  \node[isbox, fill=isPLC!15, draw=isPLC, right=of cert, minimum width=28mm, font=\small] (adv) {Coordinated advisory};
+  \draw[flow] (find)--(vend); \draw[flow] (vend)--(cert); \draw[flow] (cert)--(adv);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{Timelines}
+Common practice: 90 days vendor + 30 day grace. ICS vendors often need longer (180 days) because of co-ordinated firmware rollouts.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{Ethics and Safe-Harbour}
+\begin{itemize}
+  \item Do not test on production hardware unless it is yours.
+  \item Do not weaponise findings before vendor disclosure is complete.
+  \item Keep proof-of-concept code in a private repo until co-ordinated release.
+  \item Track legal cover (DMCA \S1201 in the US, EU CRA research safe-harbour, BSI \S202c in Germany).
+\end{itemize}
+\begin{warnbox}{Hard line}
+A finding obtained on equipment you do not own (or are not authorised to test) is contaminated -- no responsible publication channel will accept it.
+\end{warnbox}
+\end{frame}
+
+\begin{frame}{Summary -- Section \sectionNumber}
+\begin{takeawaybox}{Firmware RE for ICS in one breath}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Source the image lawfully, verify integrity, identify the architecture.
+  \item \texttt{binwalk} + \texttt{strings} answer 80\% of triage questions for free.
+  \item Open Ghidra only after the cheap signals are exhausted.
+  \item Hard-coded credentials and unauthenticated firmware-update paths are still common findings in 2020s ICS devices.
+  \item Coordinated disclosure (vendor + national CERT) is the only ethical publication route.
+\end{itemize}
+\end{takeawaybox}
+\end{frame}
+
+\closingframe
+
+\end{document}

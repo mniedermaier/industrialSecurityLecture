@@ -1,0 +1,29 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\sectionNumber{03}
+\def\sectionTitle{Advanced Industrial Protocols}
+\def\sheetKind{Solution Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 3.1 -- S7commPlus (mark scheme)}
+Pass requires: correct version identification (v3 for S7-1500), correct location of the two challenge fields, working KDF in Python that produces the same key as derived in the paper, and a decrypted read-request matching the actual tag name.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 3.2 -- GOOSE Spoof (mark scheme)}
+The student must show: capture vs.\ spoof PCAP side-by-side, the subscriber accepting the higher-\texttt{stNum} frame, and the only effective mitigation -- IEC 62351-6 signed GOOSE (or strict L2 isolation as a workaround).
+\end{taskbox}
+
+\begin{taskbox}{Exercise 3.3 -- Scapy Dissector (mark scheme)}
+Award marks for: layer that round-trips (encode/decode) at least one captured frame, working replay against a test client, and an honest limits section (no support for fragmentation, no encryption, single endpoint only).
+\end{taskbox}
+
+\begin{taskbox}{Exercise 3.4 -- Fuzz Harness}
+A clean answer documents: harness, mutation strategy, observed behaviour (crash backtrace, hang, watchdog reset), CWE mapping (CWE-787 OOB write, CWE-400 resource exhaustion, etc.), and a vendor-disclosure note.
+\end{taskbox}
+
+\end{document}

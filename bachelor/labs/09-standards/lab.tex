@@ -1,0 +1,312 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\labNumber{09}
+\def\labTitle{IEC 62443-3-2 -- Zone \& Conduit Risk Assessment}
+\def\labSection{09}
+\def\labTime{75--105 min}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Walk the lab plant through a complete IEC 62443-3-2 risk assessment: identify the System under Consideration, partition it into security zones, enumerate the conduits between them, score the unmitigated risk, assign a target Security Level (SL-T) per zone, map the seven Foundational Requirements to each zone, and produce a one-page \emph{Zone \& Conduit Drawing} you could hand to an auditor. Cross-reference NIS2 Annex II. The intent is documentation-heavy and policy-flavoured -- you write more than you type.
+\end{goalbox}
+
+\begin{warnbox}
+This lab is paper-style: most artefacts are tables and diagrams you draft yourself. The only commands are passive reconnaissance against the lab containers. Do not point any of the scans at hosts outside \texttt{172.28.0.0/16}.
+\end{warnbox}
+
+\section*{Background -- what is a zone-and-conduit risk assessment?}
+
+IEC 62443-3-2 (\emph{Security risk assessment for system design}) defines a seven-step workflow called the \emph{Zone and Conduit Requirements (ZCR)}. The mental model is the same as a fire-safety review: split the plant into compartments (\emph{zones}) joined by clearly named pipes (\emph{conduits}); rate the consequence and likelihood of an incident in each compartment; assign a target rigor (\emph{Security Level Target, SL-T}, 1--4); map that rigor to specific engineering duties (\emph{Foundational Requirements}, FR\,1--7) drawn from IEC 62443-3-3.
+
+You do not need any electrical-engineering background to do this. Everything below is networking, system administration, and structured writing. The lab plant is the same Docker stack you have used since Lab 01; treat it as a \emph{very small} manufacturing-of-motor-vehicles cell (a single press, one HMI, one engineering workstation, one IIoT broker).
+
+\section*{Pre-flight}
+
+\begin{stepbox}{0 -- Stack up}
+From the stack directory, bring everything up and confirm all six services are healthy:
+\begin{lstlisting}[language=bash]
+cd bachelor/labs/_stack
+docker compose up -d
+docker compose ps
+\end{lstlisting}
+You should see \texttt{openplc}, \texttt{opcua}, \texttt{mqtt}, \texttt{student}, \texttt{landing}, and \texttt{zeek} all running. If any are restarting, fix the stack before continuing -- ZCR\,1 depends on every container being reachable.
+\end{stepbox}
+
+\section*{ZCR 1 -- Identify the System under Consideration (SUC)}
+
+\begin{stepbox}{1 -- Asset inventory}
+The SUC is everything inside the boundary you draw around the plant. For this lab the SUC is the entire \texttt{is-lab} Docker network (\texttt{172.28.0.0/16}). Build a row per container. Use the running stack as ground truth:
+\begin{lstlisting}[language=bash]
+docker compose ps --format 'table {{.Service}}\t{{.Name}}\t{{.Status}}'
+docker network inspect industrial-security-labs_is-lab \
+  --format '{{range .Containers}}{{.Name}} {{.IPv4Address}}{{"\n"}}{{end}}'
+\end{lstlisting}
+Fill in the table below in your lab notebook. The first row is done for you.
+\medskip
+
+\noindent\small
+\begin{tabular}{@{}p{0.18\textwidth} p{0.16\textwidth} p{0.18\textwidth} p{0.40\textwidth}@{}}
+\toprule
+\textbf{Container} & \textbf{IP (172.28.x.y)} & \textbf{Purdue level} & \textbf{Function in the SUC} \\
+\midrule
+\texttt{openplc}   & 172.28.0.10 & L1 (PLC) & Soft PLC; Modbus TCP/502; OpenPLC web UI on 8080. Holds the control logic for the simulated press cycle. \\
+\texttt{opcua}     & 172.28.0.11 & L2 (SCADA-side) & open62541 example server on 4840; exposes process variables. \\
+\texttt{mqtt}      & 172.28.0.12 & L3 (IIoT) & Mosquitto broker on 1883; collects sensor / KPI messages for plant-floor dashboards. \\
+\texttt{student}   & 172.28.0.20 & L2 (Operations) & Engineering / operator workstation -- nmap, tshark, pymodbus. \\
+\texttt{landing}   & 172.28.0.5  & L3.5 (iDMZ) & Nginx serving the lab landing page and lab PDFs (read-only). \\
+\texttt{zeek}      & shares \texttt{openplc} netns & L1 monitor & Passive IDS sniffing all PLC traffic. Not addressable separately. \\
+\bottomrule
+\end{tabular}
+\medskip
+
+\emph{Deliverable for this step:} the completed asset-inventory table. Note explicitly that Zeek does not get its own IP -- it lives inside \texttt{openplc}'s network namespace, which is itself a small security finding (a compromised Zeek would have direct L1 access).
+\end{stepbox}
+
+\section*{ZCR 2 -- Partition the SUC into zones}
+
+\begin{stepbox}{2 -- Define at least three zones}
+A \emph{zone} is a set of assets that share the same security requirements -- same threat profile, same consequence-of-failure, same controls. Draw your zone boundaries with these defaults; justify each in one sentence:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Field Zone (Z-FIELD).} \texttt{openplc} + \texttt{opcua} + \texttt{zeek}. Justification: real-time process control; loss of integrity moves real material; same physical operator group; same SL-T candidate (high).
+  \item \textbf{Operations Zone (Z-OPS).} \texttt{student} + \texttt{mqtt}. Justification: engineering workstation and IIoT broker; humans-in-the-loop; different change-management cadence than the PLC; needs broad outbound reach for tools.
+  \item \textbf{Engineering / DMZ Zone (Z-DMZ).} \texttt{landing}. Justification: read-only documentation surface; the only zone reachable from the host (\texttt{127.0.0.1:8000}); lowest consequence, highest exposure.
+\end{itemize}
+Optionally split the Field Zone into \emph{Z-FIELD-CTRL} (openplc) and \emph{Z-FIELD-SCADA} (opcua) if you want to model a Level\,1 / Level\,2 split. Write your final zone list as a numbered set.
+\end{stepbox}
+
+\begin{stepbox}{2b -- Sketch the zone drawing}
+On paper, in \texttt{draw.io}, or in \texttt{excalidraw}: draw one box per zone. Inside each box, list the containers. Annotate each box with the Purdue level(s) it covers. Leave room around the boxes -- ZCR\,3 will add the conduits.
+\end{stepbox}
+
+\section*{ZCR 3 -- Identify the conduits}
+
+A \emph{conduit} is any communication path that crosses a zone boundary. Every conduit needs a name, the two zones it connects, the protocol, the L4 port, the direction, and the data sensitivity.
+
+\begin{stepbox}{3 -- Enumerate active flows}
+Use the \texttt{student} container -- it sits in \texttt{Z-OPS} and can reach every other zone. First, a port sweep:
+\begin{lstlisting}[language=bash]
+docker compose exec student nmap -sT -p- --open -T4 172.28.0.5,10,11,12
+\end{lstlisting}
+Then a short passive capture to catch any background chatter the sweep would not provoke:
+\begin{lstlisting}[language=bash]
+docker compose exec -d student tcpdump -i eth0 -w /labs/captures/lab09-conduits.pcap \
+  'net 172.28.0.0/16 and not arp'
+sleep 30
+docker compose exec student pkill -INT tcpdump
+docker compose exec student tshark -r /labs/captures/lab09-conduits.pcap \
+  -q -z conv,tcp 2>/dev/null | head -40
+\end{lstlisting}
+If you kept the PCAPs from Lab\,03 (the nmap sweeps) or Lab\,04 (the Modbus + OPC UA captures), reuse them -- this is exactly how a real auditor stitches evidence together across an engagement.
+\medskip
+
+Translate what you see into a conduit table. Below is the expected baseline; add or remove rows to match what your stack actually shows.
+\medskip
+
+\noindent\small
+\begin{tabular}{@{}p{0.13\textwidth} p{0.14\textwidth} p{0.16\textwidth} p{0.14\textwidth} p{0.10\textwidth} p{0.22\textwidth}@{}}
+\toprule
+\textbf{Conduit} & \textbf{From zone} & \textbf{To zone} & \textbf{Protocol} & \textbf{Port} & \textbf{Purpose / data} \\
+\midrule
+C1 -- MB    & Z-OPS   & Z-FIELD & Modbus TCP & 502  & PLC reads / writes; cleartext; no auth. \\
+C2 -- UA    & Z-OPS   & Z-FIELD & OPC UA     & 4840 & Process variable browse / subscribe. \\
+C3 -- MQTT  & Z-FIELD & Z-OPS   & MQTT       & 1883 & PLC $\to$ broker telemetry (if used). \\
+C4 -- HMI   & Z-OPS   & Z-FIELD & HTTP       & 8080 & OpenPLC web UI -- engineering config. \\
+C5 -- DOC   & Z-OPS   & Z-DMZ   & HTTP       & 80   & Read-only landing page \& lab PDFs. \\
+C6 -- HOST  & external & Z-DMZ  & HTTP       & 8000 & Host loopback view of the landing page. \\
+C7 -- MON   & Z-FIELD & (out)   & Zeek logs  & file & Filesystem writes to \texttt{./zeek-logs}. \\
+\bottomrule
+\end{tabular}
+\medskip
+
+\emph{Deliverable for this step:} the completed conduit table, with one row per observed flow. Conduits inside a single zone (intra-zone traffic) do not need to appear -- 62443 only cares about boundary crossings.
+\end{stepbox}
+
+\section*{ZCR 4 -- Score unmitigated risk per conduit}
+
+\begin{stepbox}{4 -- Likelihood $\times$ consequence, no controls assumed}
+Pretend every control you can see in the stack (the Docker bridge isolation, the OpenPLC login, Zeek) does \emph{not} exist. For each conduit, score \emph{likelihood} (L) and \emph{consequence} (C) on a 1--5 scale, then compute risk $R = L \times C$. Use this rubric:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Likelihood.} 1\,=\,requires nation-state proximity; 3\,=\,a competent intern with internet access; 5\,=\,already happens daily by accident.
+  \item \textbf{Consequence.} 1\,=\,nuisance; 3\,=\,a shift of lost production; 5\,=\,product damage, safety incident, or a regulator-visible event.
+\end{itemize}
+Suggested baseline (refine to match your stack):
+\medskip
+
+\noindent\small
+\begin{tabular}{@{}p{0.10\textwidth} p{0.28\textwidth} c c c p{0.30\textwidth}@{}}
+\toprule
+\textbf{Conduit} & \textbf{Unmitigated threat} & \textbf{L} & \textbf{C} & \textbf{R} & \textbf{Notes} \\
+\midrule
+C1 -- MB    & Anyone on \texttt{172.28.0.0/16} writes coils.                    & 5 & 5 & 25 & Modbus has no auth, no integrity. \\
+C2 -- UA    & Browse all process variables; anonymous endpoint.                 & 4 & 3 & 12 & Sample server lacks certificates. \\
+C3 -- MQTT  & Broker is open; any subscriber sees all telemetry.                & 4 & 2 &  8 & Confidentiality loss; safety unaffected. \\
+C4 -- HMI   & Web UI for the PLC reachable from Z-OPS.                          & 4 & 5 & 20 & Login form is the only barrier. \\
+C5 -- DOC   & Read-only PDF service.                                            & 2 & 1 &  2 & Stale content is the realistic risk. \\
+C6 -- HOST  & Host-side exposure of the landing port.                           & 3 & 1 &  3 & Localhost-only port mapping. \\
+C7 -- MON   & Zeek logs written to host filesystem; tamperable.                 & 2 & 3 &  6 & Loss of detection evidence. \\
+\bottomrule
+\end{tabular}
+\medskip
+
+\emph{Deliverable for this step:} your scored table. Two-line justification per row is enough -- this is where students who skim 62443 are exposed, so write proper sentences.
+\end{stepbox}
+
+\section*{ZCR 5 -- Assign SL-T per zone}
+
+\begin{stepbox}{5 -- Pick the target Security Level}
+IEC 62443-3-3 defines four Security Levels:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{SL\,1} -- protection against casual or coincidental violation.
+  \item \textbf{SL\,2} -- protection against intentional violation with low resources, generic skills, low motivation.
+  \item \textbf{SL\,3} -- protection against intentional violation with moderate resources, ICS-specific skills, moderate motivation.
+  \item \textbf{SL\,4} -- protection against intentional violation with extensive resources, ICS-specific skills, high motivation (nation-state).
+\end{itemize}
+Pick a target SL for each zone and write a one-sentence justification. The recommended assignment for this stack is:
+\medskip
+
+\noindent\small
+\begin{tabular}{@{}p{0.20\textwidth} c p{0.55\textwidth}@{}}
+\toprule
+\textbf{Zone} & \textbf{SL-T} & \textbf{Justification} \\
+\midrule
+Z-FIELD & SL-T\,3 & Worst-case consequence (product damage, safety) is high; the press is the only path to physical harm. A determined ICS-literate attacker (SL\,3 model) is realistic for a manufacturing site that ships globally. \\
+Z-OPS   & SL-T\,2 & Engineering and IIoT functions; consequence is operational not safety; threat actor is a phisher or commodity malware (SL\,2). \\
+Z-DMZ   & SL-T\,1 & Read-only public-ish surface; consequence of compromise is defacement of a documentation page. SL\,1 (accidental misuse) is sufficient -- raising it does not buy anything proportionate. \\
+\bottomrule
+\end{tabular}
+\medskip
+
+\emph{Why is Z-FIELD higher than Z-DMZ?} Because the field zone is the only path through which an attacker can move \emph{atoms}. The DMZ is bytes. SL-T scales with worst-case physical consequence, not with packet volume or with how interesting the zone looks on a network diagram.
+\end{stepbox}
+
+\section*{ZCR 6 -- Map IEC 62443-3-3 Foundational Requirements to each zone}
+
+\begin{stepbox}{6 -- Which FRs apply, at what SL?}
+IEC 62443-3-3 defines seven Foundational Requirements:
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item \textbf{FR\,1} -- Identification \& Authentication Control (IAC)
+  \item \textbf{FR\,2} -- Use Control (UC)
+  \item \textbf{FR\,3} -- System Integrity (SI)
+  \item \textbf{FR\,4} -- Data Confidentiality (DC)
+  \item \textbf{FR\,5} -- Restricted Data Flow (RDF)
+  \item \textbf{FR\,6} -- Timely Response to Events (TRE)
+  \item \textbf{FR\,7} -- Resource Availability (RA)
+\end{enumerate}
+For each zone, write down which FRs must be satisfied and at what SL. \emph{All seven apply to every zone}; the SL ladder is how you scale the rigor. A defensible baseline:
+\medskip
+
+\noindent\small
+\begin{tabular}{@{}p{0.18\textwidth} c c c c c c c@{}}
+\toprule
+\textbf{Zone (SL-T)} & \textbf{FR1} & \textbf{FR2} & \textbf{FR3} & \textbf{FR4} & \textbf{FR5} & \textbf{FR6} & \textbf{FR7} \\
+\midrule
+Z-FIELD (SL\,3) & 3 & 3 & 3 & 2 & 3 & 3 & 3 \\
+Z-OPS   (SL\,2) & 2 & 2 & 2 & 2 & 2 & 2 & 2 \\
+Z-DMZ   (SL\,1) & 1 & 1 & 1 & 1 & 1 & 1 & 1 \\
+\bottomrule
+\end{tabular}
+\medskip
+
+For Z-FIELD, write a one-line gloss per FR -- this turns the table into a control specification:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{FR\,1 (IAC) @ SL\,3} -- per-user accounts, no shared service accounts, MFA at least for engineering changes.
+  \item \textbf{FR\,2 (UC) @ SL\,3} -- role-based authorisation; engineers can download programs, operators only acknowledge alarms.
+  \item \textbf{FR\,3 (SI) @ SL\,3} -- signed or hashed firmware; alarm on any unauthorised PLC program change.
+  \item \textbf{FR\,4 (DC) @ SL\,2} -- field protocols rarely need confidentiality; downgrade is intentional, document it.
+  \item \textbf{FR\,5 (RDF) @ SL\,3} -- enforced segmentation; only the listed conduits exist, and each is filtered.
+  \item \textbf{FR\,6 (TRE) @ SL\,3} -- monitored 24/7; SOC playbook for Modbus anomalies; mean-time-to-detect documented.
+  \item \textbf{FR\,7 (RA) @ SL\,3} -- redundancy or hot-standby for the PLC; DoS resistance verified.
+\end{itemize}
+
+\emph{Deliverable for this step:} the FR-per-zone table plus the one-line gloss for the highest-SL zone.
+\end{stepbox}
+
+\section*{ZCR 7 -- Residual risk and recommended controls}
+
+\begin{stepbox}{7 -- Document residual risk}
+For each conduit from ZCR\,3, restore the controls that actually exist in the lab and write one line each: what is the \emph{residual risk} after the existing controls are credited, and what \emph{one} additional control would you recommend?
+
+Use this template (do at least the top three conduits):
+\medskip
+
+\noindent\small
+\begin{tabular}{@{}p{0.10\textwidth} p{0.30\textwidth} p{0.25\textwidth} p{0.25\textwidth}@{}}
+\toprule
+\textbf{Conduit} & \textbf{Existing controls (what credits to deduct)} & \textbf{Residual risk} & \textbf{Recommended next control} \\
+\midrule
+C1 -- MB  & Modbus only reachable from inside the bridge network; Zeek logs every write. & Anyone who lands on a Z-OPS host can still inject. & Application-layer firewall in front of TCP/502 that allow-lists function codes. \\
+C4 -- HMI & OpenPLC has a login form; port mapped to localhost only. & Weak default credentials; no MFA; session not recorded. & Move OpenPLC web UI behind a jump host with MFA and session recording. \\
+C7 -- MON & Zeek writes to a host-mounted volume. & Tampering with logs from the host. & Forward Zeek logs off-box (syslog over TLS) to a write-once collector. \\
+\bottomrule
+\end{tabular}
+\medskip
+
+\emph{Deliverable for this step:} the residual-risk table for at least three conduits, plus the \emph{one-page Zone \& Conduit Drawing}: zones as boxes, conduits as labelled arrows, SL-T inside each box, and a small legend that lists the seven FRs. This single page is the artefact a 62443-3-2 auditor will ask for first.
+\end{stepbox}
+
+\section*{Cross-reference -- NIS2 Annex II}
+
+\begin{stepbox}{8 -- Does NIS2 apply if the lab plant were real?}
+Treat the lab plant as a \emph{manufacturing of motor vehicles} cell (Annex II, Sector 5: \emph{Manufacturing}, sub-sector \emph{Manufacture of motor vehicles, trailers and semi-trailers} -- NACE C29). Answer the following in your notebook, citing the article numbers from Directive (EU) 2022/2555:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Does the entity fall under NIS2 at all?} See Art.\,2 (scope) and Art.\,3 (essential / important entities). Annex II sectors map to \emph{important entities} unless they also meet essential-entity thresholds. The size-cap rule (Art.\,2(1)): medium-sized enterprises and larger (50+ employees or EUR~10\,M+ turnover) are in scope.
+  \item \textbf{Which obligations bite first?} Art.\,21 (cybersecurity risk-management measures -- the ten-point catalogue including risk analysis, incident handling, supply-chain security, and use of cryptography) and Art.\,23 (incident reporting: early warning within 24\,h, incident notification within 72\,h, final report within one month).
+  \item \textbf{Who is accountable?} Art.\,20 -- the management body approves the risk-management measures, oversees their implementation, and can be held liable for non-compliance.
+  \item \textbf{Who supervises?} Art.\,32--34 -- competent authorities supervise important entities ex-post; for essential entities Art.\,32 supervision is also ex-ante.
+  \item \textbf{Worst-case fine?} Art.\,34(5): up to EUR~7\,M or 1.4\% of global annual turnover for important entities; up to EUR~10\,M or 2\% for essential entities. (Convert any figure to EUR; do not use the euro sign in this lab text.)
+\end{itemize}
+
+Write a one-paragraph verdict: \emph{Yes / No, NIS2 applies because $\ldots$; the obligations that bite first are $\ldots$; the management body is the named accountable function.} If your fictional plant is below the size cap, it is out of scope -- but Art.\,2(2) lists exceptions (sole providers, cross-border services) you should mention.
+\end{stepbox}
+
+\section*{Stretch -- Map FRs to controls already deployed in the lab stack}
+
+\begin{stepbox}{9 -- Honest control inventory (stretch)}
+For each Foundational Requirement, identify \emph{what control already exists in the lab stack} and \emph{what is missing}. Be honest -- a real 62443-3-2 report names gaps, it does not paper over them.
+\medskip
+
+\noindent\small
+\begin{tabular}{@{}p{0.06\textwidth} p{0.30\textwidth} p{0.30\textwidth} p{0.25\textwidth}@{}}
+\toprule
+\textbf{FR} & \textbf{Lab-stack control (credit)} & \textbf{Missing for SL-T\,3 (gap)} & \textbf{Realistic next step} \\
+\midrule
+FR\,1 & OpenPLC web UI login form.                              & No MFA, no per-user accounts, no lockout. & Move PLC engineering behind a jump host. \\
+FR\,2 & Implicit role split -- only the student container is wired with engineering tools. & No enforced RBAC; the student container can do anything. & Split engineering from operator workstations. \\
+FR\,3 & None at the PLC level.                                   & No firmware signing, no program-change alarms. & Enable OpenPLC change logging and alarm on writes. \\
+FR\,4 & TLS on the host loopback for the landing page only.      & Modbus, MQTT, OPC UA all cleartext. Field protocols deliberately so. & Add OPC UA certificates; accept cleartext on Modbus and compensate at FR\,5. \\
+FR\,5 & Docker bridge isolation; \texttt{127.0.0.1:} bindings on the host. & No L3 firewall \emph{between} zones inside the bridge; conduit policy is implicit. & Add an internal firewall container, or document the iptables policy. \\
+FR\,6 & Zeek IDS with Modbus notice script (Lab\,08).             & No central log collector; logs on a host-mounted volume. & Forward Zeek logs over TLS to a write-once store. \\
+FR\,7 & Docker \texttt{restart: unless-stopped} on every service. & No PLC redundancy; no DoS resistance test. & Add a second OpenPLC and a health-checked failover. \\
+\bottomrule
+\end{tabular}
+\medskip
+
+The point of this stretch step is not to declare the lab \emph{compliant} -- it is not, and was never meant to be. The point is to practise writing the matrix the way you would for a real audit: every row credits something real, every row names a real gap.
+\end{stepbox}
+
+\begin{deliverbox}
+Hand in, as a single PDF or markdown bundle:
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item The asset-inventory table (ZCR\,1).
+  \item The zone list with justifications (ZCR\,2).
+  \item The conduit table (ZCR\,3) backed by your nmap output and tshark conversation listing.
+  \item The unmitigated-risk table with L $\times$ C scores (ZCR\,4).
+  \item The SL-T-per-zone table (ZCR\,5).
+  \item The FR-per-zone matrix plus the one-line FR gloss for the highest-SL zone (ZCR\,6).
+  \item The residual-risk table for at least three conduits and the one-page Zone \& Conduit Drawing (ZCR\,7).
+  \item Your NIS2 verdict paragraph with the cited article numbers (Step\,8).
+  \item (Stretch) the FR-to-control mapping table (Step\,9).
+\end{enumerate}
+A grader should be able to read the bundle in ten minutes and reach the same SL-T assignment you did.
+\end{deliverbox}
+
+\begin{warnbox}
+The numbers in this lab (likelihood, consequence, cost-to-fix) are pedagogical. A real 62443-3-2 assessment uses the company's own risk matrix, the operator's safety classification, and -- crucially -- conversations with the people who run the plant. Never sign off on a zone-and-conduit drawing without walking the floor.
+\end{warnbox}
+
+\end{document}

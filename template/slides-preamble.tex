@@ -1,0 +1,366 @@
+% =====================================================================
+% Industrial Security lecture series -- modern Beamer preamble.
+%
+% Each slide deck must define the following BEFORE \input{}-ing this:
+%   \def\courseTitle{...}        e.g. Industrial Security (Bachelor)
+%   \def\courseSubtitle{...}     e.g. Section 3 -- Network Architecture
+%   \def\sectionNumber{...}      e.g. 03
+%   \def\sectionTitle{...}       e.g. Industrial Network Architectures
+%
+% Optional:
+%   \def\courseAuthor{...}       defaults to "Lecture Notes"
+%   \def\courseInstitute{...}    defaults to "Department of Computer Science"
+%   \def\companyLogo{...}        path to a logo image (PDF/PNG/JPG).
+%
+% Callout macros (use anywhere inside a frame):
+%   \begin{notebox}{title}      ... \end{notebox}
+%   \begin{importantbox}{title} ... \end{importantbox}
+%   \begin{warningbox}{title}   ... \end{warningbox}
+%   \begin{tipbox}{title}       ... \end{tipbox}
+%   \begin{defbox}{title}       ... \end{defbox}
+%   \begin{takeawaybox}{title}  ... \end{takeawaybox}
+%   \begin{quotebox}            ... \end{quotebox}
+% =====================================================================
+
+% --- Speaker-notes mode (toggled by Makefile via -usepretex) ----------
+% When notesmode=1, build a side-by-side slide+notes PDF for the
+% lecturer. When unset/0, build the clean slides-only PDF.
+\providecommand{\notesmode}{0}
+\ifnum\notesmode=1
+  \usepackage{pgfpages}
+  \setbeameroption{show notes on second screen=right}
+  \setbeamerfont{note page}{size=\small}
+\fi
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+% Modern type pair: IBM Plex Sans for text, IBM Plex Mono for code.
+% Math stays in lmodern; Plex is the dominant family on every text frame.
+\usepackage{plex-sans}
+\usepackage{plex-mono}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage[activate={true,nocompatibility},final,tracking=true,kerning=true,spacing=true,factor=1100,stretch=10,shrink=10]{microtype}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{tikz}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins, breakable, raster}
+\usepackage{fontawesome5}
+
+\input{../../../template/tikz-styles.tex}
+
+\graphicspath{{.}{../../../template/}}
+
+% --- defaults --------------------------------------------------------
+\providecommand{\courseAuthor}{Lecture Notes}
+\providecommand{\courseInstitute}{Department of Computer Science}
+\providecommand{\companyLogo}{logo}
+
+% --- modern palette --------------------------------------------------
+\definecolor{slideAccent}{HTML}{00205B}       % deep navy
+\definecolor{slideSecondary}{HTML}{00A0DC}    % light blue accent
+
+% --- Corporate branding overrides ------------------------------------
+% A user-editable `branding.tex` at the repo root can override the
+% logo path, author/institute lines, and brand colours. If the file is
+% missing the built-in defaults above stay in effect.
+\IfFileExists{../../../branding.tex}{\input{../../../branding.tex}}{}
+\definecolor{slideTitle}{HTML}{0F2A44}        % near-black navy
+\definecolor{slideMuted}{HTML}{6B6B6B}
+\definecolor{slideBg}{HTML}{FFFFFF}
+\definecolor{slidePanel}{HTML}{F4F7FB}
+\definecolor{slideRule}{HTML}{D6DEE8}
+
+% Callout colours
+\definecolor{calNote}{HTML}{00205B}
+\definecolor{calImportant}{HTML}{B23A48}
+\definecolor{calWarning}{HTML}{C77700}
+\definecolor{calTip}{HTML}{2E7D32}
+\definecolor{calDef}{HTML}{6B46C1}
+\definecolor{calTake}{HTML}{0F2A44}
+
+% --- beamer theme ---------------------------------------------------
+\useinnertheme{rectangles}
+\usefonttheme{professionalfonts}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{itemize items}[circle]
+\setbeamertemplate{enumerate items}[default]
+\setbeamertemplate{section in toc}[ball numbered]
+\setbeamercolor{section in toc}{fg=slideTitle}
+
+% Colours
+\setbeamercolor{normal text}{fg=slideTitle, bg=slideBg}
+\setbeamercolor{title}{fg=slideAccent}
+\setbeamercolor{subtitle}{fg=slideMuted}
+\setbeamercolor{frametitle}{fg=slideAccent}
+\setbeamercolor{structure}{fg=slideAccent}
+\setbeamercolor{itemize item}{fg=slideAccent}
+\setbeamercolor{itemize subitem}{fg=slideSecondary}
+\setbeamercolor{block title}{fg=white, bg=slideAccent}
+\setbeamercolor{block body}{fg=slideTitle, bg=slidePanel}
+\setbeamercolor{alerted text}{fg=slideSecondary}
+
+% Fonts
+\setbeamerfont{title}{series=\bfseries, size=\Large}
+\setbeamerfont{subtitle}{series=\mdseries, size=\normalsize}
+\setbeamerfont{frametitle}{series=\bfseries, size=\large}
+\setbeamerfont{block title}{series=\bfseries, size=\normalsize}
+\setbeamerfont{footline}{size=\tiny}
+
+% --- frametitle: title bar + accent underline + section badge -------
+% The accent rules are wrapped in a zero-width box so they never
+% contribute to the surrounding hbox width (no Overfull warnings).
+\setbeamertemplate{frametitle}{%
+  \nointerlineskip
+  \begin{beamercolorbox}[wd=\paperwidth, ht=2.8ex, dp=1.6ex, leftskip=1.2em, rightskip=1.2em]{frametitle}%
+    \usebeamerfont{frametitle}\insertframetitle%
+    \hfill
+    {\color{slideMuted}\small \sectionNumber}%
+  \end{beamercolorbox}%
+  \nointerlineskip
+  \makebox[0pt][l]{\hspace*{1.2em}\textcolor{slideSecondary}{\rule{2.5em}{1pt}}\textcolor{slideAccent}{\rule{\dimexpr\paperwidth-3.7em\relax}{1pt}}}%
+  \par\vskip4pt
+}
+
+% --- footer ---------------------------------------------------------
+\defbeamertemplate*{footline}{is-footer}{%
+  \leavevmode%
+  \hbox{%
+    \begin{beamercolorbox}[wd=.55\paperwidth, ht=2.4ex, dp=1ex, leftskip=1em]{author in head/foot}%
+      {\color{slideMuted}\tiny \courseTitle{} \;\; $\bullet$ \;\; Section \sectionNumber{} -- \sectionTitle}%
+    \end{beamercolorbox}%
+    \begin{beamercolorbox}[wd=.45\paperwidth, ht=2.4ex, dp=1ex, rightskip=1em]{title in head/foot}%
+      \hfill {\color{slideMuted}\tiny \insertframenumber{} / \inserttotalframenumber}%
+    \end{beamercolorbox}%
+  }%
+  \vskip2pt
+}
+
+% --- listings -------------------------------------------------------
+\definecolor{codebg}{HTML}{F4F7FB}
+\definecolor{codekw}{HTML}{0F2A44}
+\definecolor{codestr}{HTML}{8B3A3A}
+\definecolor{codecom}{HTML}{5A7D54}
+
+\lstset{
+    backgroundcolor=\color{codebg},
+    basicstyle=\ttfamily\scriptsize\color{slideTitle},
+    keywordstyle=\color{codekw}\bfseries,
+    stringstyle=\color{codestr},
+    commentstyle=\color{codecom}\itshape,
+    breaklines=true,
+    frame=leftline,
+    framerule=2pt,
+    rulecolor=\color{slideAccent},
+    numbers=left,
+    numberstyle=\tiny\color{slideMuted},
+    numbersep=8pt,
+    showstringspaces=false,
+    tabsize=2,
+    captionpos=b,
+    xleftmargin=0.6em
+}
+
+% --- callout boxes --------------------------------------------------
+% Shared base style for all callout boxes.
+% Subtle drop shadow gives the boxes a hint of elevation without distraction.
+\tcbset{
+  isCallout/.style={
+    enhanced, breakable, sharp corners=northeast,
+    arc=2pt, boxrule=0pt,
+    leftrule=3pt,
+    fonttitle=\bfseries\small,
+    coltitle=white,
+    fontupper=\small,
+    left=2mm, right=2mm, top=1.5mm, bottom=1.5mm,
+    drop fuzzy shadow=black!30,
+    title={#1}
+  }
+}
+
+\newtcolorbox{notebox}[1]{
+  isCallout={#1},
+  colback=calNote!8, colframe=calNote, leftrule=3pt,
+  colbacktitle=calNote, attach boxed title to top left={xshift=2mm, yshift=-1.2mm},
+  boxed title style={colback=calNote, arc=1pt, boxrule=0pt, left=2mm, right=2mm, top=0.5mm, bottom=0.5mm}
+}
+
+\newtcolorbox{importantbox}[1]{
+  isCallout={#1},
+  colback=calImportant!7, colframe=calImportant, leftrule=4pt,
+  colbacktitle=calImportant, attach boxed title to top left={xshift=2mm, yshift=-1.2mm},
+  boxed title style={colback=calImportant, arc=1pt, boxrule=0pt, left=2mm, right=2mm, top=0.5mm, bottom=0.5mm}
+}
+
+\newtcolorbox{warningbox}[1]{
+  isCallout={#1},
+  colback=calWarning!10, colframe=calWarning, leftrule=4pt,
+  colbacktitle=calWarning, attach boxed title to top left={xshift=2mm, yshift=-1.2mm},
+  boxed title style={colback=calWarning, arc=1pt, boxrule=0pt, left=2mm, right=2mm, top=0.5mm, bottom=0.5mm}
+}
+
+% Alias warnbox = warningbox, with an optional title (default = "Caution")
+\newtcolorbox{warnbox}[1][Caution]{
+  isCallout={#1},
+  colback=calWarning!10, colframe=calWarning, leftrule=4pt,
+  colbacktitle=calWarning, attach boxed title to top left={xshift=2mm, yshift=-1.2mm},
+  boxed title style={colback=calWarning, arc=1pt, boxrule=0pt, left=2mm, right=2mm, top=0.5mm, bottom=0.5mm}
+}
+
+\newtcolorbox{tipbox}[1]{
+  isCallout={#1},
+  colback=calTip!8, colframe=calTip, leftrule=3pt,
+  colbacktitle=calTip, attach boxed title to top left={xshift=2mm, yshift=-1.2mm},
+  boxed title style={colback=calTip, arc=1pt, boxrule=0pt, left=2mm, right=2mm, top=0.5mm, bottom=0.5mm}
+}
+
+\newtcolorbox{defbox}[1]{
+  isCallout={#1},
+  colback=calDef!8, colframe=calDef, leftrule=3pt,
+  colbacktitle=calDef, attach boxed title to top left={xshift=2mm, yshift=-1.2mm},
+  boxed title style={colback=calDef, arc=1pt, boxrule=0pt, left=2mm, right=2mm, top=0.5mm, bottom=0.5mm}
+}
+
+\newtcolorbox{takeawaybox}[1]{
+  enhanced, breakable, arc=3pt, boxrule=0pt,
+  colback=calTake!7, colframe=calTake,
+  toptitle=2mm, bottomtitle=2mm,
+  fonttitle=\bfseries\normalsize, coltitle=white,
+  colbacktitle=calTake,
+  fontupper=\small,
+  title={\faStar~Key Takeaway: #1},
+  left=3mm, right=3mm, top=2mm, bottom=2mm
+}
+
+\newtcolorbox{quotebox}{
+  enhanced, breakable, arc=2pt, boxrule=0pt,
+  colback=slidePanel, colframe=slideMuted,
+  leftrule=3pt, top=2mm, bottom=2mm, left=3mm, right=3mm,
+  fontupper=\itshape\small,
+}
+
+% Convenience: inline highlight badge
+\newcommand{\remembertag}{\tikz[baseline=-0.7ex]\node[fill=calImportant, text=white, font=\scriptsize\bfseries, rounded corners=2pt, inner sep=2pt]{REMEMBER};}
+\newcommand{\tldr}{\tikz[baseline=-0.7ex]\node[fill=calTake, text=white, font=\scriptsize\bfseries, rounded corners=2pt, inner sep=2pt]{TL;DR};}
+
+% Source attribution: tiny grey line, anchored bottom-left of the content area
+% Usage:  \source{Symantec, \emph{W32.Stuxnet Dossier} v1.4, 2011.}
+% Multiple sources:  \source{X.\ Y., 2018; Z, 2020.}
+\newcommand{\source}[1]{%
+  \par\nointerlineskip\vspace{0.4mm}%
+  {\color{slideMuted}\fontsize{5.5}{6.5}\selectfont\textit{Source:} #1\par}%
+}
+
+% References slide: aggregate citations + further reading at the end of a section.
+% Usage:  \referencesframe{ \item ... \item ... }
+% The `frame` environment must be written literally in the deck, so this is a
+% macro rather than a wrapper environment (beamer collects the frame body and
+% trips over \newenvironment wrappers).
+%
+% allowframebreakstemplate=\insertcontinuationcount silences the trailing roman
+% numeral when content fits on a single page.
+\setbeamertemplate{frametitle continuation}[from second]
+\newcommand{\referencesframe}[1]{%
+  \begin{frame}[allowframebreaks]{References -- Section \sectionNumber}
+    \fontsize{7.5}{9}\selectfont
+    \setlength{\itemsep}{1pt}
+    \begin{itemize}#1\end{itemize}
+  \end{frame}%
+}
+
+% --- title page -----------------------------------------------------
+\title[\courseTitle]{\courseTitle}
+\subtitle{\courseSubtitle}
+\author{\courseAuthor}
+\institute{\courseInstitute}
+\date{}
+
+% Logo lookup: try the section directory, then the shared template/.
+\newcommand{\showlogo}[1][2cm]{%
+  \IfFileExists{\companyLogo.pdf}{\includegraphics[width=#1]{\companyLogo}}{%
+    \IfFileExists{\companyLogo.png}{\includegraphics[width=#1]{\companyLogo}}{%
+      \IfFileExists{\companyLogo.jpg}{\includegraphics[width=#1]{\companyLogo}}{%
+        \IfFileExists{../../../template/\companyLogo.pdf}{\includegraphics[width=#1]{../../../template/\companyLogo}}{%
+          \rule{0pt}{0pt}}}}}}
+
+\setbeamertemplate{title page}{%
+  \begin{tikzpicture}[remember picture, overlay]
+    % accent band (taller to fit wrapped titles)
+    \fill[slideAccent] (current page.north west) rectangle ([yshift=-3.4cm]current page.north east);
+    \fill[slideSecondary] ([yshift=-3.4cm]current page.north west) rectangle ([yshift=-3.55cm]current page.north east);
+    % section badge
+    \node[fill=slideSecondary, text=white, font=\bfseries\normalsize, rounded corners=3pt, inner sep=4pt, anchor=north west]
+      at ([xshift=1.2cm, yshift=-0.7cm]current page.north west) {Section \sectionNumber};
+    % Course title (wraps if long)
+    \node[anchor=north west, text=white, font=\bfseries\Large, align=left, text width=11cm]
+      at ([xshift=1.2cm, yshift=-1.5cm]current page.north west) {\courseTitle};
+    % Subtitle (wraps; smaller, separated)
+    \node[anchor=north west, text=white, font=\mdseries\small, align=left, text width=11cm]
+      at ([xshift=1.2cm, yshift=-2.7cm]current page.north west) {\courseSubtitle};
+    \node[anchor=north east] at ([xshift=-1.2cm, yshift=-1.0cm]current page.north east)
+      {\showlogo[2cm]};
+    \node[anchor=south west, text=slideMuted, font=\small, align=left, text width=11cm]
+      at ([xshift=1.2cm, yshift=1.0cm]current page.south west)
+      {\textbf{\sectionTitle}%
+        \ifx\courseAuthor\empty\else\\[2pt]\textit{\courseAuthor}\fi
+        \ifx\courseInstitute\empty\else\\{\scriptsize\courseInstitute}\fi};
+  \end{tikzpicture}
+}
+
+% --- helper macros --------------------------------------------------
+\newcommand{\learningobjectives}[1]{%
+  \begin{frame}{Learning Objectives}
+    \begin{tipbox}{\faGraduationCap~By the end of this section you will be able to}
+      \begin{itemize}\setlength{\itemsep}{2pt}#1\end{itemize}
+    \end{tipbox}
+  \end{frame}}
+
+\newcommand{\sectionoverviewframe}{%
+  \begin{frame}[plain,noframenumbering]
+    \titlepage
+  \end{frame}
+  \begin{frame}{Outline -- Section \sectionNumber}
+    \tableofcontents
+  \end{frame}}
+
+\AtBeginSection[]{%
+  \begin{frame}[plain,noframenumbering]
+    \begin{tikzpicture}[remember picture, overlay]
+      \fill[slideAccent] (current page.north west) rectangle (current page.south east);
+      \fill[slideSecondary] ([yshift=-1pt]current page.center -| current page.west)
+                            rectangle ([yshift=1pt]current page.center -| current page.east);
+      \node[text=white, font=\scriptsize, anchor=south west]
+        at ([xshift=1.2cm, yshift=1.0cm]current page.south west)
+        {Section \sectionNumber{} -- \sectionTitle};
+      \node[text=slideSecondary, font=\bfseries\Huge, anchor=south]
+        at ([yshift=0.4cm]current page.center)
+        {\thesection};
+      \node[text=white, font=\bfseries\LARGE, align=center, anchor=north, text width=12cm]
+        at ([yshift=-0.6cm]current page.center)
+        {\insertsection};
+    \end{tikzpicture}
+  \end{frame}}
+
+\newcommand{\closingframe}{%
+  \begin{frame}[plain,noframenumbering]
+    \begin{tikzpicture}[remember picture, overlay]
+      \fill[slideAccent] (current page.north west) rectangle (current page.south east);
+      \node[text=white, font=\bfseries\Huge, anchor=center, align=center, text width=14cm]
+        at ([yshift=8mm]current page.center) {End of Section \sectionNumber};
+      \fill[slideSecondary] ([xshift=-1.5cm, yshift=-4mm]current page.center)
+                            rectangle ([xshift=1.5cm, yshift=-6mm]current page.center);
+      \node[text=white, font=\large, anchor=north, align=center, text width=14cm]
+        at ([yshift=-1.2cm]current page.center) {\sectionTitle};
+      \node[text=slideSecondary, font=\normalsize, anchor=south] at ([yshift=1.2cm]current page.south) {Questions and discussion};
+      \node[anchor=south east] at ([xshift=-1cm, yshift=1cm]current page.south east) {\showlogo[1.5cm]};
+    \end{tikzpicture}
+  \end{frame}}

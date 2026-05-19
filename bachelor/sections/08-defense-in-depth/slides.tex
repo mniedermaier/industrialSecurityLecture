@@ -1,0 +1,470 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\courseSubtitle{Section 08 -- Defense in Depth}
+\def\sectionNumber{08}
+\def\sectionTitle{Defense in Depth}
+
+\input{../../../template/slides-preamble.tex}
+
+\begin{document}
+
+\sectionoverviewframe
+
+\learningobjectives{
+  \item Apply defense-in-depth across people, process, and technology.
+  \item Design layered controls for an ICS environment.
+  \item Specify secure remote access patterns for vendors.
+  \item Position passive ICS IDS and explain alert triage.
+}
+
+\section{Layered Controls}
+
+\begin{frame}{The Defense-in-Depth Onion}
+\vspace{-2mm}
+\begin{columns}[T]
+\column{0.5\textwidth}
+\centering
+\begin{tikzpicture}[scale=0.5, transform shape]
+  \foreach \R/\col in {
+    4.5/isMute, 3.7/isIT, 3.0/isOT, 2.3/isPLC,
+    1.7/isAccent, 1.1/isNet, 0.5/isAttack}{
+    \draw[thick, fill=\col!12, draw=\col] (0,0) circle (\R);
+  }
+\end{tikzpicture}
+\column{0.5\textwidth}
+\vspace{1mm}
+{\scriptsize\setlength{\itemsep}{1pt}
+\begin{itemize}
+  \item \textcolor{isMute}{$\blacksquare$} Policies \& procedures
+  \item \textcolor{isIT}{$\blacksquare$} Physical security
+  \item \textcolor{isOT}{$\blacksquare$} Network segmentation
+  \item \textcolor{isPLC}{$\blacksquare$} Host hardening
+  \item \textcolor{isAccent}{$\blacksquare$} Application \& RBAC
+  \item \textcolor{isNet}{$\blacksquare$} Data \& backups
+  \item \textcolor{isAttack}{$\blacksquare$} Monitoring \& IR
+\end{itemize}}
+\end{columns}
+\vspace{1mm}
+\begin{importantbox}{Layered}
+A single failed layer should not equal a successful attack.
+\end{importantbox}
+\source{INL, \emph{Recommended Practice: Improving ICS Cybersecurity with Defense-in-Depth Strategies}, 2016 \textbar{} NIST SP 800-82 Rev.\,3, 2023.}
+\note{
+  Defense in depth is not ``more controls equals more safety.'' It is layered \emph{independence}: each layer must fail in a different way. Make this concrete: if your perimeter firewall, your internal firewall, and your endpoint AV all run the same Windows engine, you have one layer with three logos. The INL onion is useful as a checklist, not as a maturity ladder -- you do not earn the inner ring by completing the outer. Ask the room: what makes a layer truly \emph{independent}? The answer involves different vendors, different protocols, and different administrators.
+}
+\end{frame}
+
+\begin{frame}{Hardening ICS Hosts}
+\centering
+\begin{tikzpicture}[node distance=3mm]
+  \node[isbox, fill=isOT!10, draw=isOT, minimum width=110mm, font=\small] (a) {Remove or disable USB, optical, unused services};
+  \node[isbox, fill=isOT!10, draw=isOT, minimum width=110mm, font=\small, below=of a] (b) {CIS Benchmarks adapted for OT availability constraints};
+  \node[isbox, fill=isOT!10, draw=isOT, minimum width=110mm, font=\small, below=of b] (c) {Application whitelisting (AppLocker, McAfee Solidcore)};
+  \node[isbox, fill=isOT!10, draw=isOT, minimum width=110mm, font=\small, below=of c] (d) {Local firewalls with explicit allowlists};
+  \node[isbox, fill=isOT!10, draw=isOT, minimum width=110mm, font=\small, below=of d] (e) {Vendor-approved AV signatures only};
+\end{tikzpicture}
+\note{
+  Hardening on a static HMI is a near-perfect fit: the binary set never changes, so application allow-listing (AppLocker, McAfee Solidcore, Carbon Black App Control) actually holds. The catch is the CIS Benchmark line -- you cannot apply the IT profile blindly because half of it breaks OPC, breaks WMI for the historian, or kills a vendor's service account. Build a \emph{tailored} baseline with the integrator and freeze it in the FAT. The AV bullet is the one that bites people: running Defender with cloud-delivered signatures on an engineering workstation can quarantine the PLC programming binary during a download. Always pin to the vendor's tested signature set.
+}
+\end{frame}
+
+\section{Access and Remote Support}
+
+\begin{frame}{IAM in OT -- Role Hierarchy}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[isbox, fill=isAccent!15, draw=isAccent] (admin) {Domain admin};
+  \node[isbox, fill=isPLC!15, draw=isPLC, below=of admin] (eng) {Engineer};
+  \node[isbox, fill=isHMI!15, draw=isHMI, below=of eng] (op) {Operator};
+  \node[isbox, fill=isMute!15, draw=isMute, below=of op] (view) {View only};
+  \node[isbox, fill=isAttack!15, draw=isAttack, right=22mm of eng, minimum width=30mm] (mfa) {MFA + just-in-time};
+  \draw[flow] (admin) -- (eng);
+  \draw[flow] (eng) -- (op);
+  \draw[flow] (op) -- (view);
+  \draw[flow, dashed, isAttack] (mfa.west) -- (eng.east);
+\end{tikzpicture}
+\par\vspace{2mm}
+\footnotesize Per-person accounts, no shared logins. Keep a local fallback in case AD goes down.
+\note{
+  Role separation in OT collapses for one reason: the shared ``operator'' login on the control-room HMI. Operators rotate shifts, gloves are on, and nobody types a password at 3 a.m. -- so an icon on the desktop auto-logs in. That is reality. Push MFA where it works (jump hosts, engineering downloads, AD admin) and accept a kiosk-style HMI session with strong \emph{physical} access control around the room. Just-in-time elevation via something like CyberArk or BeyondTrust beats permanent domain admin every time. Class question: where in this hierarchy would you put a vendor support engineer who shows up twice a year?
+}
+\end{frame}
+
+\begin{frame}{Secure Remote Access Pattern}
+\centering
+\begin{tikzpicture}[node distance=6mm, scale=0.92, transform shape]
+  \node[isbox, fill=isMute!15, draw=isMute, minimum width=16mm] (vend) {Vendor};
+  \node[inetnode, fill=isLight, minimum width=18mm, right=of vend] (inet) {Internet};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of inet, align=center, minimum width=22mm, font=\scriptsize] (broker) {Brokered\\portal (MFA)};
+  \node[isbox, fill=isAttack!15, draw=isAttack, right=of broker, align=center, minimum width=22mm, font=\scriptsize] (jump) {Jump host\\(iDMZ)};
+  \node[plc, right=of jump, minimum width=14mm] (target) {PLC};
+  \node[isbox, fill=isPLC!12, draw=isPLC, below=10mm of broker, font=\scriptsize, minimum width=28mm] (rec) {Session recording};
+  \node[isbox, fill=isOT!12, draw=isOT, below=10mm of jump, font=\scriptsize, minimum width=28mm, xshift=10mm] (appr) {Operator approval};
+  \draw[flow] (vend) -- (inet) -- (broker) -- (jump) -- (target);
+  \draw[flow, dashed] (broker) -- (rec);
+  \draw[flow, dashed] (jump) -- (appr);
+\end{tikzpicture}
+\note{
+  This is the pattern that actually scales for vendor support. The broker (Cyolo, BeyondTrust Privileged Remote Access, Claroty SRA) terminates the vendor session in the iDMZ; the jump host is the only thing that talks to the PLC, and every keystroke is recorded. The \emph{operator approval} arrow is the cultural change -- a vendor cannot just connect, an on-shift operator clicks ``allow'' for this 30-minute window. War story: a turbine vendor ran a flat IPsec VPN straight into Level 2 for ten years; the day they were breached, the customer's plant was on the same broadcast domain. Compare this slide with what your plant actually has today.
+}
+\end{frame}
+
+\section{Patching, Backups, Monitoring}
+
+\begin{frame}{Patching Strategy in OT}
+\centering
+\begin{tikzpicture}[node distance=4mm, scale=0.85, transform shape]
+  \node[server, minimum width=22mm, font=\scriptsize] (vend) {Vendor advisory};
+  \node[isbox, fill=isOT!12, draw=isOT, right=of vend, minimum width=20mm, font=\scriptsize] (apv) {Approved?};
+  \node[isbox, fill=isPLC!12, draw=isPLC, right=of apv, minimum width=20mm, font=\scriptsize] (test) {Test bench};
+  \node[isbox, fill=isAccent!12, draw=isAccent, right=of test, minimum width=20mm, font=\scriptsize] (stage) {Pre-prod};
+  \node[isbox, fill=isAttack!15, draw=isAttack, right=of stage, minimum width=22mm, font=\scriptsize] (prod) {Plant outage};
+  \node[isbox, fill=isNet!15, draw=isNet, below=10mm of stage, minimum width=70mm, font=\scriptsize, align=center] (cc)
+    {Patching infeasible $\Rightarrow$ compensating control\\(firewall rule, virtual patch via IPS)};
+  \draw[flow] (vend) -- (apv);
+  \draw[flow] (apv) -- (test);
+  \draw[flow] (test) -- (stage);
+  \draw[flow] (stage) -- (prod);
+  \draw[flow, dashed] (apv.south) |- (cc.west);
+\end{tikzpicture}
+\note{
+  The IT instinct is ``patch Tuesday.'' OT cannot. Vendor-approved is the gate: Siemens, Rockwell, ABB, Honeywell each publish which Microsoft KBs they have validated against their stack, and applying anything else can void support. The test bench and pre-prod stages are where you catch the patch that breaks the OPC server. The \emph{compensating control} branch is the honest answer for the 60\% of assets you will never patch -- a tighter firewall ACL, a Snort/Suricata signature on the IDS, an IPS rule in front of a vulnerable HMI. Ask the room: how long is acceptable between a CISA advisory and \emph{some} mitigation in your plant?
+}
+\end{frame}
+
+\begin{frame}{Backups -- 3-2-1 (and Immutable)}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[server] (prod) {Production};
+  \node[server, fill=isPLC!10, right=22mm of prod] (b1) {Backup A\\(\scriptsize disk)};
+  \node[server, fill=isPLC!10, right=of b1] (b2) {Backup B\\(\scriptsize NAS)};
+  \node[server, fill=isAttack!15, draw=isAttack, below=of b2] (b3) {Off-site / immutable};
+  \draw[flow] (prod) -- (b1);
+  \draw[flow] (b1) -- (b2);
+  \draw[flow] (b2) -- (b3);
+  \node[isbox, fill=isAccent!10, draw=isAccent, below=18mm of b1, font=\scriptsize, minimum width=110mm, align=left]
+    {Back up: PLC programs (with checksums), HMI projects, engineering workstations,\\
+     historian DB, switch configs.\quad Restore-test regularly.};
+\end{tikzpicture}
+\note{
+  3-2-1 is the floor. The ransomware era added \emph{immutable} -- either write-once media or S3 Object Lock / Veeam hardened repository, so an attacker with domain admin cannot wipe the backups. Backing up PLC programs sounds obvious but is routinely missed: the only copy of the ladder logic lives on an engineer's laptop, with no checksum and no version control. Same for HMI projects, historian databases, and switch configs (push to RANCID / Oxidized). The restore-test bullet is where most programs fail -- a backup you have never restored is a hope, not a backup. War story: a water utility paid the ransom in 2021 because their tapes had been spinning untested for two years and the catalog was corrupt.
+}
+\end{frame}
+
+\begin{frame}{Passive OT IDS Placement}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[server] (scada) {SCADA};
+  \node[switch, below=of scada] (sw) {Switch (SPAN)};
+  \node[plc, below left=of sw] (p1) {PLC};
+  \node[plc, below=of sw] (p2) {PLC};
+  \node[plc, below right=of sw] (p3) {PLC};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=22mm of sw, minimum width=32mm] (ids) {ICS IDS\\\scriptsize Zeek / Malcolm / Claroty};
+  \node[server, right=of ids, fill=isHMI!12, draw=isHMI] (soc) {SOC};
+  \draw[netline] (scada) -- (sw);
+  \foreach \n in {p1,p2,p3}{\draw[netline] (\n) -- (sw);}
+  \draw[-{Stealth[length=2mm]}, dashed, thick] (sw) -- node[midway, right=5pt, font=\tiny, fill=white, inner sep=2pt]{mirror only} (ids);
+  \draw[flow] (ids) -- (soc);
+\end{tikzpicture}
+\source{Tools: Zeek (Paxson, 1999); Malcolm (Idaho National Lab); commercial: Claroty CTD, Nozomi Guardian, Dragos Platform.}
+\note{
+  Passive means \emph{passive} -- the IDS sits on a SPAN port or a hardware TAP and never injects a packet. That is the only thing the safety case will accept on Purdue Level 2. The placement detail people miss is which VLAN the SPAN actually carries: I have seen a Nozomi Guardian deployed for a year that was mirroring only the management VLAN, not the process VLAN, so it saw zero Modbus. Verify with \texttt{tcpdump -i} before declaring victory. Zeek plus Suricata in Malcolm is a credible open-source stack; Claroty CTD, Nozomi Guardian, Dragos Platform, Cisco Cyber Vision, and Forescout SilentDefense are the commercial options -- the differentiator is the protocol dissector library, not the UI.
+}
+\end{frame}
+
+\begin{frame}{What an OT IDS Looks For}
+\centering
+\begin{tikzpicture}[node distance=3mm]
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small] (a) {New device joining (MAC unseen)};
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small, below=of a] (b) {Unexpected Modbus function code (e.g.\ write coil from HMI subnet)};
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small, below=of b] (c) {Engineering download outside scheduled change window};
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small, below=of c] (d) {Outbound connection from PLC to Internet};
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small, below=of d] (e) {PLC mode change (RUN $\rightarrow$ STOP)};
+\end{tikzpicture}
+\note{
+  These five signatures are the ``free'' detections you get the day you deploy any OT IDS. Asset discovery alone -- a new MAC on the process VLAN -- catches the contractor laptop and the rogue access point. The unexpected Modbus function code is the Stuxnet-shaped detection: writes from a subnet that has historically only read. Engineering downloads outside a change window directly maps to your management-of-change process and turns a security alert into a safety conversation. The PLC RUN-to-STOP transition is the one your operations team will care about more than you do -- get them subscribed to that alert before you even tune the rest.
+}
+\end{frame}
+
+\begin{frame}{Network Access Control (NAC) in OT}
+\centering
+\begin{tikzpicture}[node distance=8mm]
+  \node[workstation] (lap) {Engineer laptop};
+  \node[switch, right=of lap] (sw) {NAC-capable switch};
+  \node[server, fill=isPLC!15, draw=isPLC, right=of sw, minimum width=28mm, font=\small] (auth) {RADIUS / 802.1X};
+  \node[plc, below=14mm of sw] (plc) {PLC port};
+  \draw[flow] (lap) -- (sw) -- (auth);
+  \draw[flow, dashed] (sw) -- node[midway, right=4pt, font=\tiny, fill=white, inner sep=1pt]{quarantine} (plc);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{Sealing the wall jack}
+802.1X (with MAC bypass for legacy devices) prevents random laptops from joining the plant LAN. Static PLC ports get MAC pinning.
+\end{notebox}
+\source{IEEE 802.1X-2020 \textbar{} NIST SP 800-92 (logging) \textbar{} vendors: Cisco ISE, Aruba ClearPass, Forescout eyeSight.}
+\note{
+  802.1X in OT is the long-running argument. The clean version requires a supplicant on every endpoint -- and a Siemens S7-1500 does not speak EAP. The workable version is MAC Authentication Bypass with a Forescout SilentDefense or Cisco ISE policy that pins each PLC port to a known OUI and quarantines anything else. Profile the device before you let it on, not after. The Stuxnet-era lesson is that the attack came in on a USB, but the lateral move was over the flat plant LAN with no port security at all. Ask the room: what is your move when an engineer's laptop fails 802.1X at 2 a.m. during an outage?
+}
+\end{frame}
+
+\begin{frame}{USB Allow-Listing}
+\centering
+\begin{tikzpicture}[node distance=8mm]
+  \node[workstation] (ws) {HMI};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of ws, minimum width=40mm, font=\small, align=center] (kiosk) {Kiosk scanner\\(Olea, OPSWAT, Nettitude)};
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\small, above=10mm of kiosk] (usb) {USB stick};
+  \draw[flow] (usb) -- (kiosk);
+  \draw[flow] (kiosk) -- node[midway, above=5pt, font=\tiny, fill=white, inner sep=2pt]{cleared} (ws);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{importantbox}{One door}
+Every USB must pass through one of N approved scanning kiosks before it touches an HMI. Block all other USB at the OS level.
+\end{importantbox}
+\note{
+  ``We banned USB'' is the common claim -- until the vendor walks in with a firmware update on a stick and a deadline. The kiosk approach (OPSWAT MetaDefender, Olea Renegade, Nettitude USB sanitiser) is the realistic compromise: scan with 8+ AV engines, strip macros, re-emit onto a sanitised stick. War story: a refinery had a kiosk in the gatehouse that was bypassed for two years because the operators discovered it stopped scanning when a specific drive letter was already mounted; nobody checked the logs. Block USB at the OS layer via Group Policy or McAfee Device Control \emph{as well}, so the kiosk is the only viable path. Otherwise the policy is theatre.
+}
+\end{frame}
+
+\begin{frame}{Logging Strategy for OT}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[plc] (a) {PLC syslog};
+  \node[hmi, right=of a] (b) {HMI events};
+  \node[server, right=of b, fill=isHMI!12] (c) {Historian alarms};
+  \node[firewall, right=of c] (d) {FW logs};
+  \node[server, fill=isPLC!15, draw=isPLC, below=14mm of {$(b)!0.5!(c)$}, minimum width=70mm, font=\small] (siem) {OT-aware SIEM};
+  \draw[flow] (a.south) |- ([yshift=2mm]siem.north west) -- (siem.north west);
+  \draw[flow] (b.south) -- (b.south |- siem.north);
+  \draw[flow] (c.south) -- (c.south |- siem.north);
+  \draw[flow] (d.south) |- ([yshift=2mm]siem.north east) -- (siem.north east);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{Send everything, correlate centrally}
+Most ICS devices have weak logging -- compensate with network IDS and host-based agents on the windows-class assets.
+\end{notebox}
+\note{
+  The most expensive misconception in this section is ``we have a SIEM.'' Splunk, Elastic, or IBM QRadar do not natively parse IEC 60870-5-104, DNP3, or S7Comm -- without an OT add-on (Splunk OT Add-on, Dragos Platform feed, Claroty XDR integration) you are correlating Windows event IDs and calling it OT visibility. Send PLC syslog where you can, HMI Windows events, historian alarms, firewall logs, and the IDS metadata into one place. Then build a handful of correlation rules that cross IT and OT signals -- e.g.\ a successful jump-host login followed within five minutes by an engineering download. Without correlation a SIEM is a very expensive log archive.
+}
+\end{frame}
+
+\begin{frame}{Deception in OT}
+\begin{itemize}
+  \item Honey-PLCs / honey-HMIs lure scans and exploit attempts.
+  \item Decoy credentials (canary tokens) trip alerts when used.
+  \item Fake assets in DNS / Active Directory.
+  \item False engineering-WS hostnames as tripwires.
+\end{itemize}
+\begin{tipbox}{Low cost, high signal}
+A honey-PLC sees \emph{zero} legitimate traffic by design -- any hit is a near-certain incident.
+\end{tipbox}
+\note{
+  Deception is the cheapest detection control you will deploy. Conpot is the open-source honey-PLC, Thinkst Canary sells a turnkey appliance, and a canary token in a fake \texttt{plc\_credentials.txt} on the engineering share costs nothing. The point is the false-positive rate: a honey-PLC at \texttt{10.20.5.99} sees \emph{zero} legitimate traffic by design, so a single TCP/502 probe is a near-certain incident -- no tuning, no triage. Drop a few across each process VLAN, name them in line with your real assets (\texttt{LINE3-PLC-07}), and wire the alert straight to the on-call channel. Bridge: next section we move from defending the plant to detecting and responding when one of these tripwires fires.
+}
+\end{frame}
+
+%% Frame 1: IEC 62443 anchor for §08
+\begin{frame}{IEC 62443 anchor for this section}
+\centering
+\begin{tikzpicture}[node distance=1.2mm, scale=0.85, transform shape]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=118mm, font=\scriptsize, align=left] (a)
+    {\textbf{FR1} Identification \& Authentication --- prove who/what is talking (no shared accounts)};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=118mm, font=\scriptsize, align=left, below=of a] (b)
+    {\textbf{FR2} Use Control --- RBAC, least privilege, just-in-time elevation, session audit};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=118mm, font=\scriptsize, align=left, below=of b] (c)
+    {\textbf{FR3} System Integrity --- signed firmware, code signing, anti-tamper, allow-listing};
+  \node[isbox, fill=isHMI!15, draw=isHMI, minimum width=118mm, font=\scriptsize, align=left, below=of c] (d)
+    {\textbf{FR4} Data Confidentiality --- encrypt project files, secrets, recipe IP, backups};
+  \node[isbox, fill=isNet!15, draw=isNet, minimum width=118mm, font=\scriptsize, align=left, below=of d] (e)
+    {\textbf{FR5} Restricted Data Flow --- zones, conduits, firewalls, data diodes between Purdue levels};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=118mm, font=\scriptsize, align=left, below=of e] (f)
+    {\textbf{FR6} Timely Response to Events --- centralised logging, OT-aware SIEM, IR playbooks};
+  \node[isbox, fill=isMute!15, draw=isMute, minimum width=118mm, font=\scriptsize, align=left, below=of f] (g)
+    {\textbf{FR7} Resource Availability --- DoS resistance, redundancy, backups, fail-safe defaults};
+\end{tikzpicture}
+\source{IEC 62443-3-3:2013, \emph{System security requirements and security levels}, ISA/IEC.}
+\note{
+  Every defence in this section maps onto one of the seven Foundational Requirements of IEC 62443-3-3. Flat checklist is fine; the value is in the mapping. Hardening = FR3; IAM and remote-access = FR1/FR2; segmentation and data diodes = FR5; backups and golden images = FR7; logging and SIEM = FR6; PAM session recording = FR1/FR2/FR6. IT analogue: NIST CSF function categories --- a vocabulary you can map any control to. 3-3 also assigns SL 1--4 per FR. Tell the room: when in doubt, name the FR you are satisfying.
+}
+\end{frame}
+
+%% Frame 2: Data Diodes in Detail
+\begin{frame}{Data Diodes --- Hardware-Enforced One-Way}
+\centering
+\begin{tikzpicture}[node distance=10mm, scale=0.92, transform shape]
+  \node[server, fill=isOT!15, draw=isOT, minimum width=22mm, font=\scriptsize, align=center] (ot) {OT historian\\(L3)};
+  \node[isbox, fill=isAccent!20, draw=isAccent, minimum width=18mm, minimum height=14mm, right=of ot, align=center, font=\scriptsize] (tx) {TX\\(fiber)};
+  \node[isbox, fill=isAttack!25, draw=isAttack, minimum width=10mm, minimum height=14mm, right=2mm of tx, align=center, font=\scriptsize] (gap) {$\rightarrow$};
+  \node[isbox, fill=isAccent!20, draw=isAccent, minimum width=18mm, minimum height=14mm, right=2mm of gap, align=center, font=\scriptsize] (rx) {RX\\(fiber)};
+  \node[server, fill=isIT!15, draw=isIT, minimum width=22mm, font=\scriptsize, align=center, right=of rx] (it) {IT mirror\\(L4)};
+  \draw[flow] (ot) -- (tx);
+  \draw[flow] (tx) -- (gap);
+  \draw[flow] (gap) -- (rx);
+  \draw[flow] (rx) -- (it);
+  \node[font=\tiny, below=1mm of gap] {no return path};
+\end{tikzpicture}
+\par\vspace{2mm}
+{\scriptsize\setlength{\itemsep}{1pt}
+\begin{itemize}
+  \item Vendors: \textbf{Waterfall} Unidirectional Gateway, \textbf{Owl} Cyber Defense, \textbf{Advenica} SecuriCDS, \textbf{Fox-IT} DataDiode.
+  \item Use cases: historian replication to IT/cloud, log/syslog export, AV signature import \emph{into} OT, OPC UA tag publish, file transfer (PI-to-PI, OSIsoft).
+  \item Limit: no TCP ACKs cross the gap --- protocol must be \emph{proxied} on each side.
+\end{itemize}}
+\begin{importantbox}{Why a firewall is not a diode}
+A firewall is a policy you trust; a diode is physics you cannot misconfigure --- the receive fiber is simply absent.
+\end{importantbox}
+\source{Waterfall Security Solutions, \emph{Unidirectional Security Gateways Technical Whitepaper}, 2022 \textbar{} NIST SP 800-82 Rev.\,3, \S6, 2023.}
+\note{
+  Only network control you cannot misconfigure into a hole: receive optic on OT side and transmit optic on IT side simply do not exist. Nuclear, defence, large utilities deploy between Purdue L3 and L4. Catch: no ACKs, so vanilla TCP cannot work across. Appliances ship application-layer proxies --- PI-to-PI replication, OPC UA publish, syslog forward, file transfer, AV signature import (push signatures into OT by physically reversing a second diode). Pre-empt: ``diodes replace the firewall'' --- they sit in front of one, not instead. Cost: five-figure EUR/pair, hence high-consequence sites.
+}
+\end{frame}
+
+%% Frame 3: Microsegmentation for OT
+\begin{frame}{Microsegmentation for OT}
+\centering
+\begin{tikzpicture}[node distance=3mm, scale=0.62, transform shape]
+  \node[plc, minimum width=14mm, font=\scriptsize] (p1) {PLC-01};
+  \node[plc, minimum width=14mm, font=\scriptsize, right=of p1] (p2) {PLC-02};
+  \node[hmi, minimum width=14mm, font=\scriptsize, right=of p2] (h1) {HMI-A};
+  \node[server, minimum width=16mm, font=\scriptsize, right=of h1] (eng) {Eng-WS};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=110mm, font=\scriptsize, align=center, below=10mm of p2, xshift=20mm]
+    (pol) {Policy engine: \emph{HMI-A may S7-read PLC-01 only; Eng-WS may S7-write during change window only}};
+  \draw[flow, dashed] (h1.south) -- (h1.south |- pol.north);
+  \draw[flow, dashed] (eng.south) -- (eng.south |- pol.north);
+  \draw[flow, dashed] (p1.south) -- (p1.south |- pol.north);
+  \draw[flow, dashed] (p2.south) -- (p2.south |- pol.north);
+\end{tikzpicture}
+\par\vspace{2mm}
+{\scriptsize\setlength{\itemsep}{1pt}
+\begin{itemize}
+  \item Software-defined: \textbf{Illumio Core}, \textbf{Cisco TrustSec/SGT}, \textbf{Tufin}, \textbf{Akamai Guardicore}, \textbf{Claroty xDome Secure Access}.
+  \item Policy per asset and per protocol, not per VLAN --- ``HMI-A speaks S7 to PLC-01 on TCP/102, nothing else, ever.''
+  \item Enforced at host agent or fabric --- no re-cabling, no new switch ports.
+\end{itemize}}
+\begin{notebox}{VLAN vs.\ microseg}
+A VLAN is a broadcast domain; everyone inside it talks freely. Microsegmentation enforces \emph{intent} between two endpoints even on the same VLAN.
+\end{notebox}
+\source{NIST SP 800-207 (\emph{Zero Trust Architecture}), 2020 \textbar{} Illumio, \emph{OT Segmentation Reference Architecture}, 2023.}
+\note{
+  VLANs are an office room: once inside, you can shout at anyone. Microsegmentation is per-door access: even neighbour cannot walk into your cubicle without specific rule. OT twist: agent vendors profile industrial protocols (S7, EtherNet/IP, Modbus, OPC UA) and write per-function-code policies --- ``HMI may \emph{read} coils'' differs from ``Eng-WS may \emph{download} program.'' Caveat: cannot put Illumio agent on PLC itself, so fabric (Cisco TrustSec, switchport ACL pushed by Claroty xDome) enforces on cable. Does not replace conduit firewall between zones --- complements inside a zone.
+}
+\end{frame}
+
+%% Frame 4: PAM for OT
+\begin{frame}{PAM for OT --- Vendor Support, JIT, Recording}
+\centering
+\begin{tikzpicture}[node distance=5mm, scale=0.80, transform shape]
+  \node[isbox, fill=isMute!15, draw=isMute, minimum width=18mm, font=\scriptsize, align=center] (v) {Vendor\\engineer};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=22mm, font=\scriptsize, align=center, right=of v] (pam) {PAM portal\\MFA + ticket};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=22mm, font=\scriptsize, align=center, right=of pam] (vault) {Vault issues\\1-hour cred};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=22mm, font=\scriptsize, align=center, right=of vault] (jump) {Jump host\\(iDMZ)};
+  \node[plc, minimum width=14mm, font=\scriptsize, right=of jump] (plc) {PLC};
+  \node[isbox, fill=isHMI!15, draw=isHMI, minimum width=70mm, font=\scriptsize, align=center, below=10mm of vault, xshift=8mm]
+    (rec) {Session recording + keystroke log + operator ``allow'' click};
+  \draw[flow] (v) -- (pam) -- (vault) -- (jump) -- (plc);
+  \draw[flow, dashed] (jump.south) -- (jump.south |- rec.north);
+\end{tikzpicture}
+\par\vspace{1mm}
+{\scriptsize\setlength{\itemsep}{0pt}
+\begin{itemize}
+  \item OT-specialised: \textbf{Cyolo PRO}, \textbf{Claroty SRA (xDome Secure Access)}, \textbf{Dragos Neighborhood Keeper} (read-only).
+  \item IT-PAM extended to OT: \textbf{CyberArk PSM/PSMP}, \textbf{BeyondTrust Privileged Remote Access}, \textbf{Delinea}.
+  \item Pattern: no standing accounts on PLCs; vault checks out a credential per ticket, rotates after use, records the whole RDP/SSH session for replay.
+\end{itemize}}
+\begin{notebox}{IT vs.\ OT PAM}
+IT-PAM protects servers and clouds. OT-PAM additionally brokers \emph{vendor} access through an iDMZ and requires an on-shift operator approval click --- because the device on the other end can hurt people.
+\end{notebox}
+\source{CyberArk, \emph{Securing Privileged Access in OT Environments}, 2023 \textbar{} Cyolo, \emph{Zero-Trust Secure Remote Access for OT}, 2024.}
+\note{
+  PAM = ``credential vending machine + screen recorder.'' Standing password on engineering WS, shared \texttt{maintenance} login on HMI, vendor's hardcoded service account --- replaced by vault issuing one-hour credential, scoped to one device, after MFA + change ticket. Cyolo and Claroty SRA are OT-first: operator-approval workflow, clientless RDP/VNC into HMIs, run brokered without dropping software on PLC. CyberArk/BeyondTrust extend down from IT side. Differentiator vs IT PAM: on-shift operator click --- IT admin connecting to DC does not need human approval; outside vendor connecting to turbine controller does.
+}
+\end{frame}
+
+%% Frame 5: Golden Image & Backup
+\begin{frame}{Golden Image \& Backup Strategy for OT}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.78, transform shape]
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=30mm, minimum height=12mm, font=\scriptsize, align=center] (a) {PLC project\\+ checksum};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=30mm, minimum height=12mm, font=\scriptsize, align=center, right=of a] (b) {Signed\\firmware};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=30mm, minimum height=12mm, font=\scriptsize, align=center, right=of b] (c) {HMI project\\image};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=30mm, minimum height=12mm, font=\scriptsize, align=center, right=of c] (d) {Switch / FW\\configs};
+  \node[server, fill=isAccent!15, draw=isAccent, minimum width=40mm, font=\scriptsize, align=center, below=8mm of b, xshift=18mm] (vault) {Golden-image vault\\(signed, versioned)};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=60mm, font=\scriptsize, align=center, below=6mm of vault] (offline) {Offline copy: WORM tape / S3 Object Lock / air-gapped NAS};
+  \foreach \n in {a,b,c,d}{\draw[flow] (\n.south) -- (\n.south |- vault.north);}
+  \draw[flow] (vault) -- (offline);
+\end{tikzpicture}
+\par\vspace{2mm}
+\renewcommand{\arraystretch}{1.1}
+\scriptsize
+\begin{tabular}{|p{18mm}|p{20mm}|p{64mm}|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Asset} & \textbf{Target RTO} & \textbf{Restore path} \\
+\hline
+PLC      & 1--4 h & re-flash firmware $\to$ download project from vault $\to$ verify checksum \\
+\hline
+HMI      & 2--8 h & re-image Windows $\to$ restore HMI project $\to$ re-link to historian \\
+\hline
+SIS      & approval-gated & \emph{never} restored without functional safety re-validation (IEC 61511) \\
+\hline
+\end{tabular}
+\source{NIST SP 800-82 Rev.\,3 \S6.2, 2023 \textbar{} IEC 62443-3-3 FR7 (Resource Availability) \textbar{} IEC 61511-1:2016 \S11.}
+\note{
+  ``Golden'' = trusted, signed, version-controlled copy you re-image from. OT artefacts: TIA Portal \texttt{.ap18}, Studio 5000 \texttt{.ACD}, Wonderware \texttt{.aaPKG}, Cisco \texttt{running-config}. Hash, sign (Sigstore or Hashicorp Vault transit key), store in versioned repo --- the engineer's laptop is not a backup. RTO differs: PLC can be re-flashed and project pushed back $<$1h if vault is healthy; HMI longer (Windows); SIS is special --- IEC 61511 requires safety function re-validation (proof test) before back on demand. Offline tier (WORM tape, S3 Object Lock, air-gapped NAS) defeats ransomware deleting online backups before encrypting --- ``immutable'' is the load-bearing word.
+}
+\end{frame}
+
+%% Frame 6: Deception in OT
+\begin{frame}{Deception in OT --- Honeypots \& Canaries}
+\centering
+\begin{tikzpicture}[node distance=3mm, scale=0.78, transform shape]
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=36mm, minimum height=14mm, font=\scriptsize, align=center] (cp) {\textbf{Conpot}\\fake S7/Modbus/IEC-104};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=36mm, minimum height=14mm, font=\scriptsize, align=center, right=of cp] (op) {\textbf{OpenPLC honeypot}\\real runtime, no I/O};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=36mm, minimum height=14mm, font=\scriptsize, align=center, right=of op] (ck) {\textbf{Thinkst Canary}\\drop-in HMI / file share};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=110mm, minimum height=12mm, font=\scriptsize, align=left, below=6mm of op]
+    (tok) {\textbf{Honeyfiles / tokens:} \texttt{plc\_passwords.xlsx} on engineering share, fake \texttt{TIA\_project\_2026.zip}, decoy AD account \texttt{svc\_siemens}};
+  \node[isbox, fill=isAttack!20, draw=isAttack, minimum width=110mm, minimum height=10mm, font=\scriptsize, align=center, below=3mm of tok]
+    (alert) {\textbf{Any} touch $\Rightarrow$ on-call channel (zero legitimate traffic by design)};
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{tipbox}{Why deception fits OT especially well}
+A real PLC has predictable, scripted traffic. A decoy PLC has \emph{none}. The signal-to-noise ratio of any hit is essentially infinite --- no tuning, no triage.
+\end{tipbox}
+\source{Honeynet Project, \emph{Conpot ICS/SCADA Honeypot}, \url{https://conpot.org} \textbar{} Thinkst, \emph{Canary Quick-Start \& Detection Philosophy}, 2024 \textbar{} OpenPLC honeypot: SCADA-LAB, 2021.}
+\note{
+  Three layers: Conpot speaks S7Comm, Modbus, IEC 60870-5-104, BACnet --- enough to fool Shodan and opportunistic scans. OpenPLC on Raspberry Pi exposes a genuine ladder-logic environment but outputs go nowhere. Thinkst Canary pretends to be HMI, SCADA, Windows share. Plus honeytokens: fake \texttt{plc\_passwords.xlsx} in engineering share, decoy \texttt{TIA\_project\_2026.zip}, service account \texttt{svc\_siemens} in AD that nothing should ever log in as. Principle: zero false positives --- every alert is a real attacker. Drop a handful on each process VLAN, name aligned with real assets (\texttt{LINE3-PLC-07}), wire alerts to on-call channel. Bridges to detection-and-response section.
+}
+\end{frame}
+
+
+\begin{frame}{Summary -- Section \sectionNumber}
+\begin{takeawaybox}{What to remember from this section}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Defense in depth layers people, process, and technology.
+  \item Hardening and application whitelisting fit well on static HMIs.
+  \item Brokered, recorded, approved remote access beats open VPNs to the plant.
+  \item Passive OT IDS provides visibility without injecting traffic into production.
+\end{itemize}
+\end{takeawaybox}
+\note{
+  Close on the independence theme. The four takeaways are the minimum bar; the real test is whether your layers fail independently. If your IDS, your SIEM, and your jump host all log into the same Active Directory with the same admin account, the attacker who owns AD owns all three. Push the class on a final question: pick \emph{one} layer from today's deck that you would add to a brownfield plant first, and justify it on cost-per-detection. Next section we leave prevention behind and look at detection, response, and recovery -- because everything in this deck eventually fails, and the question is how fast you notice.
+}
+\end{frame}
+
+\referencesframe{
+  \item Idaho National Lab. \emph{Recommended Practice: Improving Industrial Control System Cybersecurity with Defense-in-Depth Strategies}, 2016.
+  \item NIST SP 800-82 Rev.\,3. \emph{Guide to OT Security}, Sep 2023.
+  \item CIS. \emph{CIS Critical Security Controls} v8, 2021.
+  \item CIS Benchmarks (Windows, Linux). Center for Internet Security.
+  \item NIST SP 800-167. \emph{Guide to Application Whitelisting}, 2015.
+  \item NIST SP 800-92. \emph{Guide to Computer Security Log Management}, 2006.
+  \item IEEE 802.1X-2020. \emph{Port-based network access control}.
+  \item Paxson, V. ``Bro: A System for Detecting Network Intruders in Real-Time.'' \emph{Computer Networks}, 1999 (Zeek origin).
+  \item Open Information Security Foundation. \emph{Suricata IDS}, \url{https://suricata.io}.
+  \item Idaho National Lab. \emph{Malcolm} network monitor, \url{https://github.com/idaholab/Malcolm}.
+  \item NIST SP 800-46. \emph{Guide to Enterprise Telework, Remote Access, and BYOD Security}, 2016.
+  \item CISA. \emph{Recommended Cybersecurity Practices for Industrial Control Systems}, 2020.
+}
+
+\closingframe
+
+\end{document}

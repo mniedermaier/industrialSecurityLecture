@@ -1,0 +1,55 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\labNumber{02}
+\def\labTitle{Inject and Detect a Stuxnet-style Logic Bomb}
+\def\labSection{02}
+\def\labTime{2--3 hours}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Plant a small ``stealth'' modification on a soft-PLC you own. Detect it from an external monitoring point. End with a written disclosure-ready report.
+\end{goalbox}
+
+\begin{stepbox}{1 -- Baseline}
+\begin{lstlisting}[language=bash]
+docker compose up -d           # bachelor/labs/_stack
+# Upload conveyor.st via OpenPLC web UI (Lab 02 of bachelor course).
+# Capture baseline blocks:
+docker compose exec student python3 - <<'PY'
+import hashlib, snap7
+c = snap7.client.Client(); c.connect("172.28.0.10", 0, 1)
+for t, n in [(snap7.types.Block.OB, 1)]:
+    b = c.upload(t, n); print(f"OB{n} sha256: {hashlib.sha256(b).hexdigest()}")
+c.disconnect()
+PY
+\end{lstlisting}
+\end{stepbox}
+
+\begin{stepbox}{2 -- Plant the modification}
+Edit the ladder so an unused input (\texttt{IX0.4}) gates a counter that, after N=50 cycles, drives \texttt{Motor} high regardless of the start/stop logic. Download \emph{only} the modified runtime, do not save the project. Re-take SHA-256.
+\end{stepbox}
+
+\begin{stepbox}{3 -- Watch from the outside}
+\begin{lstlisting}[language=bash]
+docker compose exec student python3 /labs/scripts/modbus_poll_loop.py
+\end{lstlisting}
+Observe \texttt{Motor} firing without operator action. Capture in Wireshark; identify the function code(s).
+\end{stepbox}
+
+\begin{stepbox}{4 -- Detection}
+Re-compute the SHA-256 from the PLC after the modification. Compare to baseline. Document how a continuous-monitoring product (Claroty, Dragos, Nozomi) would surface this within seconds.
+\end{stepbox}
+
+\begin{deliverbox}
+A 1-page report containing: baseline hash, post-injection hash, PCAP of the unauthorised \texttt{Motor} firing, a sentence on the mitigation that would have prevented the download (e.g.\ key-switch in RUN), and the disclosure email you would send a vendor.
+\end{deliverbox}
+
+\begin{warnbox}
+Do this only on your lab PLC. Modifying production ladder logic without written authorisation is criminal in essentially every jurisdiction.
+\end{warnbox}
+\end{document}

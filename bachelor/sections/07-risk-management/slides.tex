@@ -1,0 +1,512 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\courseSubtitle{Section 07 -- Risk Management}
+\def\sectionNumber{07}
+\def\sectionTitle{Risk Management}
+
+\input{../../../template/slides-preamble.tex}
+
+\begin{document}
+
+\sectionoverviewframe
+
+\learningobjectives{
+  \item Construct and interpret a qualitative risk matrix for an industrial site.
+  \item Apply Cyber-HAZOP / Cyber-PHA techniques.
+  \item Distinguish IT risk from safety risk.
+  \item Recognise the Consequence-Driven Cyber-Informed Engineering (CCE) approach.
+}
+
+\section{Risk Fundamentals}
+
+\begin{frame}{Risk in Industrial Contexts}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=26mm, minimum height=14mm] (lik) {Likelihood};
+  \node[font=\Large\bfseries, right=2mm of lik] (mul) {$\times$};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=26mm, minimum height=14mm, right=2mm of mul] (cons) {Consequence};
+  \node[font=\Large\bfseries, right=2mm of cons] (eq) {$=$};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=26mm, minimum height=14mm, right=2mm of eq] (risk) {Risk};
+\end{tikzpicture}
+\vspace{3mm}
+\begin{notebox}{Consequence dimensions}
+\textbf{Safety}, environment, production loss, reputation, regulatory.\\
+Likelihood depends on adversary capability \emph{and} exploit difficulty.
+\end{notebox}
+\note{
+  Open by underlining that OT risk is \emph{non-linear}: once consequence reaches the safety or environmental tier, no amount of low likelihood makes the residual risk acceptable. The product form $L \times C$ is a teaching aid, not a physical law --- regulators (Seveso~III, IEC~61511) require you to drive safety risk down regardless of likelihood. Contrast with classic IT risk, where confidentiality breaches scale roughly linearly with exposure. Ask the room: what happens to this equation when $C$ contains a fatality? (Answer: the multiplication collapses --- the consequence axis dominates.) Transition: ``so how do practitioners actually plot this?''
+}
+\end{frame}
+
+\begin{frame}{Risk Matrix (5$\times$5)}
+\vspace{4mm}
+\centering
+\begin{tikzpicture}[scale=0.75]
+  \foreach \r/\rlbl in {0/{Very Unlikely}, 1/{Unlikely}, 2/{Possible}, 3/{Likely}, 4/{Very Likely}}{
+    \node[font=\scriptsize, anchor=east] at (-0.05, \r+0.5) {\rlbl};
+  }
+  \foreach \c/\clbl in {0/{Negligible}, 1/{Minor}, 2/{Moderate}, 3/{Major}, 4/{Catastrophic}}{
+    \node[font=\scriptsize, anchor=west, rotate=45] at (\c+0.5, 5.15) {\clbl};
+  }
+  \foreach \r in {0,1,2,3,4}{
+    \foreach \c in {0,1,2,3,4}{
+      \pgfmathtruncatemacro{\score}{\r+\c}
+      \pgfmathtruncatemacro{\rr}{min(255, 80+\score*40)}
+      \pgfmathtruncatemacro{\gg}{max(0, 220-\score*45)}
+      \definecolor{rmcol}{RGB}{\rr,\gg,60}
+      \draw[fill=rmcol, draw=black!40] (\c,\r) rectangle ++(1,1);
+    }
+  }
+\end{tikzpicture}
+\par\vspace{2mm}
+\footnotesize Useful for quick communication; risk of false precision and gaming.
+\note{
+  Make the misconception explicit: ``a risk matrix is objective'' --- no, the \emph{colour bands are policy}. Two companies can use the same 5$\times$5 grid and disagree on which cells are red because they have different appetites. NIST~SP~800-30~R1 and ISO~31000:2018 both call out this calibration step. Common failure modes: cell-creep (analysts move scores left to escape red), category-stuffing (one ``major'' bucket that swallows everything from 1~h downtime to a fatality). Ask: ``who in your organisation owns the colour scheme?'' --- usually nobody, which is the problem. Transition: ``let's look at methods that surface the underlying logic.''
+}
+\end{frame}
+
+\section{Methodologies}
+
+\begin{frame}{Bow-Tie Analysis}
+\centering
+\begin{tikzpicture}[node distance=12mm]
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=36mm, minimum height=16mm, align=center] (event) {Top event\\(loss of containment)};
+  \node[isbox, fill=isPLC!15, draw=isPLC, left=22mm of event] (c1) {Cause 1};
+  \node[isbox, fill=isPLC!15, draw=isPLC, above left=of event] (c2) {Cause 2};
+  \node[isbox, fill=isPLC!15, draw=isPLC, below left=of event] (c3) {Cause 3};
+  \node[isbox, fill=isNet!15, draw=isNet, right=22mm of event] (e1) {Conseq.\ 1};
+  \node[isbox, fill=isNet!15, draw=isNet, above right=of event] (e2) {Conseq.\ 2};
+  \node[isbox, fill=isNet!15, draw=isNet, below right=of event] (e3) {Conseq.\ 3};
+  \draw[flow] (c1.east) -- (event.west);
+  \draw[flow] (c2.south east) -- (event.north west);
+  \draw[flow] (c3.north east) -- (event.south west);
+  \draw[flow] (event.east) -- (e1.west);
+  \draw[flow] (event.north east) -- (e2.south west);
+  \draw[flow] (event.south east) -- (e3.north west);
+\end{tikzpicture}
+\par\vspace{2mm}
+\footnotesize Barriers on the left prevent causes; barriers on the right mitigate consequences.
+\note{
+  The bow-tie is the diagram process-safety engineers already understand --- which makes it the right onboarding tool for security people walking into a HAZOP room. The knot in the middle is the \emph{top event} (loss of containment, runaway reaction, loss of view). Left side: threat paths and the barriers that stop them. Right side: consequence paths and the mitigations that limit damage. Stress that a \emph{cyber} cause sits on the left like any other --- ``attacker writes setpoint'' is just another initiating event. Transition: ``HAZOP gives us the verb list to walk these causes systematically.''
+}
+\end{frame}
+
+\begin{frame}{Cyber-PHA / Cyber-HAZOP}
+\centering
+\begin{tikzpicture}[node distance=6mm]
+  \node[isbox, fill=isOT!12, draw=isOT, minimum width=22mm, font=\scriptsize] (g1) {No};
+  \node[isbox, fill=isOT!12, draw=isOT, minimum width=22mm, font=\scriptsize, right=of g1] (g2) {More};
+  \node[isbox, fill=isOT!12, draw=isOT, minimum width=22mm, font=\scriptsize, right=of g2] (g3) {Less};
+  \node[isbox, fill=isOT!12, draw=isOT, minimum width=22mm, font=\scriptsize, right=of g3] (g4) {Reverse};
+  \node[isbox, fill=isOT!12, draw=isOT, minimum width=22mm, font=\scriptsize, right=of g4] (g5) {As well as};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, below=12mm of g3, align=left, font=\small]
+    (q)
+    {For each node, ask:\\
+     \quad ``What if an \textbf{attacker} caused the deviation \emph{[guide word] [parameter]}?''};
+  \node[isbox, fill=isAccent!12, draw=isAccent, minimum width=110mm, below=of q, align=left, font=\scriptsize]
+    (ex)
+    {\emph{Examples:} no flow $\to$ attacker closes inlet valve; high pressure $\to$ attacker disables relief actuator.};
+\end{tikzpicture}
+\source{IEC 61882:2016 (HAZOP) \textbar{} ISA TR84.00.09 (Cybersecurity for SIS).}
+\note{
+  Cyber-HAZOP reuses the IEC~61882 guide words but adds an adversarial mind --- not ``what if the valve sticks open?'' but ``what if the attacker \emph{holds} the valve open and spoofs the feedback?'' ISA~TR84.00.09:2017 codifies this as the bridge between functional safety (IEC~61511) and security (IEC~62443). The workshop must include a process engineer, an instrumentation engineer, and a security analyst --- otherwise you get either fantasy attacks or hand-wavy consequences. The output is a list of cyber-induced deviations that feed straight into the LOPA worksheet. Ask: ``which guide word is hardest for an attacker?'' --- usually ``reverse'', because most attackers want a one-way bad state, not an oscillation.
+}
+\end{frame}
+
+\begin{frame}{Layers of Protection (LOPA)}
+\centering
+\begin{tikzpicture}[y=0.7cm]
+  \foreach \r/\name/\col in {
+    0/{Process design}/isOT,
+    1/{BPCS control loops (main controller)}/isPLC,
+    2/{Alarms and operator action}/isHMI,
+    3/{SIS interlocks (independent safety)}/isAttack,
+    4/{Physical protection}/isAccent,
+    5/{Plant emergency response}/isMute,
+    6/{Community emergency response}/isMute}{
+    \draw[fill=\col!15, draw=\col, thick] (0,\r) rectangle (10, \r+0.8);
+    \node[font=\small] at (5, \r+0.4) {\name};
+  }
+  \draw[-{Stealth[length=3mm]}, very thick, isAttack] (-0.6,6.4) -- (-0.6, 0.4);
+  \node[rotate=90, font=\scriptsize, anchor=south] at (-1.0, 3.4) {escalating consequence};
+\end{tikzpicture}
+\note{
+  Walk top to bottom: each layer is a chance for the incident to be stopped before it escalates. The arrow on the left says ``if all seven fail, the community is exposed.'' This is the CCPS framing used in chemicals, refining, and LNG. Pre-empt the false-precision trap --- LOPA gives a number but the number is only as good as the credit you assign each layer. Ask the room: which of these layers does cyber neutralise simultaneously? (Answer: anything that runs on the same DCS --- BPCS, alarms, and an unhardened SIS can all collapse to a single common-cause cyber failure.) Transition: ``next slide quantifies that intuition.''
+}
+\end{frame}
+
+\begin{frame}{Consequence-Driven Cyber-Informed Engineering (CCE)}
+\vspace{-4mm}
+\centering
+\begin{tikzpicture}[scale=0.62, transform shape]
+  \def\R{1.4}
+  \draw[thick] (0,0) circle (\R);
+  \node[font=\bfseries\small] at (0,0) {CCE};
+  \node[isbox, fill=isAttack!10, draw=isAttack, font=\scriptsize, align=center, minimum width=26mm]
+    at (90:\R+2.4) {1. Consequence\\prioritisation};
+  \node[isbox, fill=isAttack!10, draw=isAttack, font=\scriptsize, align=center, minimum width=26mm]
+    at (0:\R+2.4) {2. System-of-\\systems analysis};
+  \node[isbox, fill=isAttack!10, draw=isAttack, font=\scriptsize, align=center, minimum width=26mm]
+    at (270:\R+2.4) {3. Consequence-based\\targeting};
+  \node[isbox, fill=isAttack!10, draw=isAttack, font=\scriptsize, align=center, minimum width=26mm]
+    at (180:\R+2.4) {4. Mitigations \&\\protections};
+\end{tikzpicture}
+\vspace{-1mm}
+\begin{notebox}{INL methodology}
+``What would I do if I were the adversary?'' \ Engineer out the worst consequences.
+\end{notebox}
+\source{A.\ Bochman, S.\ Freeman, \emph{Countering Cyber Sabotage}, INL/CRC Press, 2021.}
+\note{
+  This is the slide I want them to remember. Frame it as a single question: \emph{``if you were the adversary, what would you do?''} --- and then engineer that move \emph{out}, not just monitor for it. Idaho National Laboratory developed CCE after concluding that perimeter security alone cannot stop a determined nation-state. Phase~1 prioritises the handful of consequences the business cannot survive (typically two or three, not twenty). Phase~3 is the uncomfortable one: you red-team your own crown jewels and find the kill chain that actually works. Tell them: ``most companies do steps~1 and~4 and skip 2 and 3 --- which is why they keep being surprised.''
+}
+\end{frame}
+
+\begin{frame}{Risk Response Options}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isNet!15, draw=isNet, minimum width=26mm, minimum height=16mm, align=center] (av) {\textbf{Avoid}\\\scriptsize remove function};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=26mm, minimum height=16mm, align=center, right=of av] (mi) {\textbf{Mitigate}\\\scriptsize reduce L or C};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=26mm, minimum height=16mm, align=center, right=of mi] (tr) {\textbf{Transfer}\\\scriptsize insure / contract};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=26mm, minimum height=16mm, align=center, right=of tr] (ac) {\textbf{Accept}\\\scriptsize signed-off};
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{notebox}{Acceptance is legitimate}
+But it must be reviewed periodically -- threats evolve.
+\end{notebox}
+\note{
+  ISO~31000:2018 lists these four canonical responses. Stress that \emph{avoidance} is underused in OT --- if a function is risky and not load-bearing, remove it (do you really need that remote-engineering VPN to the Siemens S7?). Mitigation is the daily bread of security teams. Transfer is where insurance lives --- and it does \emph{not} reduce the underlying probability of harm. Acceptance must be a signed, time-bounded decision by someone with budget authority, not a default. Ask: ``which of these does a CISO actually have authority over?'' --- usually only mitigation and acceptance; avoidance needs the COO.
+}
+\end{frame}
+
+\begin{frame}{FAIR -- Quantitative Cyber Risk}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=44mm, minimum height=14mm, align=center, font=\small] (lef) {Loss event frequency};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=44mm, minimum height=14mm, align=center, font=\small, right=of lef] (mag) {Loss magnitude};
+  \node[font=\Large\bfseries, right=2mm of lef] {$\times$};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=100mm, font=\small, below=10mm of mag, xshift=-25mm] (out) {= Annualised loss expectancy (ALE)};
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{When FAIR earns its keep}
+When the board asks ``how much does this risk actually cost us?'' -- and a heat-map is no longer enough.
+\end{notebox}
+\source{The Open Group, \emph{Risk Analysis (O-RA) Standard} (FAIR), C20A:2021 \textbar{} J.\ Jones \& J.\ Freund, \emph{Measuring and Managing Information Risk}, 2014.}
+\note{
+  FAIR (Factor Analysis of Information Risk) decomposes risk into measurable factors with confidence intervals --- not point estimates. The Open Group's O-RA standard formalises it. Where it earns its keep: capex justification, insurance renewal, board-level conversations where ``high / medium / low'' has stopped landing. Where it fails: when applied to safety-critical systems with sparse incident data --- you end up with a confident-looking number sitting on top of guesses. NIST~SP~800-30~R1 explicitly endorses semi-quantitative methods for exactly this reason. Ask: ``would you bet your job on the ALE figure?'' --- if not, treat it as a directional signal, not truth.
+}
+\end{frame}
+
+\begin{frame}{LOPA -- Independent Protection Layers}
+\centering
+\begin{tikzpicture}[y=0.6cm]
+  \foreach \r/\name/\col in {
+    0/{Process design (inherent safety)}/isOT,
+    1/{Basic process control (BPCS)}/isPLC,
+    2/{Alarms + operator action}/isHMI,
+    3/{Safety instrumented system (SIS)}/isAttack,
+    4/{Pressure relief / physical barriers}/isAccent,
+    5/{Plant emergency response}/isMute}{
+    \draw[fill=\col!15, draw=\col, thick] (0,\r) rectangle (9, \r+0.7);
+    \node[font=\scriptsize] at (4.5, \r+0.35) {\name};
+  }
+\end{tikzpicture}
+\vspace{1mm}
+\begin{notebox}{Independence is the value}
+Each layer must be \emph{independent of the next} -- otherwise one common-cause failure removes them all.
+\end{notebox}
+\source{CCPS, \emph{Layer of Protection Analysis: Simplified Process Risk Assessment}, AIChE, 2001.}
+\note{
+  The point of LOPA is that probability and consequence are not the same axis. Walk through one row of the example: an attacker who can change a setpoint may, after several independent layers of protection, eventually cause a release. Each layer is a probability of failure on demand (PFD) --- typically $10^{-1}$ to $10^{-2}$ --- multiplied together. \emph{Independence} is the single most violated assumption: if your SIS shares Windows engineering workstations with the BPCS, the layers are no longer independent and the math is wrong. IEC~61511 mandates this independence for safety-rated layers. Ask: which of these layers does cyber neutralise simultaneously? (Answer: anything that runs on the same DCS.)
+}
+\end{frame}
+
+\begin{frame}{Bow-Tie Example -- Loss of Containment}
+\centering
+\begin{tikzpicture}[node distance=8mm]
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=36mm, minimum height=12mm, align=center, font=\small] (e) {Top event};
+  \node[isbox, fill=isPLC!12, draw=isPLC, font=\scriptsize, left=22mm of e] (c1) {Overpressure};
+  \node[isbox, fill=isPLC!12, draw=isPLC, font=\scriptsize, above=of c1] (c2) {Valve failure};
+  \node[isbox, fill=isPLC!12, draw=isPLC, font=\scriptsize, below=of c1] (c3) {Cyber-induced ramp};
+  \node[isbox, fill=isNet!12, draw=isNet, font=\scriptsize, right=22mm of e] (k1) {Toxic release};
+  \node[isbox, fill=isNet!12, draw=isNet, font=\scriptsize, above=of k1] (k2) {Production halt};
+  \node[isbox, fill=isNet!12, draw=isNet, font=\scriptsize, below=of k1] (k3) {Regulatory fine};
+  \draw[flow] (c1.east) -- (e.west);
+  \draw[flow] (c2.east) -- (e.north west);
+  \draw[flow] (c3.east) -- (e.south west);
+  \draw[flow] (e.east) -- (k1.west);
+  \draw[flow] (e.north east) -- (k2.west);
+  \draw[flow] (e.south east) -- (k3.west);
+\end{tikzpicture}
+\par\vspace{1mm}
+{\footnotesize Barriers on the left prevent causes; barriers on the right mitigate consequences.}
+\note{
+  Concrete example to make bow-tie click: pick the cyber-induced ramp on the bottom-left. Walk left-to-right: attacker writes a slow setpoint ramp, BPCS executes obediently, alarms suppressed because the rate is below threshold, SIS not tripped because the value stays under the trip point until too late --- top event reached. Right side: toxic release, production halt, regulatory fine. Now ask the room to nominate \emph{barriers}: rate-of-change alarm independent of BPCS, change-management on setpoints, signed downloads to the SIS. This is exactly how a Cyber-PHA workshop runs. Transition: ``every barrier is either a control we have or a control we owe.''
+}
+\end{frame}
+
+\begin{frame}{Qualitative vs.\ Quantitative}
+\centering
+\renewcommand{\arraystretch}{1.3}
+\footnotesize
+\begin{tabular}{|p{3cm}|p{4.2cm}|p{4.6cm}|}
+\hline
+\rowcolor{slidePanel}
+ & \textbf{Qualitative} & \textbf{Quantitative} \\
+\hline
+Speed       & Hours                       & Days to weeks \\
+Data needed & Workshop + expert judgement & Frequency \& impact data \\
+Output      & Heat map / risk matrix      & Loss curve in money \\
+Use cases   & Initial triage              & Board / insurance / capex \\
+Pitfalls    & False precision             & Garbage in $\Rightarrow$ garbage out \\
+\hline
+\end{tabular}
+\note{
+  These are not rivals --- they answer different questions for different audiences. Qualitative is right for the first pass and for the workshop where you cannot yet defend numbers. Quantitative (FAIR, Monte~Carlo, LOPA) is right when a decision turns on \emph{how much}, not \emph{how bad}. The trap on both sides is the same: pretending the output is more precise than the input. NIST~SP~800-30~R1 explicitly recommends semi-quantitative as a pragmatic middle ground. Ask: ``which would your CFO believe?'' --- usually the one with the dollar sign, even when the qualitative score is better calibrated. Transition: ``so where does all of this land --- in a register.''
+}
+\end{frame}
+
+\begin{frame}{Cyber Insurance -- What It Buys}
+\begin{itemize}
+  \item First-party: forensics, IR retainer, business interruption.
+  \item Third-party: liability, regulator response.
+  \item Typical exclusions: nation-state acts of war, unpatched known CVEs, missing MFA.
+  \item Insurers now drive a minimum control baseline (MFA, EDR, backups).
+\end{itemize}
+\begin{warnbox}{Backstop, not a control}
+Insurance is a backstop. Premiums rise sharply if your baseline is weak, and ``act of war'' exclusions are tested in court each year.
+\end{warnbox}
+\source{Munich Re \emph{Cyber Insurance Risk Snapshot}, 2024 \textbar{} Merck v.\ Ace American (NotPetya war-exclusion ruling), New Jersey Appellate, 2022.}
+\note{
+  Hit the misconception head-on: ``buy insurance, problem solved'' --- no, \emph{exclusions are everything}. The Merck v.\ Ace American case (NotPetya, settled after the 2022 New Jersey ruling) is the canonical example: insurer invoked the ``hostile or warlike action'' exclusion against a state-attributed wiper. Merck eventually won on appeal, but only because the policy language was old; modern policies have rewritten war exclusions specifically to cover state-attributed cyber. Also stress: insurers now \emph{require} a control baseline (MFA, EDR, immutable backups) --- they are effectively the new compliance authority. Ask: ``does your risk register cite policy exclusions?'' --- if not, transfer is fictional.
+}
+\end{frame}
+
+\begin{frame}{Risk Register Example}
+\footnotesize
+\setlength{\itemsep}{2pt}
+\begin{itemize}
+  \item \textbf{Ransomware on Historian} -- Likely / Major / \textcolor{calImportant}{\bfseries H}: immutable backups, EDR.
+  \item \textbf{SIS reprogrammed by attacker} -- Unlikely / Catastrophic / \textcolor{calImportant}{\bfseries H}: key-switch + signed downloads.
+  \item \textbf{Vendor account abuse} -- Possible / Major / \textcolor{calImportant}{\bfseries H}: MFA, brokered remote access, session recording.
+  \item \textbf{USB-borne malware} -- Likely / Moderate / \textcolor{calWarning}{\bfseries M}: USB allow-listing, kiosk scanner.
+  \item \textbf{PLC firmware CVE} -- Possible / Major / \textcolor{calWarning}{\bfseries M}: vendor patch in maintenance window; virtual patch on IPS meanwhile.
+\end{itemize}
+\note{
+  A risk register is a living document, not a tickbox --- every row carries an owner, a control set, a residual rating, and a review date. Read one entry aloud: \emph{SIS reprogrammed by attacker} --- unlikely, but catastrophic, hence still high; mitigations are key-switch and signed downloads, both per IEC~62443-3-3. Stress that this register is the artefact regulators (NIS2, NIST~800-82~R3) actually ask to see during an inspection. Without it you cannot demonstrate that risks were considered and consciously treated. Ask the class: ``what would you add to this list for a water utility?'' --- expect chlorine dosing, SCADA poll-rate, and remote-pumping-station physical security.
+}
+\end{frame}
+
+%% Frame 1: IEC 62443 anchor for §07
+\begin{frame}{IEC 62443 anchor for this section}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.85, transform shape]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, align=left] (a)
+    {\textbf{62443-3-2:2020} \ Security risk assessment for system design --- ZCR 1--7};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=110mm, font=\small, align=left, below=of a] (b)
+    {\textbf{62443-2-1:2024} \ Security program for the asset owner --- policies, roles, IR};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=110mm, font=\small, align=left, below=of b] (c)
+    {\textbf{62443-3-3:2013} \ System SRs grouped by SL-T 1--4 (the target you assign per zone)};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small, align=left, below=of c] (d)
+    {\textbf{62443-4-2:2019} \ Component capability levels SL-C 1--4 (what a vendor can prove)};
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{notebox}{From assessment to SL-T}
+3-2 walks you ZCR-by-ZCR: identify SUC $\to$ partition into zones/conduits $\to$ assess unmitigated risk $\to$ assign \textbf{SL-T} (target) $\to$ procure devices with matching \textbf{SL-C} (capability).
+\end{notebox}
+\source{IEC 62443-3-2:2020 \textbar{} IEC 62443-2-1:2024 \textbar{} IEC 62443-3-3:2013 \textbar{} IEC 62443-4-2:2019.}
+\note{
+  3-2 is the methodology document: 7 ZCRs walk the asset owner from ``what is the System under Consideration'' to ``what Security Level must each zone reach.'' SL-T = target you assign per zone based on risk assessment (basement HMI may be SL-T~2, turbine control SL-T~3); SL-C = what the vendor's box can prove. They must match. 2-1 is the program-management partner --- governance, training, IR --- equivalent to ISO 27001 but written for plant asset owner. Pre-empt: ``62443 is just a checklist'' --- 3-2 is explicitly risk-driven; SLs are an \emph{output} of risk analysis, not a default.
+}
+\end{frame}
+
+%% Frame 2: Cyber-PHA Worked Example
+\begin{frame}{Cyber-PHA Worked Example --- Chlorine Dosing}
+\centering
+\begin{tikzpicture}[node distance=3mm, scale=0.84, transform shape]
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=44mm, minimum height=12mm, align=center, font=\small]
+    (top) {Top event\\Chlorine overdose};
+  \node[isbox, fill=isPLC!12, draw=isPLC, font=\scriptsize, align=center, left=14mm of top, yshift=12mm]
+    (i1) {IE-1: spoof\\residual sensor};
+  \node[isbox, fill=isPLC!12, draw=isPLC, font=\scriptsize, align=center, left=14mm of top]
+    (i2) {IE-2: write\\setpoint via HMI};
+  \node[isbox, fill=isPLC!12, draw=isPLC, font=\scriptsize, align=center, left=14mm of top, yshift=-12mm]
+    (i3) {IE-3: bypass\\SIS interlock};
+  \node[isbox, fill=isNet!12, draw=isNet, font=\scriptsize, align=center, right=14mm of top]
+    (c1) {Public health\\hospitalisations};
+  \draw[flow] (i1.east) -- (top.north west);
+  \draw[flow] (i2.east) -- (top.west);
+  \draw[flow] (i3.east) -- (top.south west);
+  \draw[flow] (top.east) -- (c1.west);
+\end{tikzpicture}
+\par\vspace{1mm}
+{\scriptsize\centering
+\begin{tabular}{|p{22mm}|p{22mm}|p{22mm}|p{22mm}|p{22mm}|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Layer} & \textbf{IPL} & \textbf{PFD} & \textbf{Cyber-vulnerable?} & \textbf{Credit} \\
+\hline
+BPCS dosing loop & ratio control & $10^{-1}$ & yes (Modbus) & none \\
+\hline
+Alarm + operator & high-Cl alarm & $10^{-1}$ & shares HMI & none \\
+\hline
+SIS interlock & SIL-2 trip & $10^{-2}$ & independent & $10^{-2}$ \\
+\hline
+\end{tabular}}
+\source{ISA TR84.00.09:2017 (Cybersecurity \& Functional Safety) \textbar{} AWWA M19, \emph{Emergency Planning for Water and Wastewater Utilities}, 2018.}
+\note{
+  Walk end-to-end: municipal water plant. PLC ratios sodium hypochlorite to flow; residual analyser closes the loop; SIS trips on high-Cl. Three cyber initiating events: spoofed Modbus reading (PLC thinks Cl is low, ramps dosing); unauthorised setpoint write at HMI; SIS interlock bypass (TRITON-style). LOPA: BPCS and alarm both run on same Schneider HMI/SCADA stack, so a cyber compromise collapses both layers to one common-cause failure --- zero risk-reduction credit. Only the independent SIL-2 SIS still contributes its $10^{-2}$. Punchline: cyber turns independent layers into one layer. Oldsmar (FL, 2021) lye-dosing intrusion is the real-world cousin.
+}
+\end{frame}
+
+%% Frame 3: FAIR for OT
+\begin{frame}{FAIR for OT --- Quantitative Risk in Practice}
+\centering
+\begin{tikzpicture}[node distance=3mm, scale=0.92, transform shape]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=34mm, minimum height=12mm, align=center, font=\small] (lef) {LEF\\$0.2$ / yr};
+  \node[font=\Large\bfseries, right=2mm of lef] (x) {$\times$};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=34mm, minimum height=12mm, align=center, font=\small, right=2mm of x] (lm) {LM\\\$18.4M};
+  \node[font=\Large\bfseries, right=2mm of lm] (eq) {$=$};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=34mm, minimum height=12mm, align=center, font=\small, right=2mm of eq] (ale) {ALE\\\$3.7M / yr};
+\end{tikzpicture}
+\par\vspace{1mm}
+{\scriptsize\centering
+\begin{tabular}{|p{36mm}|p{24mm}|p{40mm}|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Loss component} & \textbf{Estimate} & \textbf{Basis (automotive tier-1)} \\
+\hline
+Production loss & \$45k / h $\times$ 168\,h & line down 1 week, ransomware \\
+\hline
+Recovery + forensics & \$1.8M & IR retainer + rebuild \\
+\hline
+Regulatory (NIS2 / GDPR) & \$2.0M & up to 2\,\% of group turnover \\
+\hline
+Customer penalties (OTD) & \$7.0M & contractual late-delivery clauses \\
+\hline
+\end{tabular}}
+\begin{warnbox}{Where FAIR runs out of road}
+FAIR monetises everything --- but \textbf{a fatality is not a dollar figure}. For safety risk use ALARP / LOPA; reserve FAIR for production, IP, and regulatory loss.
+\end{warnbox}
+\source{The Open Group, \emph{Risk Analysis (O-RA)} C20A:2021 \textbar{} J.\ Jones \& J.\ Freund, \emph{Measuring and Managing Information Risk}, Butterworth-Heinemann, 2014.}
+\note{
+  LEF = Loss Event Frequency: 0.2/yr (``once every five years'') --- calibrate against Verizon DBIR manufacturing vertical, Dragos year-in-review. LM = Loss Magnitude: build bottom-up from the four rows. Biggest line is almost always customer penalties: tier-1 auto suppliers face per-minute fines from OEMs --- recall 2022 Toyota shutdown after Kojima Industries was hit: one supplier, one day, 13\,000 vehicles unbuilt. Open Group O-RA standard formalises the decomposition; Jones \& Freund (2014) is the practitioner book. Warnbox is the load-bearing caveat: do not put a price tag on human life --- regulators (Seveso III, IEC 61511) refuse that framing.
+}
+\end{frame}
+
+%% Frame 4: Risk Register Template
+\begin{frame}{Risk Register --- Template and Worked Row}
+\centering
+\scriptsize
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{|p{14mm}|p{20mm}|p{22mm}|p{14mm}|p{18mm}|p{18mm}|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Zone} & \textbf{Threat} & \textbf{Vulnerability} & \textbf{Likely.} & \textbf{Consequence} & \textbf{Residual} \\
+\hline
+\textbf{Z-03}\newline Dosing ctrl & Setpoint write by remote attacker & HMI on flat VLAN; no MFA on vendor VPN & Possible & Major\newline (public health) & \textcolor{calImportant}{\textbf{HIGH}} \\
+\hline
+\multicolumn{6}{|p{122mm}|}{\textbf{Controls in place:} SIS trip on high-Cl (SIL-2), weekly PLC project backup. \quad
+\textbf{Treatment:} segment Z-03 behind 62443 conduit + MFA on vendor jump host (Q3). \quad
+\textbf{Owner:} Plant ICS lead. \quad \textbf{Review:} 6 mo. \quad \textbf{SL-T:} 3.} \\
+\hline
+\end{tabular}
+\par\vspace{2mm}
+\begin{tipbox}{Minimum viable register}
+Six columns, one owner, one review date. Anything more elaborate becomes shelfware --- regulators (NIS2, NIST 800-82 R3) ask to see \emph{this}, not a 40-column spreadsheet.
+\end{tipbox}
+\source{ISO 31000:2018 \,\textbar{}\, NIST SP 800-82 Rev.\,3 (2023) \,\textbar{}\, IEC 62443-3-2:2020 (ZCR 5).}
+\note{
+  The artefact a regulator/auditor will demand --- not the heat map, not the FAIR spreadsheet, the \emph{register}. Z-03 is the chlorine-dosing zone from Frame 2; threat is the setpoint-write scenario; vulnerability names concrete weakness (flat VLAN, no MFA); likelihood + consequence drive residual rating. Second row records controls, treatment, owner, review, target SL. Registers fail when they grow past 8 columns --- nobody updates a 40-column spreadsheet. Pre-empt ``shouldn't every CVE go in here?'' --- no, the register tracks \emph{risks}, not vulnerabilities. Tie to 62443-3-2 ZCR 5 (document residual risk per zone) and NIS2 Art.\,21 evidence requirement.
+}
+\end{frame}
+
+%% Frame 5: Cyber Insurance for OT
+\begin{frame}{Cyber Insurance for OT --- Underwriting in 2024}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.92, transform shape]
+  \node[isbox, fill=isAttack!12, draw=isAttack, minimum width=54mm, minimum height=12mm, font=\scriptsize, align=left]
+    (req) {\textbf{Underwriter's minimum baseline}\\
+           asset inventory \,$\bullet$\, network segmentation\\
+           MFA on remote access \,$\bullet$\, EDR on engineering WS\\
+           immutable backups \,$\bullet$\, tested IR plan};
+  \node[isbox, fill=isOT!12, draw=isOT, minimum width=54mm, minimum height=12mm, font=\scriptsize, align=left, right=4mm of req]
+    (trend) {\textbf{2022--2024 trends}\\
+             premiums $+50$--$100\%$ (2022 peak)\\
+             sub-limits on ransomware payouts\\
+             ``act of war'' exclusions rewritten\\
+             OT inspection now common pre-bind};
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{warnbox}{Transfer is not mitigation}
+Insurance pays the bill; it does not stop the centrifuge. Exclusions (state-attributed attacks, unpatched known CVEs, missing MFA) are tested in court every year --- read the policy before you cite it in the risk register.
+\end{warnbox}
+\source{Munich Re, \emph{Cyber Insurance: Risks and Trends 2024} \textbar{} Marsh, \emph{Global Insurance Market Index} Q4 2023 \textbar{} Merck \& Co.\ v.\ Ace American Ins., NJ App.\ Div., 2022.}
+\note{
+  Insurance is the formal home of the ``transfer'' response. New thing for IT students: underwriters have become \emph{de facto} regulators --- 200-question OT questionnaire + third-party scan to bind a policy. Munich Re 2024: global cyber market $\sim$\$15bn GWP, manufacturing fastest-growing OT segment. Marsh: 2022 peak premiums up $\sim$110\%, cooling through 2023 as baseline tightened. Merck v.\ Ace American (NJ App., 2022): Merck won \$1.4bn because NotPetya-era policy language pre-dated state-attributed cyber. Read three lines: war exclusion, unpatched-CVE exclusion, ransomware sub-limit.
+}
+\end{frame}
+
+%% Frame 6: ALARP Principle
+\begin{frame}{ALARP --- As Low As Reasonably Practicable}
+\centering
+\begin{tikzpicture}[scale=0.72, transform shape]
+  \fill[isAttack!30] (0,4) -- (5,4) -- (2.5,5.2) -- cycle;
+  \fill[isAccent!25] (0,1.5) -- (5,1.5) -- (5,4) -- (0,4) -- cycle;
+  \fill[isOT!25] (0,0) -- (5,0) -- (5,1.5) -- (0,1.5) -- cycle;
+  \draw[thick] (0,0) rectangle (5,4);
+  \draw[thick] (0,4) -- (2.5,5.2) -- (5,4);
+  \node[font=\small\bfseries, align=center] at (2.5,4.6) {Intolerable};
+  \node[font=\small\bfseries, align=center] at (2.5,2.75) {ALARP region};
+  \node[font=\scriptsize, align=center] at (2.5,2.25) {reduce \emph{if} cost not\\grossly disproportionate};
+  \node[font=\small\bfseries, align=center] at (2.5,0.75) {Broadly acceptable};
+  \begin{scope}[xshift=8cm, yshift=0.3cm]
+    \draw[->, thick] (0,0) -- (5,0) node[right, font=\scriptsize] {risk reduction};
+    \draw[->, thick] (0,0) -- (0,4) node[above, font=\scriptsize] {EUR cost};
+    \draw[thick, isPLC, very thick] (0,0.3) .. controls (2,0.6) and (3,1.2) .. (3.5,2);
+    \draw[thick, isAttack, very thick] (3.5,2) .. controls (3.8,3) and (3.9,3.5) .. (4,3.8);
+    \node[font=\scriptsize, isAttack, align=center] at (4.6,3.3) {kink:\\dispropor-\\tionate};
+    \draw[dashed] (3.5,0) -- (3.5,2);
+    \node[font=\scriptsize, below] at (3.5,0) {ALARP};
+  \end{scope}
+\end{tikzpicture}
+\par\vspace{1mm}
+\begin{notebox}{Why ALARP matters for cyber-physical risk}
+UK HSE law (HSWA 1974) and IEC 61508 require operators to keep reducing risk \emph{until} further reduction costs grossly more than the safety gain. The ``kink'' is where the duty stops --- and the operator must \emph{prove} they reached it.
+\end{notebox}
+\source{UK HSE, \emph{Reducing Risks, Protecting People (R2P2)}, 2001 \textbar{} IEC 61508-1:2010, Annex B \textbar{} \emph{Edwards v.\ National Coal Board}, UK Court of Appeal, 1949.}
+\note{
+  ALARP is the safety-engineering counterweight to FAIR. FAIR: ``risk costs \$X/yr, spend up to \$X/yr.'' ALARP: ``keep spending \emph{past} that point until the next pound buys disproportionately little safety.'' Legal root: \emph{Edwards v.\ National Coal Board} (1949). Codified in HSE R2P2 (2001) and IEC 61508 Annex B. Inverted triangle: thin intolerable cap (no cost-benefit lets you operate here), broad ALARP region (reduce \emph{if} reasonably practicable), broadly-acceptable floor. The cost-benefit kink: spending tracks risk reduction linearly until diminishing returns, then asymptotes. Duty-holder must \emph{document} they reached the kink --- ``we didn't bother'' is not a defence.
+}
+\end{frame}
+
+
+\begin{frame}{Summary -- Section \sectionNumber}
+\begin{takeawaybox}{What to remember from this section}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Industrial risk has dimensions IT does not: safety, environment, regulatory.
+  \item Cyber-HAZOP integrates security into the language of process safety teams.
+  \item LOPA reminds us that several independent layers must fail for a disaster.
+  \item CCE asks: how would the adversary win? -- and re-engineers to remove the winning move.
+\end{itemize}
+\end{takeawaybox}
+\note{
+  Close the loop: this section is the bridge between the technical sections that came before and the governance sections that follow. The CCE question --- ``if you were the adversary, what would you do?'' --- is the one I want you to leave with. Reinforce that no single methodology is sufficient: heat maps for speed, LOPA for independence math, FAIR for money, Cyber-PHA for safety language, CCE for the worst-case re-engineering. Each maps to a standard: ISO~31000, IEC~61511, O-RA/FAIR, ISA~TR84.00.09, INL CCE. Transition to the next section: ``now that we know what to defend and how badly, the next section asks \emph{who decides} --- governance and standards.''
+}
+\end{frame}
+
+\referencesframe{
+  \item The Open Group. \emph{Risk Analysis (O-RA) Standard}, C20A, 2021 (FAIR).
+  \item Jones, J., Freund, J. \emph{Measuring and Managing Information Risk: A FAIR Approach}, Butterworth-Heinemann, 2014.
+  \item Center for Chemical Process Safety (CCPS). \emph{Layer of Protection Analysis: Simplified Process Risk Assessment}, AIChE, 2001.
+  \item IEC 61882:2016. \emph{Hazard and operability studies (HAZOP studies) -- Application guide}.
+  \item ISA-TR84.00.09:2017. \emph{Cybersecurity related to the Functional Safety Lifecycle}.
+  \item Bochman, A., Freeman, S. \emph{Countering Cyber Sabotage: Introducing Consequence-Driven, Cyber-Informed Engineering (CCE)}, INL/CRC Press, 2021.
+  \item IEC 62443-3-2:2020. \emph{Security risk assessment for system design}.
+  \item NIST SP 800-30 Rev.\,1. \emph{Guide for Conducting Risk Assessments}, 2012.
+  \item ISO 31000:2018. \emph{Risk management -- Guidelines}.
+}
+
+\closingframe
+
+\end{document}

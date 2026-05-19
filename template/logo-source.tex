@@ -1,0 +1,13 @@
+% Tiny standalone source that produces a placeholder logo.pdf.
+% Build with:  pdflatex -output-directory=. logo-source.tex
+% Then rename the output to logo.pdf (or replace logo.pdf with your real logo).
+\documentclass[border=2pt]{standalone}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric}
+\definecolor{logoA}{HTML}{00205B}
+\definecolor{logoB}{HTML}{00A0DC}
+\begin{document}
+\begin{tikzpicture}
+  \node[font=\bfseries\Large, color=logoA] {Industrial};
+\end{tikzpicture}
+\end{document}

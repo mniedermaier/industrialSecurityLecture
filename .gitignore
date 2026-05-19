@@ -1,0 +1,51 @@
+# LaTeX intermediate files
+*.aux
+*.log
+*.nav
+*.out
+*.snm
+*.toc
+*.vrb
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+*.bbl
+*.blg
+*.idx
+*.ilg
+*.ind
+*.lof
+*.lot
+*.bcf
+*.run.xml
+
+# Build artefacts: PDF outputs from LaTeX builds are not tracked.
+# Run `make` locally; CI publishes PDFs as workflow artefacts and release assets.
+*.pdf
+# Keep the brand-asset PDFs (logos are source, not build output).
+!branding/*.pdf
+!branding/examples/**/*.pdf
+
+# Editor cruft
+*~
+*.swp
+.DS_Store
+
+# Python (labs)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Local notes
+notes-private/
+
+# Docker bind-mount stub the landing service creates at runtime.
+bachelor/labs/_stack/landing/labs/
+
+# Lab artefacts captured during runs (PCAPs, Zeek logs).
+# Keep the directories themselves via .gitkeep, not the contents.
+bachelor/labs/_stack/captures/*
+!bachelor/labs/_stack/captures/.gitkeep
+bachelor/labs/_stack/zeek-logs/*
+!bachelor/labs/_stack/zeek-logs/.gitkeep

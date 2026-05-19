@@ -1,0 +1,140 @@
+% =====================================================================
+% Shared preamble for exercise sheets and solution sheets.
+%
+% Define BEFORE \input{}-ing this file:
+%   \def\courseTitle{...}
+%   \def\sectionNumber{...}
+%   \def\sectionTitle{...}
+%   \def\sheetKind{Exercise Sheet}   or  Solution Sheet
+%
+% Optional:
+%   \def\courseAuthor{...}
+%
+% The caller must issue \documentclass{...} (typically article) BEFORE
+% loading this preamble.
+% =====================================================================
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage[a4paper, margin=2.2cm]{geometry}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins, breakable}
+\usepackage{needspace}
+
+% Discourage solo lines split across pages.
+\widowpenalty=10000
+\clubpenalty=10000
+\raggedbottom
+
+\input{../../../template/tikz-styles.tex}
+
+\providecommand{\courseAuthor}{Industrial Security Lecture Series}
+\providecommand{\courseInstitute}{Department of Computer Science}
+\providecommand{\companyLogo}{logo}
+
+% --- Corporate branding overrides ------------------------------------
+% Picks up logo / author / brand colours from the repo-root branding.tex
+% when present; falls back to the defaults above otherwise.
+\IfFileExists{../../../branding.tex}{\input{../../../branding.tex}}{}
+
+% --- listings -------------------------------------------------------
+\definecolor{codebg}{rgb}{0.96,0.96,0.96}
+\lstset{
+  backgroundcolor=\color{codebg},
+  basicstyle=\ttfamily\footnotesize,
+  breaklines=true,
+  frame=single,
+  numbers=left,
+  numberstyle=\tiny\color{black!50},
+  showstringspaces=false,
+  tabsize=2
+}
+
+% --- header / footer ------------------------------------------------
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+\lhead{\small \courseTitle}
+\rhead{\small Section \sectionNumber{} -- \sheetKind}
+\cfoot{\thepage}
+
+% --- task / solution boxes -----------------------------------------
+% `before={...}` guards every task/solution box with \needspace so the
+% box doesn't start with only one or two lines of breathing room at the
+% bottom of a page. If less than ~9 lines remain, LaTeX bumps the box
+% to the next page; otherwise it starts here and breaks normally if it
+% runs long.
+% Boxes are `breakable` so very long solutions don't blow the page,
+% but `before={\needspace{14\baselineskip}}` pushes them to a fresh
+% page whenever fewer than ~14 lines remain. That covers the vast
+% majority of single-question splits in practice.
+\newtcolorbox{taskbox}[1]{
+  enhanced, breakable,
+  colback=isLight, colframe=isOT,
+  fonttitle=\bfseries\color{white},
+  coltitle=white,
+  colbacktitle=isOT,
+  title={#1},
+  arc=2pt, boxrule=0.6pt,
+  left=2mm, right=2mm, top=2mm, bottom=2mm,
+  before={\par\vspace{2mm}\needspace{14\baselineskip}\par},
+  after={\par\vspace{2mm}}
+}
+
+\newtcolorbox{solutionbox}{
+  enhanced, breakable,
+  colback=isNet!5, colframe=isNet,
+  fonttitle=\bfseries\color{white},
+  coltitle=white,
+  colbacktitle=isNet,
+  title={Solution},
+  arc=2pt, boxrule=0.6pt,
+  left=2mm, right=2mm, top=2mm, bottom=2mm,
+  before={\par\vspace{2mm}\needspace{14\baselineskip}\par},
+  after={\par\vspace{2mm}}
+}
+
+\newtcolorbox{hintbox}{
+  enhanced, breakable,
+  colback=isAccent!10, colframe=isAccent,
+  fonttitle=\bfseries\color{white}, coltitle=white, colbacktitle=isAccent,
+  title={Hint},
+  arc=2pt, boxrule=0.6pt
+}
+
+\newtcolorbox{warnbox}{
+  enhanced, breakable,
+  colback=isAttack!8, colframe=isAttack,
+  fonttitle=\bfseries\color{white}, coltitle=white, colbacktitle=isAttack,
+  title={Caution},
+  arc=2pt, boxrule=0.6pt
+}
+
+% --- section formatting --------------------------------------------
+\titleformat{\section}{\Large\bfseries\color{isOT}}{\thesection}{0.5em}{}
+\titleformat{\subsection}{\large\bfseries\color{isOT!80!black}}{\thesubsection}{0.5em}{}
+
+% --- title block macro ----------------------------------------------
+\newcommand{\sheetheader}{%
+  \begin{center}
+    {\Large\bfseries \courseTitle}\\[0.3em]
+    {\large \sheetKind{} -- Section \sectionNumber}\\[0.2em]
+    {\large \sectionTitle}\\[0.2em]
+    \rule{\linewidth}{0.4pt}
+  \end{center}
+  \vspace{0.5em}
+}

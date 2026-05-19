@@ -1,0 +1,46 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\sectionNumber{01}
+\def\sectionTitle{Firmware Reverse Engineering}
+\def\sheetKind{Solution Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 1.1 -- Source and Verify}
+Award marks for: clear chain-of-custody (where, when, who), reproducible hash, and a defensible legal basis (open licence, vendor partner agreement, ownership). Bonus: noting whether the vendor publishes a detached signature, not just a hash.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 1.2 -- Triage}
+Expected artefacts:
+\begin{itemize}
+  \item Architecture line from \texttt{binwalk -A} (e.g.\ \texttt{ARM, EABI5 version 1 (SYSV)}).
+  \item Offsets for uImage / kernel / squashfs / cpio sections.
+  \item Mounted root-FS listing key files (\texttt{/etc/passwd}, \texttt{/etc/rc.d/}, \texttt{/usr/sbin}).
+\end{itemize}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 1.3 -- Strings to Findings (sample answers)}
+\begin{itemize}
+  \item \texttt{TELNETD\_PASS=admin123} in \texttt{/etc/rc.d/S50telnet} -- mitigation: disable Telnet at firewall, ACL the management VLAN.
+  \item PEM private key in \texttt{/etc/ssl/private/server.key} that is byte-identical to the one shipped in firmware v1.4 (long-known): mitigation: replace certificate via vendor tool or rotate at HTTPS reverse proxy.
+  \item Backdoor account \texttt{factory:Fact0ry} hard-coded in \texttt{/sbin/lighttpd}: mitigation: WAF rule to block requests with that Authorization header, monitor for usage.
+\end{itemize}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 1.4 -- Ghidra Mini-Reverse (mark scheme)}
+\begin{itemize}
+  \item Symbol identification (login, parser, OTA verifier).
+  \item Correct CWE classification (CWE-798 hard-coded, CWE-22 path traversal, CWE-787 OOB write).
+  \item Patch proposal that is more than ``add input validation'' -- name the function and the check.
+\end{itemize}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 1.5 -- Disclosure Letter (mark scheme)}
+A passing letter is short, specific, factual, and contains: product + version + hash, minimal repro, requested timeline, contact, optional PGP. It does not include exploit code or threats.
+\end{taskbox}
+
+\end{document}

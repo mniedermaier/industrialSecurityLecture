@@ -1,0 +1,495 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\courseSubtitle{Section 03 -- Industrial Network Architectures}
+\def\sectionNumber{03}
+\def\sectionTitle{Industrial Network Architectures}
+
+\input{../../../template/slides-preamble.tex}
+
+\begin{document}
+
+\sectionoverviewframe
+
+\learningobjectives{
+  \item Apply the Purdue Enterprise Reference Architecture.
+  \item Explain the role of the Industrial DMZ.
+  \item Compare common plant-floor topologies and their trade-offs.
+  \item Apply the IEC 62443 concept of zones and conduits.
+  \item Identify when to use a data diode or unidirectional gateway.
+}
+
+\section{Purdue Reference Model}
+
+\begin{frame}{The Purdue Enterprise Reference Architecture}
+\centering
+\begin{tikzpicture}[y=0.8cm]
+  \foreach \y/\lvl/\desc/\col in {
+    0/0/{Physical process (sensors, actuators)}/isOT,
+    1/1/{Basic control (PLCs, RTUs, DCS controllers)}/isPLC,
+    2/2/{Supervisory (SCADA, HMI)}/isSCADA,
+    3/3/{Site operations (Historian, MES, AV)}/isHMI,
+    4/{3.5}/{Industrial DMZ (jump host, patch, replicated historian)}/isAccent,
+    5/4/{Business planning \& logistics}/isIT,
+    6/5/{Enterprise (ERP, email, web)}/isIT}{
+    \node[level, fill=\col!15, draw=\col, anchor=west, minimum width=110mm] (L\y) at (0, \y) {\textbf{Level \lvl}\quad \desc};
+  }
+  \node[firewall, right=4mm of L4, minimum height=6mm, minimum width=10mm, font=\scriptsize] (fw1) {FW};
+  \node[firewall, right=4mm of L5, minimum height=6mm, minimum width=10mm, font=\scriptsize] (fw2) {FW};
+\end{tikzpicture}
+\source{T.J.\ Williams, ``The Purdue Enterprise Reference Architecture'', \emph{Computers in Industry}, 1994 \textbar{} ISA-95 / IEC 62264.}
+\note{
+  Williams' 1994 model is a teaching scaffold, not a building code --- be honest with the room that real plants rarely match it cleanly. In most brownfield sites Level 2 and Level 3 are fused into one flat \emph{plant network}, and Level 4/5 increasingly merge into a single cloud-fronted ERP. Pre-empt the IT instinct that ``layers equal subnets'' --- a Purdue layer is a \emph{trust boundary}, not a VLAN. Mention that ISA-95 (IEC 62264) is the standards-track sibling and that NIST SP 800-82 Rev.\,3 still anchors its architecture chapter here. Transition: ``If Layer 3.5 is the broker, what actually lives in it?'' --- next slide opens the iDMZ. Optional ask: ``Where would a wireless mobile HMI sit --- Level 2, Level 3, or floating?''
+}
+\end{frame}
+
+\begin{frame}{Why an Industrial DMZ?}
+\centering
+\begin{tikzpicture}[node distance=6mm]
+  \node[isbox, fill=isIT!12, draw=isIT, minimum width=30mm, minimum height=16mm] (it) {Enterprise};
+  \node[firewall, right=of it, minimum width=10mm] (fw1) {FW};
+  \node[isbox, fill=isAccent!12, draw=isAccent, minimum width=32mm, minimum height=16mm, right=of fw1, align=center, font=\small] (dmz) {iDMZ\\\scriptsize replica historian};
+  \node[firewall, right=of dmz, minimum width=10mm] (fw2) {FW};
+  \node[isbox, fill=isOT!12, draw=isOT, minimum width=30mm, minimum height=16mm, right=of fw2] (ot) {Control};
+  \draw[flow] (ot) -- node[above, font=\tiny] {push} (fw2);
+  \draw[flow] (fw2) -- (dmz);
+  \draw[flow] (it) -- node[above, font=\tiny] {pull} (fw1);
+  \draw[flow] (fw1) -- (dmz);
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{importantbox}{Iron rule}
+\textbf{No direct path} between IT and OT. Data \emph{lands} in the DMZ; consumers \emph{pull} from there.
+\end{importantbox}
+\note{
+  Pre-empt the common IT misconception: in IT a ``DMZ'' is usually one reverse-proxy host, in OT it is a whole tier --- replica historian, WSUS/patch mirror, AV update relay, jump host, vendor remote-access broker. The iron rule is push from OT, pull from IT --- never let an enterprise box initiate a TCP session into Level 2. Mention that ``a firewall is enough'' is the line auditors hear most often, and it is wrong without the DMZ tier --- one rule mistake and you have a flat path from Outlook to a PLC. Practical reality: many plants run a Fortinet or Cisco ISA pair north and south of the DMZ from different vendors so a single CVE does not breach both. Transition: ``Inside the plant, what does the wire actually look like?'' Optional question: ``Why is a replica historian safer than letting MES query the live one directly?''
+}
+\end{frame}
+
+\section{Topologies}
+
+\begin{frame}{Plant-Floor Topologies}
+\centering
+\begin{tikzpicture}[node distance=6mm, scale=0.78, transform shape]
+  % star
+  \begin{scope}[shift={(0,0)}]
+    \node[switch] (s) at (0,0) {SW};
+    \foreach \a in {0,72,144,216,288}{\node[plc, minimum width=7mm, minimum height=4mm, font=\tiny] (n\a) at (\a:1.4) {PLC}; \draw[netline] (s)--(n\a);}
+    \node[font=\scriptsize, below=12mm of s] {Star};
+  \end{scope}
+  % ring
+  \begin{scope}[shift={(3.5,0)}]
+    \foreach \a/\i in {0/A,72/B,144/C,216/D,288/E}{
+      \node[plc, minimum width=7mm, minimum height=4mm, font=\tiny] (r\i) at (\a:1.0) {PLC};
+    }
+    \draw[netline] (rA)--(rB)--(rC)--(rD)--(rE)--(rA);
+    \node[font=\scriptsize, below=14mm of {(0,0)}] {Ring (HSR/MRP)};
+  \end{scope}
+  % bus
+  \begin{scope}[shift={(7,0)}]
+    \draw[netline] (-1.4,0) -- (1.4,0);
+    \foreach \x in {-1.3,-0.65,0,0.65,1.3}{
+      \draw[netline] (\x,0) -- (\x,-0.5);
+      \node[plc, minimum width=4mm, minimum height=3mm, font=\tiny] at (\x,-0.8) {PLC};
+    }
+    \node[font=\scriptsize, below=16mm of {(0,0)}] {Bus (Profibus)};
+  \end{scope}
+  % daisy
+  \begin{scope}[shift={(10.3,0)}]
+    \foreach \x/\i in {-1.0/1,-0.35/2,0.35/3,1.0/4}{
+      \node[plc, minimum width=5mm, minimum height=3mm, font=\tiny] (d\i) at (\x,0) {PLC};
+    }
+    \draw[netline] (d1)--(d2)--(d3)--(d4);
+    \node[font=\scriptsize, below=10mm of {(0,0)}] {Daisy (EtherCAT)};
+  \end{scope}
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{notebox}{Driver}
+Topology choice in OT is driven by \textbf{determinism} and \textbf{availability}, not security.
+\end{notebox}
+\note{
+  Drive home that topology in OT is picked for cycle-time guarantees and fail-over, not for blast-radius control --- security has to layer on top. Star is what most greenfield Ethernet plants use with Hirschmann or Moxa managed switches; ring with MRP (IEC 62439-2) or HSR/PRP (IEC 62439-3) is the standard for substations and railway. Bus survives as Profibus DP on motor lines, and daisy chain shows up wherever EtherCAT or PROFINET IRT runs. Pre-empt the question ``why not just star everything?'' --- because a star with one switch is one outage away from a stopped line; rings give zero-recovery fail-over. Transition: ``Once we have a topology, how do we slice it into trust regions?'' --- next slide is zones and conduits. Optional class question: ``Which topology would you pick for a 30-station bottling line and why?''
+}
+\end{frame}
+
+\section{Zones and Conduits}
+
+\begin{frame}{Zones and Conduits (IEC 62443)}
+\centering
+\begin{tikzpicture}[node distance=8mm, scale=0.8, transform shape]
+  \begin{scope}[on background layer]
+    \node[zone, fit={(0,0) (4.5,2.4)}, label={[font=\scriptsize, color=isOT]above:Zone A -- HMI (SL-T 2)}] {};
+    \node[zone, fit={(6.5,0) (11,2.4)}, label={[font=\scriptsize, color=isOT]above:Zone B -- Control (SL-T 3)}] {};
+    \node[zone, fit={(3,-2.4) (8,-1.4)}, label={[font=\scriptsize, color=isOT]below:Zone C -- Safety (SL-T 4)}] {};
+  \end{scope}
+  \node[hmi] (h1) at (1.0,1.2) {HMI 1};
+  \node[hmi] (h2) at (3.5,1.2) {HMI 2};
+  \node[plc] (p1) at (7.5,1.2) {PLC 1};
+  \node[plc] (p2) at (10.0,1.2) {PLC 2};
+  \node[plc, fill=isAttack!15, draw=isAttack] (s1) at (4.0,-1.9) {SIS 1};
+  \node[plc, fill=isAttack!15, draw=isAttack] (s2) at (7.0,-1.9) {SIS 2};
+  \draw[conduit] (h2.east) to[bend left=22] node[above, font=\tiny, sloped, fill=white, inner sep=2pt] {OPC UA} (p1.west);
+  \draw[conduit] (h1.east) to[bend right=18] (p2.west);
+  \draw[conduit] (p1.south) -- node[right=3pt, font=\tiny, fill=white, inner sep=2pt] {dry contact} (s1.north);
+  \draw[conduit] (p2.south) -- (s2.north);
+\end{tikzpicture}
+\par\vspace{1mm}
+{\footnotesize Zones group assets with similar security needs; conduits are the controlled channels between them.}
+\note{
+  Zones and conduits come from IEC 62443-3-2 --- it is the only piece of vocabulary the standard insists you use during a risk assessment. The SL-T target on each zone is what an assessor will challenge, so explain that ``SL-T 3'' means ``resists intentional violation by a skilled attacker with moderate resources''. Pre-empt the misconception that a zone is a VLAN --- a zone is a \emph{set of assets with a common security target}; the conduit is the only place you ever put a control. Note the safety zone (SIS, SL-T 4) is deliberately the smallest and is usually connected only by hard-wired dry contacts, not Ethernet --- this is why Triton/Trisis in 2017 needed a Windows engineering workstation as a pivot. Transition: ``So what enforces a conduit?'' --- next slide opens the industrial firewall. Optional question: ``Could two zones share the same SL-T and still need a conduit between them?''
+}
+\end{frame}
+
+\begin{frame}{Industrial Firewalls}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[server] (s) {SCADA};
+  \node[firewall, right=of s, minimum width=14mm] (fw) {iFW};
+  \node[plc, right=of fw] (p) {PLC};
+  \node[isbox, fill=isAccent!15, draw=isAccent, above=of fw, font=\scriptsize, align=center, minimum width=55mm]
+    {Modbus function-code allowlist\\read coils \checkmark{} \quad write multiple \texttimes{} (after-hours)};
+  \draw[flow] (s) -- (fw);
+  \draw[flow] (fw) -- (p);
+\end{tikzpicture}
+\par\vspace{3mm}
+{\footnotesize Industrial firewalls do stateful inspection \emph{and} ICS protocol parsing. Often deployed transparently.}
+\source{Examples: Cisco ISA-3000, Fortinet Rugged, Belden Hirschmann Tofino, Palo Alto IoT Security.}
+\note{
+  The differentiator is the deep-packet parser: a regular Fortinet or Palo can match TCP/502, but only the OT-aware variants (Tofino, ISA-3000 with Cisco Cyber Vision, Fortinet OT Security Service, Claroty/Nozomi-augmented appliances) actually read Modbus function codes, S7 job IDs, or DNP3 object groups. Stress that transparent (bump-in-the-wire) mode is the deployment style of choice --- you can drop one in front of a legacy PLC without changing its IP. Pre-empt the misconception that an L4 firewall is enough: blocking everything except TCP/502 still lets an attacker write to coils; the allowlist must be at the function-code level. Mention that on small lines you can run Tofino in learning mode for a week to baseline, then flip to enforcement. Transition: ``What if even allowlisted writes are too much --- when do we want zero return path?'' --- next slide is the data diode. Optional question: ``Why is after-hours write-blocking a useful default for a packaging line?''
+}
+\end{frame}
+
+\begin{frame}{Data Diode -- One-Way Egress}
+\centering
+\begin{tikzpicture}[node distance=12mm]
+  \node[isbox, fill=isOT!12, draw=isOT, minimum width=35mm] (ctrl) {Control network};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of ctrl, minimum width=22mm, font=\small\bfseries] (diode) {Data\\Diode};
+  \node[isbox, fill=isIT!12, draw=isIT, right=of diode, minimum width=35mm] (it) {IT historian replica};
+  \draw[flow, very thick] (ctrl) -- (diode);
+  \draw[flow, very thick] (diode) -- (it);
+  \draw[-{Stealth[length=3mm]}, very thick, isAttack, dashed] (it.south) to[bend left=45] node[below, font=\scriptsize] {hardware-blocked} (ctrl.south);
+\end{tikzpicture}
+\par\vspace{1mm}
+{\footnotesize Physical fibre layout enforces the direction. Useful for safety-critical data egress.}
+\source{Vendors: Owl Cyber Defense, Waterfall Security Solutions, Fox-IT DataDiode \textbar{} certified to IEC 62443-3-3 SR 5.1.}
+\note{
+  A real diode is two boxes bridged by a single fibre with the receive side physically removed on the high side --- this is not a software setting, it is glass and a missing transceiver. Owl, Waterfall, and Fox-IT all ship the same primitive with different protocol proxies on top (OPC UA, historian replication, syslog, file transfer). Pre-empt the question ``can we just configure the firewall one-way?'' --- no, because TCP needs a return ACK and any return path is a covert channel; a diode is the only way to make the impossibility of a reverse flow auditable. Practical reality: diodes are expensive (five-figure euros) and you only deploy them where the data is high-value but the flow is genuinely one-way --- nuclear safety, pipeline SCADA egress, defence sites. Transition: ``We have wired controls --- what about radio?'' --- next slide is wireless. Optional question: ``Why does UDP-based syslog cross a diode more easily than a TCP historian feed?''
+}
+\end{frame}
+
+\begin{frame}{Wireless in OT}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[inetnode, fill=isAccent!10] (rf) {Radio};
+  \node[plc, below left=of rf] (g1) {Gateway 1};
+  \node[plc, below right=of rf] (g2) {Gateway 2};
+  \node[sensor, below=of g1] (s1) {WirelessHART};
+  \node[sensor, below=of g2] (s2) {LoRa};
+  \node[attacker, right=22mm of rf, align=center] (atk) {Jammer\\ Replay};
+  \draw[flow] (s1) -- (g1) -- (rf);
+  \draw[flow] (s2) -- (g2) -- (rf);
+  \draw[attack] (atk) -- (rf);
+\end{tikzpicture}
+\par\vspace{2mm}
+\footnotesize Convenience vs.\ attack surface. Never put safety-critical loops over uncontrolled wireless.
+\note{
+  Wireless in OT is overwhelmingly driven by retrofit cost --- WirelessHART (IEC 62591) and ISA-100.11a (IEC 62734) let you bolt a temperature transmitter onto a vessel without a cable tray. Both mesh, both use AES-128 join keys, and both are robust enough for non-critical monitoring loops --- but jamming the 2.4\,GHz band with a 20-euro SDR is trivial, so the slide's threat model is real. Pre-empt the misconception that ``encrypted means safe'' --- encryption stops eavesdropping, not jamming or replay against the gateway. Mention LoRa fits long-range telemetry but its 1\,\% duty cycle and km range invite drive-by attackers; private 5G with a Nokia or Ericsson core is the new contender for high-density factories. Transition: ``Wired or wireless, how do we slice a single switch into trust regions?'' --- next slide is VLANs. Optional question: ``Would you ever close a control loop over Wi-Fi 6 --- and if not, why not?''
+}
+\end{frame}
+
+\begin{frame}{VLANs in OT -- Useful, Not Sufficient}
+\centering
+\begin{tikzpicture}[node distance=6mm]
+  \node[switch] (sw) {Switch};
+  \node[plc, fill=isOT!12, above left=of sw] (v1) {VLAN 10};
+  \node[plc, fill=isPLC!12, above=of sw] (v2) {VLAN 20};
+  \node[plc, fill=isAccent!12, above right=of sw] (v3) {VLAN 30};
+  \foreach \n in {v1,v2,v3}{\draw[netline] (\n)--(sw);}
+\end{tikzpicture}
+\vspace{2mm}
+\begin{warnbox}{VLAN hopping is a real attack}
+A misconfigured trunk port (DTP enabled, native VLAN guessed) lets an attacker hop between VLANs. Use VLANs for organisation; require a routed firewall for security boundaries.
+\end{warnbox}
+\note{
+  The misconception to break here is ``VLANs equal segmentation'' --- they only do if every inter-VLAN packet is forced through a stateful firewall with deny-by-default ACLs. A Cisco Catalyst with default DTP and a guessed native VLAN gives away the plant: Yersinia or Scapy double-tag a frame and it pops out on the target VLAN. Practical guidance: hard-set every port to access mode, disable DTP, set the native VLAN to an unused bogus ID, and prune trunks. Mention that Moxa and Hirschmann managed switches default to safer settings than enterprise Cisco gear --- vendor heritage matters. Transition: ``VLANs split L2 --- what about address translation at L3?'' --- next slide is NAT. Optional question: ``If you only have unmanaged switches on a legacy line, what is your cheapest path to any segmentation at all?''
+}
+\end{frame}
+
+\begin{frame}{NAT in OT -- When Not to Use}
+\centering
+\begin{tikzpicture}[node distance=8mm]
+  \node[isbox, fill=isIT!12, draw=isIT, minimum width=40mm] (it) {IT 10.0.0.0/8};
+  \node[firewall, right=of it, minimum width=14mm] (nat) {NAT};
+  \node[isbox, fill=isOT!12, draw=isOT, minimum width=40mm, right=of nat] (ot) {OT 192.168.10.0/24};
+  \draw[flow] (it) -- (nat) -- (ot);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{importantbox}{NAT hides, it does not protect}
+NAT breaks end-to-end addressability -- useful for legacy duplicate networks, harmful for incident analysis. Prefer routed, segmented design with explicit firewall rules.
+\end{importantbox}
+\note{
+  NAT survives in OT for one honest reason: every Siemens or Allen-Bradley skid arrives from the OEM hard-coded to 192.168.1.0/24, and when you buy four identical skids you need 1:1 NAT to make them coexist. Phoenix Contact mGuard and Hirschmann EAGLE devices are the workhorses for that pattern. Pre-empt the misconception that ``the attacker can't see us behind NAT'' --- once inside, NAT only frustrates the defender's PCAP analysis because every packet looks like it came from the firewall. Mention that NAT also breaks IEC 61850 GOOSE and PROFINET DCP because both rely on Layer 2 multicast or hard-coded source IPs, so you cannot NAT a substation bus even if you wanted to. Transition: ``Speaking of forensics --- without synchronised clocks, your PCAPs are worthless.'' Optional question: ``If two identical skids share 192.168.1.10, how do you tell their logs apart on the central SIEM?''
+}
+\end{frame}
+
+\begin{frame}{Time Synchronisation in OT}
+\centering
+\begin{tikzpicture}[node distance=10mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=36mm, font=\small] (gm) {Grandmaster clock};
+  \node[switch, right=14mm of gm, minimum width=24mm] (sw) {PTP-aware switch};
+  \node[plc, right=14mm of sw, minimum width=24mm] (s) {Slave clocks};
+  \draw[flow] (gm) -- (sw) -- (s);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{Why it matters for security}
+Without synchronised clocks, alarm logs and PCAPs are useless in forensics. PTP (IEEE 1588) gives sub-microsecond accuracy on the plant floor; NTP is enough for L3+.
+\end{notebox}
+\note{
+  Time sync is the boring slide that decides whether a forensic investigation is possible. PTP (IEEE 1588-2019) needs hardware time-stamping in the switch silicon --- Hirschmann RSP, Cisco IE-4000, and Moxa EDS-G500E all support it; an unmanaged 5-euro switch will ruin sub-microsecond accuracy. Pre-empt the misconception that ``everyone uses NTP, it's fine'' --- NTP's 1--10\,ms jitter is the difference between an alarm appearing before or after the safety trip in the log, and that ordering is what an investigator needs. Mention that the grandmaster should ideally have a GPS or GLONASS antenna on the roof, with a holdover oscillator for outages --- and that GPS spoofing is a real OT attack vector (Iran's 2011 RQ-170 capture being the canonical, if disputed, example). Transition: ``Synchronised logs are only useful if we are actually capturing traffic --- next slide is how.'' Optional question: ``Why is a 1\,s clock skew between SIS and BPCS specifically dangerous?''
+}
+\end{frame}
+
+\begin{frame}{SPAN, TAP, and Visibility}
+\centering
+\begin{tikzpicture}[node distance=8mm]
+  \node[switch, minimum width=24mm] (sw) {Switch};
+  \node[plc, left=14mm of sw] (a) {PLC A};
+  \node[plc, right=14mm of sw] (b) {PLC B};
+  \node[isbox, fill=isAccent!15, draw=isAccent, below=14mm of sw, minimum width=36mm, font=\small] (ids) {IDS / PCAP collector};
+  \draw[netline] (a) -- (sw); \draw[netline] (sw) -- (b);
+  \draw[-{Stealth[length=2.5mm]}, dashed, thick] (sw) -- node[right=3pt, font=\tiny, fill=white, inner sep=2pt]{SPAN copy} (ids);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{SPAN vs hardware TAP}
+SPAN can drop packets under load and lets the switch see your collector. A hardware TAP is read-only by construction -- preferred for high-fidelity capture.
+\end{notebox}
+\note{
+  Visibility is where Nozomi, Claroty, and Dragos all earn their licence fees --- but none of them work without a clean capture point. SPAN (Cisco) / mirror (Hirschmann, Moxa) is the cheap option: zero new hardware, but the switch CPU drops mirrored frames first when CPU spikes, so you lose exactly the traffic you wanted (anomalies). A Garland or Profitap aggregator TAP is passive optics or a relay --- if power dies, traffic still passes; if the IDS dies, it cannot accidentally inject into production. Pre-empt the misconception that ``the IDS is just listening, it cannot do harm'' --- a SPAN'd IDS still has a management interface, and that interface has been an entry vector (e.g.\ Claroty CTD CVEs in 2021--22). Mention you should always TAP both directions of a link, not just one half --- one-way TAPs miss the response and confuse session reassembly. Transition: ``We have looked at wired carefully --- now compare the wireless options.'' Optional question: ``On a 1\,Gbps link running at 60\,\% utilisation, would you trust a 1\,Gbps SPAN port?''
+}
+\end{frame}
+
+\begin{frame}{Wireless Generations on the Plant}
+\centering
+\renewcommand{\arraystretch}{1.2}
+\footnotesize
+\begin{tabular}{|p{3cm}|p{2.6cm}|p{2.4cm}|p{3.8cm}|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Tech} & \textbf{Latency} & \textbf{Range} & \textbf{Typical use} \\
+\hline
+Wi-Fi 6 / 6E   & 1--10 ms & 10--100 m & Mobile HMI, video \\
+WirelessHART   & 250 ms   & 100 m     & Process sensors \\
+ISA-100.11a    & 250 ms   & 100 m     & Process sensors \\
+LoRaWAN        & seconds  & km        & Building automation \\
+NB-IoT / LTE-M & seconds  & km        & Remote telemetry \\
+Private 5G     & 1 ms     & 100--500 m & High-density factory \\
+\hline
+\end{tabular}
+\note{
+  Read this table left-to-right with the latency column as the primary axis --- it tells you what kind of loop the technology can close. Wi-Fi 6E and private 5G are the only ones in the same order of magnitude as wired PROFINET RT, which is why Bosch, Siemens, and Audi are running 5G pilots on assembly lines (often with Nokia DAC or Ericsson Private 5G cores). WirelessHART and ISA-100.11a deliberately trade latency for battery life --- a process transmitter that lasts five years on a D-cell. Pre-empt the misconception that ``5G is just faster Wi-Fi'' --- 5G has SIM-based authentication, dedicated spectrum (in DE: 3.7--3.8\,GHz Campus license from the Bundesnetzagentur), and QoS slicing that Wi-Fi cannot match. Mention LoRaWAN dominates building automation (lighting, HVAC sub-metering) but is almost never load-bearing for production. Transition: ``That wraps the architecture tour --- summary slide next.'' Optional question: ``Which row would you pick for a mobile torque wrench reporting bolt-tightness in real time?''
+}
+\end{frame}
+
+%% Frame 1: IEC 62443 anchor for §03 -- zones, conduits, restricted data flow
+\begin{frame}{IEC 62443 anchor for this section}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.82, transform shape]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, align=left] (a)
+    {\textbf{62443-3-2:2020} \ Risk assessment for system design --- the \emph{process} that produces zones and conduits};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=110mm, font=\small, align=left, below=of a] (b)
+    {\textbf{Zone} \ a grouping of assets with a common security target (SL-T 1--4); think ``trust domain''};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=110mm, font=\small, align=left, below=of b] (c)
+    {\textbf{Conduit} \ the only sanctioned channel between zones; think ``the firewall rule \emph{plus} the wire''};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small, align=left, below=of c] (d)
+    {\textbf{62443-3-3 SR\,5} \ Restricted data flow --- enforce zone boundaries, deny by default, log every conduit};
+\end{tikzpicture}
+\par\vspace{2mm}
+{\footnotesize IT analogue: zones are AWS VPCs, conduits are the security-group rules between them --- but in OT the wire itself is part of the boundary.}
+\source{IEC 62443-3-2:2020, \emph{Security risk assessment for system design} \textbar{} IEC 62443-3-3:2013, \emph{System security requirements and security levels}, FR\,5 (Restricted Data Flow).}
+\note{
+  Spine of the section: every topology, firewall, and diode we draw later is in service of producing a defensible zone/conduit diagram for an assessor. IT analogue: in AWS you draw VPCs and security groups, in OT you draw zones and conduits --- the algebra is the same but the wire is part of the boundary. SR\,5 in 62443-3-3 is the requirement family that says ``you actually have to enforce the conduit you drew.'' Transition: ``what runs on the wire between zones?''
+}
+\end{frame}
+
+%% Frame 2: Industrial Ethernet Variants Compared
+\begin{frame}{Industrial Ethernet Variants Compared}
+\centering
+\renewcommand{\arraystretch}{1.1}
+\scriptsize
+\begin{tabular}{|p{20mm}|p{18mm}|p{16mm}|p{20mm}|p{38mm}|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Variant} & \textbf{Determinism} & \textbf{OSI reuse} & \textbf{Lead vendor} & \textbf{What it actually is} \\
+\hline
+Modbus TCP   & soft (best-effort) & L1--L4 std        & Schneider          & Modbus RTU framed inside TCP/502 \\
+\hline
+EtherNet/IP  & soft (CIP)         & L1--L4 std        & Rockwell / ODVA    & CIP objects over UDP/TCP \\
+\hline
+PROFINET RT  & hard (1\,ms)       & L1--L2 std, custom L3 & Siemens (PNO)  & VLAN-tagged Ethernet frames, no IP \\
+\hline
+PROFINET IRT & hard (\textmu s)   & custom MAC sched. & Siemens (PNO)      & TDMA slots in switch silicon \\
+\hline
+EtherCAT     & hard (\textmu s)   & custom L2         & Beckhoff (ETG)     & ``processing on the fly'' summation frame \\
+\hline
+\end{tabular}
+\par\vspace{2mm}
+\begin{notebox}{IT analogue}
+Modbus TCP $\approx$ HTTP on a LAN: works on any switch. EtherCAT $\approx$ InfiniBand: needs special silicon and dedicated wiring. The harder the real-time guarantee, the less of the standard IP stack survives.
+\end{notebox}
+\source{IEC 61784-2:2023, \emph{Industrial communication networks --- Profiles --- Part 2: Additional fieldbus profiles for real-time networks} \textbar{} ODVA, \emph{The CIP Networks Library}, Vol.\,2, 2024.}
+\note{
+  Read top-to-bottom by determinism: Modbus TCP is Modbus RTU in TCP/502, works on any office switch but no timing guarantee. EtherNet/IP (``IP'' = Industrial Protocol, naming trap) is Rockwell's CIP stack and dominates NA factories. PROFINET RT keeps Ethernet frames but skips IP for cycle traffic (VLAN priority 6, EtherType 0x8892). PROFINET IRT pre-schedules transmit slots in switch ASIC. EtherCAT is the odd one: a single frame goes round the ring and each slave reads/writes its slice on the fly. Wireshark works for Modbus TCP and EtherNet/IP, partial for PROFINET, largely useless for IRT/EtherCAT without specialised taps. Transition: ``can we converge OT and IT on one wire? TSN promises that.''
+}
+\end{frame}
+
+%% Frame 3: Time-Sensitive Networking (TSN)
+\begin{frame}{Time-Sensitive Networking (TSN)}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.88, transform shape]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=120mm, font=\scriptsize, align=left] (a)
+    {\textbf{IEEE 802.1AS} \ Time sync --- profile of PTP, sub-\textmu s across the bridge};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=120mm, font=\scriptsize, align=left, below=of a] (b)
+    {\textbf{IEEE 802.1Qbv} \ Time-Aware Shaper --- gated transmit windows per traffic class};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=120mm, font=\scriptsize, align=left, below=of b] (c)
+    {\textbf{IEEE 802.1CB} \ Frame Replication \& Elimination --- send twice, drop the duplicate};
+  \node[isbox, fill=isNet!15, draw=isNet, minimum width=120mm, font=\scriptsize, align=left, below=of c] (d)
+    {\textbf{IEEE 802.1Qci} \ Per-Stream Filtering \& Policing --- rate-limit and police at ingress};
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{notebox}{IT analogue}
+TSN is QoS that is actually \emph{enforceable}. DiffServ ``please prioritise'' becomes ``you may transmit between 200--250\,\textmu s, no exceptions.'' One switch carries a motor-control loop and a CCTV stream on the same cable without either starving.
+\end{notebox}
+\source{IEEE 802.1Q-2022 (Time-Sensitive Networking amendments) \textbar{} IEC/IEEE 60802 (TSN profile for industrial automation, FDIS 2024).}
+\note{
+  TSN is the ``one wire for OT and IT'' pitch. The four standards: 802.1AS gives a clock everyone agrees on; 802.1Qbv gives every priority class a guaranteed slot (CCTV burst cannot delay PROFINET by even a \textmu s); 802.1CB hides single-cable failures by sending each frame on two disjoint paths and dropping duplicates; 802.1Qci stops a misbehaving talker from flooding the schedule. Pre-empt: ``isn't this just QoS?'' --- DSCP and 802.1p are advisory; 802.1Qbv is a hardware gate that physically does not open until your slot. Security relevance: TSN trusts its schedule absolutely, so the schedule itself (engineered via 802.1Qcc / NETCONF) is a new attack surface --- own the CNC controller, own the network. Transition: ``Wired determinism is solved. Wireless?''
+}
+\end{frame}
+
+%% Frame 4: Wireless OT -- security focus
+\begin{frame}{Wireless OT --- Security Models Compared}
+\centering
+\renewcommand{\arraystretch}{1.25}
+\scriptsize
+\begin{tabular}{|p{22mm}|p{20mm}|p{22mm}|p{46mm}|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Tech} & \textbf{Standard} & \textbf{Crypto} & \textbf{Security model} \\
+\hline
+WirelessHART  & IEC 62591         & AES-128-CCM     & Network + join key, mesh, ch.\ hopping (TSCH) \\
+\hline
+ISA-100.11a   & IEC 62734         & AES-128-CCM     & Per-link + per-session keys, IPv6/6LoWPAN \\
+\hline
+Private 5G    & 3GPP Rel.\,16/17  & AES-128/256, SNOW, ZUC & SIM (AKA) auth, per-slice isolation, dedicated spectrum \\
+\hline
+\end{tabular}
+\par\vspace{2mm}
+\begin{warnbox}{Encryption is not jamming-proof}
+All three encrypt the payload; none stop an SDR-driven jammer on the same band. Treat radio as untrusted transport: AES protects \emph{confidentiality}, never \emph{availability}.
+\end{warnbox}
+\source{IEC 62591:2016 (WirelessHART) \textbar{} IEC 62734:2014 (ISA-100.11a) \textbar{} 3GPP TS 33.501 (5G security architecture), Rel.\,17, 2022.}
+\note{
+  WirelessHART and ISA-100.11a both use AES-128 in CCM mode and both mesh, but key hierarchy differs: WirelessHART has one network key plus per-device join keys; ISA-100.11a layers per-link master keys with per-session keys (closer to TLS but heavier). Both hop channels on a TSCH schedule (jam-resistant, not jam-proof). Private 5G: SIM-based AKA authentication is rooted in a tamper-resistant element; network slicing gives the OT slice its own scheduler; on dedicated spectrum you control the airwaves administratively. Pre-empt: ``5G is just Wi-Fi with a SIM'' --- no, the SIM is load-bearing, slicing gives QoS that survives congestion, and dedicated spectrum gives you a regulator on your side. Warning: encryption stops a passive eavesdropper, not a 20-euro jammer. Transition: ``How do we survive a single failure without the line stopping?''
+}
+\end{frame}
+
+%% Frame 5: Network Redundancy Patterns -- HSR / MRP / PRP
+\begin{frame}{Network Redundancy --- HSR, MRP, PRP}
+\centering
+\begin{tikzpicture}[node distance=4mm, scale=0.82, transform shape, font=\scriptsize]
+  \begin{scope}[shift={(0,0)}]
+    \node[font=\scriptsize\bfseries] at (0,2.0) {MRP};
+    \node[switch, minimum width=8mm, minimum height=5mm] (m1) at (90:1.1) {M};
+    \node[plc, minimum width=8mm, minimum height=5mm] (m2) at (162:1.1) {A};
+    \node[plc, minimum width=8mm, minimum height=5mm] (m3) at (234:1.1) {B};
+    \node[plc, minimum width=8mm, minimum height=5mm] (m4) at (306:1.1) {C};
+    \node[plc, minimum width=8mm, minimum height=5mm] (m5) at (18:1.1) {D};
+    \draw[netline] (m1)--(m2)--(m3)--(m4)--(m5)--(m1);
+    \node[font=\tiny, below=18mm of m1, align=center] {1 mgr blocks 1 port\\recover $\le$200\,ms};
+  \end{scope}
+  \begin{scope}[shift={(4.5,0)}]
+    \node[font=\scriptsize\bfseries] at (0,2.0) {HSR};
+    \node[plc, minimum width=8mm, minimum height=5mm] (h1) at (90:1.1) {A};
+    \node[plc, minimum width=8mm, minimum height=5mm] (h2) at (162:1.1) {B};
+    \node[plc, minimum width=8mm, minimum height=5mm] (h3) at (234:1.1) {C};
+    \node[plc, minimum width=8mm, minimum height=5mm] (h4) at (306:1.1) {D};
+    \node[plc, minimum width=8mm, minimum height=5mm] (h5) at (18:1.1) {E};
+    \draw[netline] (h1)--(h2)--(h3)--(h4)--(h5)--(h1);
+    \node[font=\tiny, below=18mm of h1, align=center] {send both ways\\zero-loss};
+  \end{scope}
+  \begin{scope}[shift={(9,0)}]
+    \node[font=\scriptsize\bfseries] at (0,2.0) {PRP};
+    \node[plc, minimum width=8mm, minimum height=5mm] (pa) at (0,1.2) {Src};
+    \node[switch, minimum width=6mm, minimum height=4mm] (lan1) at (-0.9,0) {L1};
+    \node[switch, minimum width=6mm, minimum height=4mm] (lan2) at (0.9,0) {L2};
+    \node[plc, minimum width=8mm, minimum height=5mm] (pd) at (0,-1.2) {Dst};
+    \draw[netline] (pa)--(lan1); \draw[netline] (pa)--(lan2);
+    \draw[netline] (lan1)--(pd); \draw[netline] (lan2)--(pd);
+    \node[font=\tiny, below=18mm of pa, align=center] {two parallel LANs\\zero-loss};
+  \end{scope}
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{notebox}{IT analogue}
+HSRP/VRRP failover takes seconds and drops in-flight packets --- fine for a web session, fatal for a 4\,ms control loop. MRP recovers under 200\,ms; HSR and PRP are \emph{bumpless} (zero packet loss) because every frame is already duplicated.
+\end{notebox}
+\source{IEC 62439-2:2021 (MRP) \textbar{} IEC 62439-3:2021 (PRP and HSR) \textbar{} Hirschmann, \emph{Redundancy in Industrial Networks}, application note, 2022.}
+\note{
+  MRP (IEC 62439-2) elects one Media Redundancy Manager that holds one port blocked, like RSTP --- when a link breaks, the manager opens the blocked port; ring re-converges in $<$200\,ms; good enough for HMI traffic, too slow for motion control. HSR and PRP both deliver every frame twice and the receiver drops the duplicate; recovery time is zero. HSR runs on a single ring with dual-port end nodes; PRP runs two physically separate LANs in parallel with a Redundancy Control Trailer. Substations standardised on PRP under IEC 61850; railway / IEC 61375 trains prefer HSR (one cable down the train). Pre-empt: ``redundancy is a security control'' --- it is an \emph{availability} control; nothing against an attacker who can write to the PLC, but buys you uptime during investigation. Transition: ``Last new transport --- cellular and private 5G.''
+}
+\end{frame}
+
+%% Frame 6: Cellular / Private 5G in OT
+\begin{frame}{Cellular and Private 5G in OT}
+\centering
+\begin{tikzpicture}[node distance=6mm, scale=0.86, transform shape, font=\scriptsize]
+  \node[isbox, fill=isOT!12, draw=isOT, minimum width=22mm, minimum height=12mm, align=center] (dev) {RTU\\(SIM)};
+  \node[inetnode, right=of dev, minimum width=18mm, minimum height=12mm] (gnb) {gNodeB};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of gnb, minimum width=28mm, minimum height=12mm, align=center] (core) {5G core\\(AMF/UPF)};
+  \node[isbox, fill=isIT!12, draw=isIT, right=of core, minimum width=22mm, minimum height=12mm, align=center] (scada) {SCADA\\head-end};
+  \draw[flow] (dev) -- (gnb) -- (core) -- (scada);
+  \node[attacker, below=10mm of gnb, align=center] (atk1) {SIM swap\\IMSI catcher};
+  \node[attacker, below=10mm of dev, align=center] (atk2) {baseband\\firmware};
+  \draw[attack] (atk1) -- (gnb);
+  \draw[attack] (atk2) -- (dev);
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{tipbox}{When to reach for it}
+Use cellular when wiring is impossible (pipelines, wind farms, mobile assets) or when you need site-wide mobility with deterministic QoS (AGVs, mobile HMIs). Otherwise wired plus TSN is cheaper and tighter.
+\end{tipbox}
+\par\vspace{1mm}
+{\footnotesize Attack surface: \textbf{SIM swap} at the carrier, \textbf{IMSI catcher} fake base stations, \textbf{baseband} CVEs in the modem firmware (a second CPU your OS does not see).}
+\source{ENISA, \emph{Security in 5G Specifications --- Controls in 3GPP}, 2021 \textbar{} BSI TR-03163, \emph{Sicherheit in 5G-Campusnetzen}, 2023 \textbar{} 3GPP TS 33.501 Rel.\,17.}
+\note{
+  Two worlds: public-carrier LTE-M/NB-IoT/5G is the boring workhorse for remote telemetry (pipeline RTUs, smart-meter concentrators) --- the carrier is your perimeter, which is why SIM swap is the canonical attack and every RTU SIM should be locked to a private APN with an allowlisted destination. Private 5G (Rel.\,16+) is the new shiny: you buy spectrum (3.7--3.8\,GHz in DE via Bundesnetzagentur, CBRS in the US), stand up a Nokia DAC / Ericsson / Athonet core on-prem, and get carrier-grade authentication, slicing, URLLC $<$10\,ms inside your fence. Pre-empt: (1) ``5G is faster Wi-Fi with a SIM'' --- no, AKA mutual authentication is rooted in a tamper-resistant SIM, slicing gives QoS, dedicated spectrum gives administrative control; (2) ``too expensive'' --- a small campus core is now low-six-figures EUR; (3) ``the modem is just a peripheral'' --- the baseband is a second CPU with DMA into your application processor; baseband CVEs bypass your OS. BSI TR-03163 is the German hardening reference. Transition: ``That closes the architecture tour --- next section opens the protocols.''
+}
+\end{frame}
+
+
+\begin{frame}{Summary -- Section \sectionNumber}
+\begin{takeawaybox}{What to remember from this section}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item The Purdue model groups assets into layers; firewalls separate the layers.
+  \item The Industrial DMZ brokers all traffic between corporate IT and the plant.
+  \item Zones and conduits give a structured language for IEC 62443 design.
+  \item Hardware mediation (diodes, gateways) protects the most sensitive flows.
+\end{itemize}
+\end{takeawaybox}
+\note{
+  Land the four bullets in this order: Purdue gives you the layer language, the iDMZ is the only mandatory broker, IEC 62443 zones-and-conduits is the assessor's vocabulary, hardware mediation (Owl/Waterfall diodes, Tofino allowlists) is the last line for the crown jewels. Pre-empt the exam-style temptation to memorise layer numbers --- assessors care that students can defend a design choice, not recite Williams 1994. If you have time, throw one synthesis question on the screen: ``Given a brownfield plant with one Cisco ASA between IT and OT and no DMZ, what are the first three things you change?'' --- expected answer: add an iDMZ tier, terminate inbound IT connections in it, push (not pull) plant data outward. Transition: references slide next; remind them the lab exercises for this section walk through building exactly this layout in the Docker stack. Optional question: ``Which of the four takeaways would you sacrifice last if the budget got cut?''
+}
+\end{frame}
+
+\referencesframe{
+  \item Williams, T.J. \emph{The Purdue Enterprise Reference Architecture}, Computers in Industry, 1994.
+  \item ANSI/ISA-95 (IEC 62264). \emph{Enterprise-Control System Integration}.
+  \item IEC 62443-3-2:2020. \emph{Security risk assessment for system design} (zones \& conduits).
+  \item IEC 62439-3:2021. \emph{High Availability Seamless Redundancy (HSR) and Parallel Redundancy Protocol (PRP)}.
+  \item IEEE 1588-2019. \emph{Precision Time Protocol (PTP)}.
+  \item IEC 62591:2016. \emph{WirelessHART}.
+  \item IEC 62734:2014. \emph{ISA-100.11a wireless system for industrial automation}.
+  \item Idaho National Lab. \emph{Recommended Practice: Improving Industrial Control System Cybersecurity with Defense-in-Depth Strategies}, 2016.
+  \item CISA. \emph{Securing Network Infrastructure Devices}, 2018.
+  \item Stouffer, K. et al. \emph{NIST SP 800-82 Rev.\,3 -- Guide to OT Security}, Sep 2023.
+}
+
+\closingframe
+
+\end{document}

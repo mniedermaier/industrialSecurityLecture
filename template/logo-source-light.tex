@@ -1,0 +1,14 @@
+% White-on-transparent placeholder logo -- for use against the dark
+% title bar (slideAccent) on a rebrand where the primary colour is so
+% dark that a coloured logo disappears.
+% Build with:  pdflatex -output-directory=. logo-source-light.tex
+% Output: logo-source-light.pdf -- rename to logo-light.pdf or replace
+% branding/logo-light.pdf with your own white-on-transparent asset.
+\documentclass[border=2pt]{standalone}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric}
+\begin{document}
+\begin{tikzpicture}
+  \node[font=\bfseries\Large, color=white] {Industrial};
+\end{tikzpicture}
+\end{document}

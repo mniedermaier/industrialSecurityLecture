@@ -1,0 +1,119 @@
+name: Lab stack smoke test
+
+on:
+  schedule:
+    - cron: "0 7 * * 1"     # every Monday 07:00 UTC — catch upstream image drift early
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "bachelor/labs/_stack/**"
+      - "bachelor/labs/preflight.sh"
+      - ".github/workflows/lab-stack.yml"
+  push:
+    branches: [main]
+    paths:
+      - "bachelor/labs/_stack/**"
+      - "bachelor/labs/preflight.sh"
+
+concurrency:
+  group: lab-stack-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: docker compose up + smoke-test every service
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify docker compose is present
+        run: |
+          docker --version
+          docker compose version
+
+      - name: Pull and start the lab stack
+        working-directory: bachelor/labs/_stack
+        run: |
+          docker compose pull --quiet
+          docker compose up -d
+          docker compose ps
+
+      - name: Wait for services to settle
+        run: sleep 25
+
+      - name: Smoke-test landing page
+        run: |
+          curl -sf -o /dev/null -w "  landing  → %{http_code}\n" http://127.0.0.1:8000/ || (echo "landing failed"; exit 1)
+
+      - name: Smoke-test OpenPLC web UI
+        run: |
+          curl -sf -o /dev/null -w "  openplc UI → %{http_code}\n" http://127.0.0.1:8080/login || (echo "openplc web UI failed"; exit 1)
+
+      - name: Wait for the openplc-init bootstrap to finish
+        run: |
+          # The init container is one-shot; wait for it to exit successfully.
+          for i in $(seq 1 30); do
+            state=$(docker inspect -f '{{.State.Status}}' is-openplc-init 2>/dev/null || echo "missing")
+            if [ "$state" = "exited" ]; then
+              ec=$(docker inspect -f '{{.State.ExitCode}}' is-openplc-init)
+              echo "openplc-init exited with $ec"
+              [ "$ec" = "0" ] && break
+              exit 1
+            fi
+            echo "  ($i/30) openplc-init state: $state"
+            sleep 2
+          done
+
+      - name: Smoke-test Modbus TCP (port 502)
+        run: |
+          for i in $(seq 1 20); do
+            if (echo > /dev/tcp/127.0.0.1/502) 2>/dev/null; then
+              echo "  modbus 502 → reachable"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "modbus 502 never opened"; exit 1
+        shell: bash
+
+      - name: Smoke-test OPC UA (port 4840)
+        run: |
+          (echo > /dev/tcp/127.0.0.1/4840) 2>/dev/null && echo "  opcua 4840 → reachable" || (echo "opcua 4840 failed"; exit 1)
+        shell: bash
+
+      - name: Smoke-test MQTT (port 1883)
+        run: |
+          (echo > /dev/tcp/127.0.0.1/1883) 2>/dev/null && echo "  mqtt 1883 → reachable" || (echo "mqtt 1883 failed"; exit 1)
+        shell: bash
+
+      - name: Start the student container and run modbus_read.py
+        working-directory: bachelor/labs/_stack
+        run: |
+          docker compose up -d student
+          sleep 3
+          # The PLC starts in "Stopped" state on some image versions; nudge it.
+          docker compose exec -T openplc bash -c "true" || true
+          curl -s -c /tmp/c -d "username=openplc&password=openplc" http://127.0.0.1:8080/login -o /dev/null
+          curl -s -b /tmp/c http://127.0.0.1:8080/start_plc -o /dev/null
+          sleep 3
+          docker compose exec -T student python3 /labs/scripts/modbus_read.py | tee /tmp/modbus_read.out
+          grep -q "Registers 0..9:" /tmp/modbus_read.out
+
+      - name: Dump container logs on failure
+        if: failure()
+        working-directory: bachelor/labs/_stack
+        run: |
+          docker compose ps -a
+          for svc in openplc openplc-init opcua mqtt landing zeek student; do
+            echo "=== logs: $svc ==="
+            docker compose logs --no-color --tail=80 "$svc" 2>&1 || true
+          done
+
+      - name: Tear down
+        if: always()
+        working-directory: bachelor/labs/_stack
+        run: docker compose down -v --remove-orphans

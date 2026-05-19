@@ -1,0 +1,214 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\courseSubtitle{Section 07 -- Safety / Security Co-Engineering}
+\def\sectionNumber{07}
+\def\sectionTitle{Safety / Security Co-Engineering}
+
+\input{../../../template/slides-preamble.tex}
+
+\begin{document}
+
+\sectionoverviewframe
+
+\learningobjectives{
+  \item Articulate the historical separation between functional safety and cyber security teams.
+  \item Map IEC 61508/61511 (safety) onto IEC 62443 (security) on a shared lifecycle.
+  \item Conduct a combined Cyber-HAZOP / SECOP workshop.
+  \item Use SIS-aware threat modelling (TRITON case study).
+  \item Build a co-engineering programme that satisfies both regulators.
+}
+
+\section{Two Disciplines, One Plant}
+
+\begin{frame}{The Historical Split}
+\centering
+\begin{tikzpicture}[node distance=8mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=44mm, minimum height=20mm, align=center, font=\small] (sa) {\textbf{Safety}\\\scriptsize random + systematic faults};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=44mm, minimum height=20mm, align=center, font=\small, right=of sa] (se) {\textbf{Security}\\\scriptsize intentional adversary};
+  \draw[<->, very thick, isMute] (sa) -- (se);
+\end{tikzpicture}
+\vspace{2mm}
+\begin{importantbox}{Where they overlap}
+Both protect the same physical process. A successful attack on the SIS is, by definition, a safety event. Treating them in separate org silos guarantees blind spots.
+\end{importantbox}
+\source{ISA-99 \& IEC working group joint statements, 2014--2018.}
+\end{frame}
+
+\begin{frame}{Lifecycle Mapping}
+\centering
+\begin{tikzpicture}[node distance=2mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small] (a) {Concept \& scope -- safety: HAZID + IEC 61511; security: IEC 62443-3-2 zones};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of a] (b) {Hazard / risk analysis -- HAZOP $\rightarrow$ Cyber-HAZOP joint};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of b] (c) {Overall safety / security requirements};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of c] (d) {Allocation -- SIF + SL-T per zone};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of d] (e) {Verification, validation, operation, modification};
+\end{tikzpicture}
+\source{ISA TR84.00.09:2017 explicitly aligns the lifecycles.}
+\end{frame}
+
+\section{Joint Workshops}
+
+\begin{frame}{Combined Cyber-HAZOP / SECOP}
+\centering
+\begin{tikzpicture}[node distance=2mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=22mm, font=\scriptsize] (n) {Node};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of n, minimum width=22mm, font=\scriptsize] (g) {Guide word};
+  \node[isbox, fill=isPLC!15, draw=isPLC, right=of g, minimum width=22mm, font=\scriptsize] (d) {Deviation};
+  \node[isbox, fill=isAttack!15, draw=isAttack, right=of d, minimum width=22mm, font=\scriptsize] (c) {Cause (cyber)};
+  \node[isbox, fill=isHMI!15, draw=isHMI, right=of c, minimum width=22mm, font=\scriptsize] (s) {Safeguard};
+\end{tikzpicture}
+\vspace{2mm}
+\begin{notebox}{Cross-disciplinary team}
+Process safety engineer + control engineer + cyber-security architect + (when SIS in scope) functional safety engineer. Operations sits in the room.
+\end{notebox}
+\source{IEC 61882:2016 (HAZOP) \textbar{} ISA TR84.00.09 \textbar{} CCPS \emph{Guidelines for Engineering Design for Process Safety}, 2012.}
+\end{frame}
+
+\begin{frame}{Worked Example -- Heat Exchanger Node}
+\centering
+\renewcommand{\arraystretch}{1.3}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{|p{1.4cm}|p{1.4cm}|p{3cm}|p{3cm}|p{2.6cm}|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Guide} & \textbf{Param} & \textbf{Cyber cause} & \textbf{Safeguard} & \textbf{Gap} \\
+\hline
+More & Flow & HMI compromise raises setpoint & High-flow alarm; SIS @ 1.3$\times$ & No write allow-list \\
+No   & Cool & Attacker stops fan PLC (S7comm) & Operator alarm; thermal SIS trip & No CPU mode-change alert \\
+Less & Press. & Attacker disables relief valve sol. & Mechanical relief, second SIS & No PLC code integrity check \\
+\hline
+\end{tabular}
+\end{frame}
+
+\begin{frame}{From Findings to Actions}
+\begin{itemize}
+  \item Each gap gets an owner (safety, security, operations).
+  \item Each gap is sized: control change vs.\ engineering change vs.\ procurement change.
+  \item Each gap has a deadline tied to the next plant turnaround.
+  \item Findings are tracked alongside the SIL verification record.
+\end{itemize}
+\begin{tipbox}{Common artefact}
+A single \emph{Process Hazard \& Cyber-Hazard Register} -- one row per hazard, with both safety and security mitigations -- is far more useful than two parallel registers.
+\end{tipbox}
+\end{frame}
+
+\section{SIS as Target}
+
+\begin{frame}{Why the SIS Becomes the Target}
+\centering
+\begin{tikzpicture}[node distance=8mm]
+  \node[process] (proc) {Process};
+  \node[plc, above left=of proc] (bpcs) {BPCS};
+  \node[plc, above right=of proc, fill=isAttack!20, draw=isAttack] (sis) {SIS};
+  \node[attacker, above=10mm of sis] (atk) {Attacker};
+  \draw[flow] (bpcs) -- (proc); \draw[flow] (sis) -- (proc);
+  \draw[attack] (atk) -- node[right=3pt, font=\tiny, align=center, fill=white, inner sep=1pt]{logic\\change} (sis);
+\end{tikzpicture}
+\vspace{1mm}
+\begin{importantbox}{TRITON 2017 was the proof}
+The attackers reached the Triconex SIS via the proprietary TriStation protocol. A bug in the malware tripped the plant; without the bug, the SIS would have permitted unsafe states.
+\end{importantbox}
+\source{Dragos \emph{TRISIS Malware Analysis}, 2017 \textbar{} Mandiant/FireEye TRITON report, 2017.}
+\end{frame}
+
+\begin{frame}{SIS-aware Threat Modelling}
+\begin{itemize}
+  \item Where is the SIS reachable from? (engineering WS, vendor laptop, jump host).
+  \item How is logic downloaded? (proprietary protocol, signed?, key-switch?).
+  \item Who can change the SIL target without re-validation?
+  \item How would tampering be detected? (checksum, log).
+  \item How would the operator know an SIS trip was inhibited?
+\end{itemize}
+\begin{warnbox}
+Any answer that ends with ``vendor tool tells us'' is not a control. Vendor tools can be spoofed.
+\end{warnbox}
+\end{frame}
+
+\begin{frame}{Compensating Controls for Legacy SIS}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=110mm, font=\small] (a) {Physical key-switch in RUN, key under dual control};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=110mm, font=\small, below=of a] (b) {Dedicated engineering WS, no Internet, no shared logins};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=110mm, font=\small, below=of b] (c) {Continuous SIS code-checksum monitoring (vendor or third-party)};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=110mm, font=\small, below=of c] (d) {Physical inspection schedule for proof tests};
+\end{tikzpicture}
+\end{frame}
+
+\section{Regulatory Alignment}
+
+\begin{frame}{Two Sets of Auditors}
+\centering
+\renewcommand{\arraystretch}{1.3}
+\footnotesize
+\begin{tabular}{|p{3.5cm}|p{4.5cm}|p{4.5cm}|}
+\hline
+\rowcolor{slidePanel}
+ & \textbf{Safety} & \textbf{Security} \\
+\hline
+Standard & IEC 61508 / 61511 & IEC 62443, NIST CSF \\
+Regulator (DE) & BAuA, Berufsgenossenschaft & BSI (KRITIS), NIS2 authority \\
+Audit focus & SIL validation, proof tests & risk assessment, controls, IR \\
+Frequency & 1--3 years & annual + on-incident \\
+\hline
+\end{tabular}
+\vspace{2mm}
+\begin{notebox}{Calendar trick}
+Schedule cyber-relevant safety reviews and security audits in the same window. One outage, two regulators happy.
+\end{notebox}
+\end{frame}
+
+\begin{frame}{The Co-Engineering Programme}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small] (a) {Joint risk register (single source of truth)};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of a] (b) {Shared change-management board (safety + security + ops)};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of b] (c) {Combined training (operators understand cyber, IT understands SIS)};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of c] (d) {Common metrics: incidents, near-misses, gap closure};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of d] (e) {Coordinated tabletop exercises};
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Cultural Barriers}
+\begin{itemize}
+  \item Safety engineers see security as ``IT noise''.
+  \item Security engineers see safety as ``slow and process-heavy''.
+  \item Operations sees both as obstacles to uptime.
+  \item Vendors split safety + security across separate product lines.
+\end{itemize}
+\begin{tipbox}{Bridge person}
+A single named individual with both safety and security training is worth a binder of policy. Hire or grow one.
+\end{tipbox}
+\end{frame}
+
+\begin{frame}{Summary -- Section \sectionNumber}
+\begin{takeawaybox}{Safety and security on one plant}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item The lifecycles align cleanly -- IEC 61511 + IEC 62443-3-2 share most artefacts.
+  \item Joint Cyber-HAZOP / SECOP workshops surface gaps neither side would find alone.
+  \item TRITON demonstrated that attackers will pursue the SIS specifically.
+  \item Compensating controls for legacy SIS exist; use them while the next CAPEX cycle runs.
+  \item Single risk register, single change board, combined training -- and a bridge person.
+\end{itemize}
+\end{takeawaybox}
+\end{frame}
+
+\referencesframe{
+  \item IEC 61508 (ed.\,2.0, 2010). \emph{Functional safety of E/E/PE safety-related systems}.
+  \item IEC 61511 (ed.\,2.0, 2016/17). \emph{Functional safety -- SIS for process industry}.
+  \item IEC 62443-3-2:2020. \emph{Security risk assessment for system design}.
+  \item ISA TR84.00.09:2017. \emph{Cybersecurity related to the Functional Safety Lifecycle}.
+  \item IEC 61882:2016. \emph{HAZOP studies -- Application guide}.
+  \item CCPS. \emph{Guidelines for Engineering Design for Process Safety}, 2012.
+  \item Dragos. \emph{TRISIS Malware Analysis}, 2017.
+  \item Mandiant/FireEye. \emph{Attackers Deploy New ICS Attack Framework ``TRITON''}, 2017.
+  \item Schneider Electric. \emph{Triconex Top Model 3008 -- TRITON Lessons Learned}, 2018.
+  \item Stoll, P. \emph{Integrating Functional Safety and Cybersecurity in the Process Industries}, 2020.
+  \item BSI. \emph{IT-Grundschutz Bausteine} relevant to OT.
+  \item European Process Safety Centre. Joint cyber-safety guidance, 2021.
+}
+
+\closingframe
+
+\end{document}

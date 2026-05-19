@@ -1,0 +1,35 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\sectionNumber{06}
+\def\sectionTitle{Threat Intelligence for OT}
+\def\sheetKind{Exercise Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 6.1 -- Campaign Brief}
+Pick one active OT-relevant campaign (Volt Typhoon, PIPEDREAM-related, Sandworm Industroyer2, CyberAv3ngers).
+\begin{enumerate}
+  \item One-paragraph adversary profile.
+  \item ATT\&CK for ICS technique mapping (at least 6 techniques).
+  \item Detection ideas (one per technique).
+  \item Sources and their bias.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 6.2 -- Diamond Model Sketch}
+For the same campaign, fill the four vertices of the Diamond Model with concrete evidence (adversary, capability, infrastructure, victim). Cite a source for each.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 6.3 -- Hunt Hypothesis}
+Translate one campaign-derived TTP into a concrete hypothesis your SOC could test this week. Write the data sources needed, the query (Splunk / KQL / Elastic / Zeek), and the expected output of a true positive.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 6.4 -- STIX Snippet}
+Encode one IOC + one TTP from your campaign as STIX 2.1 JSON. Validate it via an online linter or \texttt{stix2-validator}.
+\end{taskbox}
+
+\end{document}

@@ -1,0 +1,428 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\courseSubtitle{Section 10 -- Incident Response and Recovery}
+\def\sectionNumber{10}
+\def\sectionTitle{Incident Response and Recovery}
+
+\input{../../../template/slides-preamble.tex}
+
+\begin{document}
+
+\sectionoverviewframe
+
+\learningobjectives{
+  \item Distinguish IT and OT considerations in incident response.
+  \item Build a basic OT IR playbook.
+  \item Understand forensic acquisition options on ICS devices.
+  \item Plan a tabletop exercise.
+}
+
+\section{OT-Specific Considerations}
+
+\begin{frame}{Why OT IR Is Different}
+\centering
+\begin{tikzpicture}[node distance=3mm]
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small] (a) {Safety first -- a wrong response may cause a worse incident};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small, below=of a] (b) {Don't pull the cable -- losing visibility can blind operators};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small, below=of b] (c) {Process owners must be in the IR loop, not just IT};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small, below=of c] (d) {Some forensic actions (memory dump on running PLC) are infeasible};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small, below=of d] (e) {Containment may require manual fall-back to local control};
+\end{tikzpicture}
+\note{
+  Frame the whole section with this slide: OT IR inherits the IT playbook but inverts its priorities. In IT we yank the cable; in OT the cable \emph{is} the control loop, and pulling it can blind operators or trip a safety system that is worse than the original incident. Tell them the common misconception ``just call the SOC'' --- a generic SOC analyst has never seen a PLC and will happily quarantine the HMI right before a batch reactor needs an operator intervention. Anchor the lecture in one rule: safety first, then process continuity, then forensics. Ask the room: at a refinery, who has the authority to call ``shut down the unit''? It is almost never security, and that decision-rights question is the heart of OT IR.
+}
+\end{frame}
+
+\begin{frame}{The IR Lifecycle (Adapted for OT)}
+\centering
+\vspace{-2mm}
+\centering
+\begin{tikzpicture}[scale=0.85, transform shape]
+  \def\R{1.4}
+  \foreach \deg/\name/\col in {
+    90/{1. Preparation}/isOT,
+    30/{2. Detection \& analysis}/isPLC,
+    330/{3. Containment}/isAccent,
+    270/{4. Eradication}/isHMI,
+    210/{5. Recovery}/isNet,
+    150/{6. Lessons learned}/isMute}{
+    \node[isbox, fill=\col!15, draw=\col, font=\scriptsize, align=center, minimum width=30mm, minimum height=10mm]
+      (n-\deg) at (\deg:\R+1.9) {\name};
+  }
+  \foreach \a/\b in {90/30, 30/330, 330/270, 270/210, 210/150, 150/90}{
+    \draw[-{Stealth[length=2.5mm]}, shorten >=3pt, shorten <=3pt, thick, isOT] (n-\a) to[bend left=12] (n-\b);
+  }
+\end{tikzpicture}
+{\footnotesize Same six NIST SP\,800-61 phases as IT --- OT inverts: visibility before isolation, safety before forensics.}
+\note{
+  This is the NIST SP 800-61 Rev.\,2 lifecycle, but read every phase through an OT lens. Preparation in OT means knowing your process: golden PLC project files, signed firmware hashes, a list of who can authorise a shutdown. Detection lags in OT --- many plants found out about Industroyer-style payloads only because operators noticed breakers tripping, not because an EDR alerted. Containment and eradication look nothing like IT: you cannot just wipe and re-image a Safety Instrumented System, you negotiate a controlled outage during a planned maintenance window. The loop matters: lessons learned must feed back into preparation, otherwise the next incident repeats the last one. Stress that the cycle never stops --- it is continuous, not episodic.
+}
+\end{frame}
+
+\section{Forensics and Reporting}
+
+\begin{frame}{ICS Forensics -- What Can You Pull?}
+\centering
+\begin{tikzpicture}[node distance=16mm, scale=0.85, transform shape]
+  \node[plc, minimum width=20mm] (plc) {PLC};
+  \node[hmi, right=of plc, minimum width=20mm] (hmi) {HMI};
+  \node[server, right=of hmi, minimum width=24mm] (eng) {Engineering WS};
+  \node[switch, right=of eng, minimum width=22mm] (sw) {Network};
+  \node[isbox, fill=isAccent!10, draw=isAccent, font=\scriptsize, below=of plc, minimum width=32mm, align=left]
+    {Config via vendor\\tool, read-only\\vs.\ baseline};
+  \node[isbox, fill=isAccent!10, draw=isAccent, font=\scriptsize, below=of hmi, minimum width=32mm, align=left]
+    {Disk image\\(live or offline)\\Memory if feasible};
+  \node[isbox, fill=isAccent!10, draw=isAccent, font=\scriptsize, below=of eng, minimum width=32mm, align=left]
+    {Project files\\Audit logs (TIA,\\RSLogix)};
+  \node[isbox, fill=isAccent!10, draw=isAccent, font=\scriptsize, below=of sw, minimum width=32mm, align=left]
+    {NetFlow + PCAP\\from IDS layer};
+\end{tikzpicture}
+\par\vspace{1mm}
+{\footnotesize Chain of custody from minute one.}
+\source{SANS ICS515 \emph{ICS Active Defense and Incident Response}, 2024 \textbar{} NIST SP 800-86 \emph{Guide to Integrating Forensic Techniques into IR}, 2006.}
+\note{
+  Walk left to right and be honest about what is actually feasible. The PLC almost never gives you a clean memory image --- most vendors have no documented dump interface, so you compare the running configuration against your last signed baseline using the vendor tool (TIA Portal, Studio 5000, Unity Pro). The HMI is the easiest win: it is a Windows box, so disk image and volatile memory if the process tolerates it. Engineering workstations are forensic gold --- TIA audit trails and project file timestamps often show who downloaded what to which PLC and when. The single most valuable artefact is the network capture, because it is the only place you can prove a malicious Modbus or S7 write actually happened. Push the chain-of-custody point: write down who touched what, when, with which hash, from minute one, or the report is worthless in court.
+}
+\end{frame}
+
+\begin{frame}{Coordination and Reporting (NIS2 timing)}
+\centering
+\begin{tikzpicture}[x=1.6cm]
+  \draw[axisline] (0,0) -- (8,0);
+  \foreach \x/\label/\det in {
+    0/{Detection}/{Internal first response},
+    2/{24 h}/{Initial notice (NIS2)},
+    5/{72 h}/{Update notice},
+    7.5/{1 month}/{Final report}}{
+    \draw[thick] (\x,-1mm) -- (\x,1mm);
+    \node[font=\tiny, below=1mm] at (\x,0) {\label};
+    \node[font=\tiny, above=2mm, align=center] at (\x,0) {\det};
+  }
+\end{tikzpicture}
+\par\vspace{4mm}
+{\footnotesize Notify in parallel: national CERT, sector ISAC, law enforcement, regulators, customers per contract.}
+\source{Directive (EU) 2022/2555 (NIS2), Art.\,23: 24h early warning, 72h notification, 1-month final report.}
+\note{
+  The 24-hour early warning is much shorter than people realise --- in practice you have detected the incident, woken the on-call, and you still need to file something before lunch tomorrow. Stress that ``early warning'' in NIS2 Art.\,23 is not the full report; it is the heads-up that something is happening, and regulators expect it even when you do not yet know root cause. The 72-hour update is where you commit to a working hypothesis, and the one-month final report is where you close the loop with impact and corrective actions. Common mistake in industry: teams treat 24\,h as ``we still have a day to investigate'' and then miss the deadline because nobody owned the notification. Build the notification path before the incident: who has the credentials for the BSI Meldeportal, who signs off, who calls the customer? Mention that fines for late notification can exceed the cost of the incident itself.
+}
+\end{frame}
+
+\section{Exercises and Continuity}
+
+\begin{frame}{Tabletop Exercise Scenarios}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small] (a) {Ransomware encrypts the Historian};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small, below=of a] (b) {Insider exfiltrates PLC programs before resignation};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small, below=of b] (c) {Nation-state intrusion into Safety Instrumented System};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small, below=of c] (d) {Vendor remote-access account is compromised};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small, below=of d] (e) {Suspicious unsolicited Modbus writes from IT subnet};
+\end{tikzpicture}
+\note{
+  Pick one scenario per quarter and rehearse it with the actual on-call people, not a slide deck. The historian-ransomware scenario is the most common one in industry because the historian sits on the IT/OT boundary and runs Windows --- ask the room what they lose if the last 30 days of trends are gone. The SIS intrusion is the TRITON / Triconex flashback; it is rare but catastrophic, and the right answer is usually ``stop and call the vendor'', not ``patch live''. The vendor remote-access scenario tracks the 2021 Oldsmar water plant playbook: a third party TeamViewer session with a shared password. Use these to surface decision rights: who declares the incident, who calls the regulator, who tells the plant manager to switch to manual? The whole point of a tabletop is to find out that nobody knows --- and then fix it on paper, not in production.
+}
+\end{frame}
+
+\begin{frame}{Business Continuity \& Recovery}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=24mm, minimum height=14mm, align=center, font=\scriptsize] (rto) {\textbf{RTO}\\Recovery\\Time};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=24mm, minimum height=14mm, align=center, font=\scriptsize, right=of rto] (rpo) {\textbf{RPO}\\Recovery\\Point};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=24mm, minimum height=14mm, align=center, font=\scriptsize, right=of rpo] (man) {\textbf{Manual}\\fall-back\\ops};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=24mm, minimum height=14mm, align=center, font=\scriptsize, right=of man] (spare) {\textbf{Cold spares}\\PLCs /\\switches};
+\end{tikzpicture}
+\vspace{3mm}
+\begin{importantbox}{Rehearse}
+Plans must be rehearsed. Paper plans fail under stress.
+\end{importantbox}
+\note{
+  Define both terms cleanly: RTO is ``how long can we be down'', RPO is ``how much data/state can we afford to lose''. In OT, RPO often means ``how stale can the last good PLC project file be'' --- and the misconception ``we restore from backup'' falls apart fast when you ask which backup of the PLC program, and whether anyone verified it boots. Manual fall-back is the OT-specific lever: many plants can run for hours on local control panels while the network is being cleaned, but only if operators have practised it recently. Cold spares matter because vendor lead times on legacy controllers can be 6--18 months --- shelf stock is a security control. Push the rehearse point hard: a plan that has never been executed is a wish, not a plan. Ask the room about their bachelor thesis lab: do they have a snapshot of the PLC program they could restore right now?
+}
+\end{frame}
+
+\begin{frame}{IR Roles (RACI)}
+\centering
+\renewcommand{\arraystretch}{1.2}
+\footnotesize
+\begin{tabular}{|l|c|c|c|c|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Activity} & \textbf{Operator} & \textbf{Control Eng} & \textbf{OT Security} & \textbf{Plant Mgr} \\
+\hline
+Detect anomaly       & R & C & I & I \\
+Assess process risk  & C & R & C & A \\
+Contain (segment FW) & I & C & R & A \\
+Stop production      & C & C & C & A/R \\
+Forensic capture     & I & C & R & I \\
+External notification& I & I & C & A \\
+\hline
+\end{tabular}
+\par\vspace{2mm}
+{\footnotesize R = Responsible, A = Accountable, C = Consulted, I = Informed.}
+\note{
+  Walk one row at a time and note where the role differs from a generic IT RACI. The crucial line is ``Stop production'' --- accountable is the plant manager, never security, because the cost of an unplanned shutdown can be in the hundreds of thousands of euros per hour. ``Forensic capture'' is OT security responsible but control engineering consulted, because pulling a PCAP from a controller-facing switch can disturb the process if done wrong. Operators detect more anomalies than any IDS in OT because they live with the process; if your RACI does not list them as responsible for detection, the table is wrong. Common failure mode: organisations copy an IT RACI and forget the operator entirely, then wonder why nothing gets escalated. Ask the room to challenge any cell --- if a student disagrees, the discussion is the lesson.
+}
+\end{frame}
+
+\begin{frame}{Network Forensic Toolbox}
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=32mm, font=\small] (a) {Wireshark / tshark};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=32mm, font=\small, right=of a] (b) {Zeek};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=32mm, font=\small, right=of b] (c) {Suricata + ICS rules};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=32mm, font=\small, below=of a] (d) {Malcolm (full stack)};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=32mm, font=\small, below=of b] (e) {NetworkMiner};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=32mm, font=\small, below=of c] (f) {tcpdump};
+\end{tikzpicture}
+\vspace{3mm}
+\begin{tipbox}{Workflow}
+PCAP first, parse second, derive metrics third. Never reformat raw evidence -- keep an immutable copy and work on a derivative.
+\end{tipbox}
+\note{
+  These are all free and run on commodity hardware --- there is no excuse not to have at least Wireshark and a SPAN port on Level 2. Zeek is the workhorse for connection logs and protocol dissection; for ICS the community ICSNPP parsers give you S7, Modbus, DNP3, BACnet out of the box. Suricata with the Quickdraw or Dragos community rules catches the obvious signatures (unsolicited stop CPU, force coil), but never trust signatures alone --- anomaly is more useful than IOC in OT. Malcolm packages all of this in a Docker stack, which is what the lab uses; the students should recognise it from earlier sections. The workflow rule is non-negotiable: hash the raw PCAP, store it read-only on a write-once medium, work only on copies. Reformatting raw evidence is how chain of custody dies in court.
+}
+\end{frame}
+
+\begin{frame}{Communication Strategy}
+\begin{itemize}
+  \item \textbf{Internal first:} plant operator, on-call engineer, executive sponsor.
+  \item \textbf{External next:} CERT (BSI / CISA), sectoral ISAC, regulators.
+  \item Templates for each audience: technical (engineering), operational (plant managers), executive (board), public (PR).
+  \item Use a \textbf{single channel of truth} -- e.g.\ war-room chat -- to avoid contradictory updates.
+\end{itemize}
+\begin{warnbox}
+Speculation kills credibility. Communicate \emph{what you know} and \emph{what you do not know} separately.
+\end{warnbox}
+\note{
+  Order matters: internal stakeholders before external, because nothing destroys trust faster than the plant manager hearing about ``their'' incident from a journalist. The four audience templates exist because the same facts read very differently to an engineer (``Modbus function code 5 from 10.0.0.42'') versus a board member (``a remote write to a safety device that we blocked''). Single channel of truth is the lesson from every real incident --- WhatsApp groups and side emails create three contradictory versions within an hour. The ``what we know / what we do not know'' rule is borrowed from aviation incident communication; it sounds obvious but takes discipline under stress. War story: one large utility lost more reputation from a contradictory press release than from the breach itself, because the CTO and CISO had not aligned. Tell them: silence is a decision too --- the regulator notices when you go dark.
+}
+\end{frame}
+
+\begin{frame}{Post-Mortem Template}
+\centering
+\begin{tikzpicture}[node distance=2mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small] (a) {1. Timeline of events with timestamps};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of a] (b) {2. What happened (root cause, contributing factors)};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of b] (c) {3. What worked / what did not};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of c] (d) {4. Action items with owners and due dates};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of d] (e) {5. Follow-up review date};
+\end{tikzpicture}
+\vspace{1mm}
+\begin{notebox}{Blameless}
+Focus on systems and decisions, never on individuals.
+\end{notebox}
+\note{
+  Insist on the blameless culture point --- it is the difference between learning and theatre. War story: one post-mortem after a HMI ransomware incident concluded ``operator clicked a phishing link''; the company fired the operator and changed nothing, and the same class of incident happened nine months later because the underlying email gateway gap was untouched. A good post-mortem asks why the system allowed the click to reach a control-network asset in the first place. The five-section template is taken from Google SRE and works for OT too --- the only OT-specific addition is that ``what happened'' must include the process-engineering view, not just the cyber view. Action items without owners and due dates are wishes; track them in the same tracker as production work, otherwise they vanish. Aim to publish within five working days while the details are still fresh and people still care.
+}
+\end{frame}
+
+\begin{frame}{Exercise Cadence}
+\centering
+\begin{tikzpicture}[x=3cm]
+  \node[isbox, fill=isOT!15, draw=isOT, font=\scriptsize, minimum width=28mm, minimum height=14mm, align=center] at (0,0) {Annual\\full-scale};
+  \node[isbox, fill=isPLC!15, draw=isPLC, font=\scriptsize, minimum width=28mm, minimum height=14mm, align=center] at (1,0) {Quarterly\\tabletop};
+  \node[isbox, fill=isAccent!15, draw=isAccent, font=\scriptsize, minimum width=28mm, minimum height=14mm, align=center] at (2,0) {Monthly\\drill};
+  \node[isbox, fill=isNet!15, draw=isNet, font=\scriptsize, minimum width=28mm, minimum height=14mm, align=center] at (3,0) {Continuous\\monitoring};
+\end{tikzpicture}
+\par\vspace{2mm}
+{\footnotesize Cadence depends on regulatory pressure (NERC CIP, KRITIS) and on the maturity of the team.}
+\note{
+  These cadences are starting points, not commandments --- a KRITIS operator under BSIG audit will be pushed harder than a small machine builder. Annual full-scale exercises are expensive (you pull operators off shift) but they are the only way to test cross-organisation coordination with the CERT and the regulator. Quarterly tabletops are cheap and high-value: two hours, a printed scenario, the on-call team in a room. Monthly drills can be as small as ``restore the last historian backup to a sandbox and prove it boots'' --- short, repeated, muscle-memory. Continuous monitoring is the baseline: if you do not have it, the other cadences do not matter because you will not detect anything to respond to. Tie this back to the maturity model from Section 9: cadence should grow with the team's ability to execute it without breaking production.
+}
+\end{frame}
+
+\begin{frame}{Recovery Validation}
+\begin{itemize}
+  \item Verify integrity of restored PLC programs against a signed baseline.
+  \item Re-baseline alarms and trends -- known-good snapshot before declaring ``done''.
+  \item Heightened monitoring window (e.g.\ 72 hours) after recovery.
+  \item Capture lessons learned within 5 working days while details are fresh.
+\end{itemize}
+\begin{importantbox}{Don't rush}
+Premature ``all clear'' is how secondary incidents happen. The attacker may still be present.
+\end{importantbox}
+\note{
+  This is the slide where most real recovery efforts fail --- the pressure to ``get production back'' overrides verification. War story: after one ransomware event a European manufacturer restored the engineering workstations from backup and resumed production within 36 hours; nobody validated the PLC logic against a signed baseline, and the attacker's persistence in a ladder-logic subroutine triggered a second outage two weeks later. Re-baselining alarms and trends matters because attackers sometimes tamper with setpoints in ways that only show up under load. The 72-hour heightened monitoring window is borrowed from FIRST CSIRT guidance and catches most ``came back to finish the job'' attempts. Lessons learned within five working days is not arbitrary --- memory decays fast and people rotate off the incident, so the window for honest reflection is narrow. Underline the importantbox: ``all clear'' is a decision the plant manager makes on evidence, not a feeling the team has.
+}
+\end{frame}
+
+%% Frame 1: IEC 62443 anchor for §10
+\begin{frame}{IEC 62443 anchor for this section}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.85, transform shape]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, align=left] (a)
+    {\textbf{62443-2-1} \ Security programme --- \emph{requires} a documented IR plan as a programme element};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=110mm, font=\small, align=left, below=of a] (b)
+    {\textbf{2-1 clause 4.3.4.5} \ Incident planning \& response: roles, escalation, evidence handling};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=110mm, font=\small, align=left, below=of b] (c)
+    {\textbf{62443-3-3 SR\,6.1/6.2} \ Audit log accessibility \& continuous monitoring};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small, align=left, below=of c] (d)
+    {\textbf{62443-3-3 SR\,6 (Timely Response to Events)} \ FR\,6: detect, report, respond within stated time};
+\end{tikzpicture}
+\par\vspace{2mm}
+{\footnotesize Programme requirement (2-1) $\to$ system capability (3-3 FR\,6) $\to$ component evidence (4-2 logs).}
+\source{IEC 62443-2-1:2010 \emph{Security programme requirements for IACS asset owners}, cl.\,4.3.4.5 \textbar{} IEC 62443-3-3:2013, FR\,6.}
+\note{
+  62443-2-1 lists IR plan as a \emph{required} programme element under clause 4.3.4.5, alongside risk assessment and patch management. If auditor asks ``where is your IR plan,'' pointing at a SharePoint folder is not enough; 2-1 wants documented roles, escalation paths, evidence-handling rules. On system side, 3-3 FR\,6 (Timely Response to Events) maps to SOC capability: SR\,6.1 = audit logs accessible to authorised personnel, SR\,6.2 = continuous monitoring. At component level, 4-2 specifies that each PLC/HMI/gateway must emit the logs 3-3 expects to consume. IT analogue: ISO 27001 A.16 (information security incident management) feeding into SOC tooling.
+}
+\end{frame}
+
+%% Frame 2: NIS2 Reporting Timeline in Detail
+\begin{frame}{NIS2 Article 23 --- the reporting clock in detail}
+\centering
+\begin{tikzpicture}[x=1.45cm, scale=0.95, transform shape]
+  \draw[axisline] (0,0) -- (9.2,0);
+  \foreach \x in {0,2,5,8}{\draw[thick] (\x,-1mm) -- (\x,1mm);}
+  \node[font=\tiny, below=1mm] at (0,0) {T = 0};
+  \node[font=\tiny, below=1mm] at (2,0) {+24 h};
+  \node[font=\tiny, below=1mm] at (5,0) {+72 h};
+  \node[font=\tiny, below=1mm] at (8,0) {+1 month};
+  \node[isbox, fill=isOT!15, draw=isOT, font=\tiny, align=left, minimum width=26mm, above=4mm of {(0,0)}] {Detection\\of significant\\incident};
+  \node[isbox, fill=isPLC!15, draw=isPLC, font=\tiny, align=left, minimum width=28mm, above=4mm of {(2,0)}] {\textbf{Early warning} 23(4a)\\suspected cause,\\cross-border impact};
+  \node[isbox, fill=isAccent!15, draw=isAccent, font=\tiny, align=left, minimum width=28mm, above=4mm of {(5,0)}] {\textbf{Notification} 23(4b)\\severity, IoCs,\\initial assessment};
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, align=left, minimum width=28mm, above=4mm of {(8,0)}] {\textbf{Final report} 23(4c)\\root cause, impact,\\mitigations};
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{warnbox}{Consequences}
+Missing a deadline is itself a violation. Fines up to EUR10M or 2\,\% of global turnover (Art.\,34); essential entities have personally liable management (Art.\,32(6)).
+\end{warnbox}
+\source{Directive (EU) 2022/2555 (NIS2), Art.\,23(4)(a--c), Art.\,32(6), Art.\,34. In force 17 Oct 2024.}
+\note{
+  24-h early warning (23(4a)): suspicion incident is malicious, plus cross-border or cross-sector impact. 72-h notification (23(4b)) is the substantive one: severity, IoCs as far as known, initial impact assessment. One-month final report (23(4c)): detailed description, threat type, root cause, applied + ongoing mitigations, cross-border effects. IT analogue: GDPR Art.\,33 (72\,h) which room will recognise --- NIS2 adds the 24-h pre-warning. Art.\,34 caps fines at EUR10M or 2\% global turnover; Art.\,32(6) lets regulator temporarily ban management. Build notification workflow \emph{before} the incident --- who has BSI Meldeportal login, who legally signs off, who calls the customer? 24\,h is too short to invent that.
+}
+\end{frame}
+
+%% Frame 3: PLC Forensics Workflow
+\begin{frame}{PLC forensics --- the order matters}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.78, transform shape]
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=120mm, font=\scriptsize, align=left] (a)
+    {\textbf{1. Capture network FIRST} --- SPAN/TAP at L2 switch, PCAP + hash; the only volatile evidence that proves a write happened};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=120mm, font=\scriptsize, align=left, below=of a] (b)
+    {\textbf{2. Engineering workstation} --- TIA/Studio 5000 audit trail, project file timestamps, USB history, RAM if it is up};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=120mm, font=\scriptsize, align=left, below=of b] (c)
+    {\textbf{3. PLC diagnostic buffer} --- vendor tool, read-only; Siemens SZL/diagnostic buffer, Rockwell controller log};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=120mm, font=\scriptsize, align=left, below=of c] (d)
+    {\textbf{4. CPU mode \& firmware hash} --- RUN/STOP/PROG key position, firmware checksum vs.\ vendor signature};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=120mm, font=\scriptsize, align=left, below=of d] (e)
+    {\textbf{5. Logic + data blocks} --- upload project from CPU, diff against last signed baseline (OB1, FC, FB, DB)};
+\end{tikzpicture}
+\par\vspace{1mm}
+{\footnotesize \textcolor{isAttack}{Volatile (lost on reboot):} PCAP-in-flight, PLC diag buffer, RAM, CPU mode. \textcolor{isOT}{Survives:} project on flash, firmware, audit logs on WS.}
+\source{SANS ICS515 \emph{ICS Active Defense and Incident Response}, 2024 \textbar{} NIST SP 800-86 \emph{Guide to Integrating Forensic Techniques into IR}, 2006, \S3 (order of volatility).}
+\note{
+  Order follows NIST 800-86 order of volatility, inverted for OT: PCAP first --- the \emph{only} place that proves a malicious write (function code 5/6/16 on Modbus, S7 PutPut, EtherNet/IP forward open) actually crossed the wire. Reboot switch or PLC first, that evidence is gone forever. Engineering workstation is forensic gold: TIA Portal audit trail \texttt{Audit.log}, Studio 5000 controller log, project-file mtime pins time of malicious download to the second. PLC diagnostic buffer (Siemens SZL list ID 0xA0, Rockwell controller log) is volatile and bounded --- pull before any restart. CPU mode matters: attacker who STOP'd CPU to download bad logic then RUN'd leaves fingerprint. Firmware hash catches PLC-Blaster/EvilPLC firmware implants. IT analogue: `volatility` for embedded devices.
+}
+\end{frame}
+
+%% Frame 4: Designing a Tabletop Exercise
+\begin{frame}{Designing a tabletop --- 60--90 minutes that surface gaps}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.85, transform shape]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=120mm, font=\scriptsize, align=left] (a)
+    {\textbf{Scope \& time-box} --- one scenario, 60--90 min, one facilitator, one scribe, no laptops};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=120mm, font=\scriptsize, align=left, below=of a] (b)
+    {\textbf{Pick adversary tier} --- SL-2 (skilled, generic tools, opportunistic) vs.\ SL-3 (sector-specific, OT-aware, persistent)};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=120mm, font=\scriptsize, align=left, below=of b] (c)
+    {\textbf{Inject 3--5 decision points} --- e.g.\ T+15 IDS alert, T+30 HMI lies, T+45 vendor pings, T+60 press call};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=120mm, font=\scriptsize, align=left, below=of c] (d)
+    {\textbf{Force the hard questions} --- WHEN do we shut down? WHO authorises? WHO calls BSI / CISA / customer?};
+  \node[isbox, fill=isMute!20, draw=isMute, minimum width=120mm, font=\scriptsize, align=left, below=of d] (e)
+    {\textbf{After-action template} --- timeline, decisions made, decisions \emph{missed}, owners, due dates, next rehearsal};
+\end{tikzpicture}
+\par\vspace{1mm}
+\begin{tipbox}{Cheap and high-signal}
+A printed scenario, the actual on-call rota, a kitchen timer. No tooling needed --- the gap is always in roles, not tech.
+\end{tipbox}
+\source{CISA \emph{CISA Tabletop Exercise Packages (CTEPs)}, 2023 \textbar{} SANS ICS515 \S5 \emph{Active Defense Cycle}, 2024 \textbar{} IEC 62443-2-1 cl.\,4.3.4.5.5 (testing the IR plan).}
+\note{
+  Operational: a tabletop students could run Monday morning. 60--90 min is the sweet spot --- longer disengages, shorter does not reach the press-call moment. SL-2 vs SL-3 is IEC 62443-3-3 vocabulary they have met: SL-2 is script kiddie with Shodan + Metasploit module; SL-3 is sector-aware adversary with custom OT tooling. Pick honestly --- a small machine builder rehearsing SL-4 nation-state is theatre; rehearse SL-2 ransomware ten times first. Decision points: ``HMI shows T1 = 80\textdegree C but historian shows 95\textdegree C --- what do you do, who decides?'' Force naming a person, not a role. Shutdown authorisation is the most valuable output --- in 80\,\% of orgs the answer is ``I'm not sure.''
+}
+\end{frame}
+
+%% Frame 5: Recovery Sequencing
+\begin{frame}{Recovery sequencing --- why ``rebuild'' is dangerous in OT}
+\centering
+\begin{tikzpicture}[node distance=1mm, scale=0.72, transform shape]
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=120mm, font=\scriptsize, align=left] (a)
+    {\textbf{1. Confirm safe state} --- process at hold or controlled shutdown; SIS confirmed in service};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=120mm, font=\scriptsize, align=left, below=of a] (b)
+    {\textbf{2. Preserve evidence} --- hashes, PCAPs, project diffs locked before \emph{any} write to the asset};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=120mm, font=\scriptsize, align=left, below=of b] (c)
+    {\textbf{3. Restore from golden image} --- signed PLC project + signed firmware, never from ``last known good'' on the WS};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=120mm, font=\scriptsize, align=left, below=of c] (d)
+    {\textbf{4. Re-validate logic} --- offline simulation \emph{and} loop check against a known input set before energising};
+  \node[isbox, fill=isHMI!15, draw=isHMI, minimum width=120mm, font=\scriptsize, align=left, below=of d] (e)
+    {\textbf{5. Re-link to process} --- staged: I/O scan only $\to$ open-loop $\to$ closed-loop $\to$ full production};
+  \node[isbox, fill=isNet!15, draw=isNet, minimum width=120mm, font=\scriptsize, align=left, below=of e] (f)
+    {\textbf{6. Re-authorise operators} --- new credentials, briefed on changes, heightened monitoring for 72\,h};
+\end{tikzpicture}
+\par\vspace{1mm}
+\begin{warnbox}{IT vs OT}
+``Rebuild and restart'' is safe in IT (the worst case is rework). In OT a wrong restart can overspeed a turbine, overpressure a vessel, or weld a contact shut --- physical, irreversible.
+\end{warnbox}
+\source{NIST SP 800-61 Rev.\,2 \S3.4 (Recovery), 2012 \textbar{} INL \emph{Cyber-Informed Engineering for Recovery}, 2022 \textbar{} IEC 62443-2-1 cl.\,4.3.4.5.7 (recovery planning).}
+\note{
+  Order is everything. Step 1: cannot pull cable on a running cracker; process must be at defined hold-point or controlled shutdown; SIS confirmed operational because it is your last guardrail. Step 2: preserve evidence before any write keeps post-mortem honest and regulator off your back. Step 3: most teams get wrong --- they restore from engineering WS, the asset attacker compromised; you must restore from off-host, signed, version-controlled copy. Step 4: offline simulation + loop check (feed PLC known inputs in test rig, verify outputs match spec). Step 5: I/O scan only (read, no actuate) $\to$ open-loop (manual setpoints) $\to$ closed-loop (PID engaged) $\to$ full production. Each transition is a go/no-go with plant manager. Step 6: operator credentials may have been cached on compromised WS --- rotate and brief.
+}
+\end{frame}
+
+%% Frame 6: NotPetya at Maersk
+\begin{frame}{NotPetya at Maersk --- a recovery case study}
+\centering
+\begin{tikzpicture}[x=1.3cm, scale=0.92, transform shape]
+  \draw[axisline] (0,0) -- (9.5,0);
+  \foreach \x/\lbl in {0/{27 Jun},2/{Day 1},4.5/{Day 2--3},7/{Day 10},9.2/{Q2 close}}{
+    \draw[thick] (\x,-1mm) -- (\x,1mm);
+    \node[font=\tiny, below=1mm] at (\x,0) {\lbl};
+  }
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, align=left, minimum width=24mm, above=4mm of {(0,0)}] {NotPetya hits\\via M.E.Doc\\update (UA)};
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, align=left, minimum width=24mm, above=4mm of {(2,0)}] {4{,}000 servers\\45{,}000 PCs\\encrypted};
+  \node[isbox, fill=isPLC!15, draw=isPLC, font=\tiny, align=left, minimum width=26mm, above=4mm of {(4.5,0)}] {Ghana DC\\offline (power)\\$\Rightarrow$ AD survives};
+  \node[isbox, fill=isAccent!15, draw=isAccent, font=\tiny, align=left, minimum width=24mm, above=4mm of {(7,0)}] {Manual port ops\\paper bills of\\lading};
+  \node[isbox, fill=isOT!15, draw=isOT, font=\tiny, align=left, minimum width=24mm, above=4mm of {(9.2,0)}] {\$\,250--300\,M\\reported loss\\Q2 2017};
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{takeawaybox}{Three lessons}
+\textbf{Backups:} restoration succeeded only because a power cut in Accra preserved one offline domain controller --- luck, not design.\\
+\textbf{IT/OT coupling:} 76 ports stopped because the \emph{IT} domain that authenticated terminal operators died.\\
+\textbf{Blast radius:} a Ukrainian tax-software update reached every Maersk site in 7 minutes (worm via EternalBlue + Mimikatz).
+\end{takeawaybox}
+\source{A.P.\ M{\o}ller--Maersk, \emph{Interim Report Q2 2017}, 16 Aug 2017 \textbar{} A.\ Greenberg, \emph{The Untold Story of NotPetya}, Wired, 22 Aug 2018.}
+\note{
+  27 June 2017: NotPetya entered via backdoored M.E.Doc update; spread via EternalBlue + Mimikatz; encrypted MBRs irrecoverably (wiper masquerading as ransomware). Within hours Maersk lost 4,000 servers and 45,000 PCs across 130 countries; 17 of 76 terminals went silent (terminal OS could not authenticate). Every AD replica encrypted except one in Ghana offline during a local power cut --- entire global rebuild depended on flying that one DC back to UK. Without that accident recovery would have taken weeks longer or required forest rebuild. Maersk Q2 2017: USD 200--300M. Lessons: backups must be offline + geographically separated; IT/OT coupling is invisible single point of failure; software supply chain is hostile. Greenberg's Wired piece is the canonical narrative.
+}
+\end{frame}
+
+
+\begin{frame}{Summary -- Section \sectionNumber}
+\begin{takeawaybox}{What to remember from this section}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item OT IR rules differ from IT IR -- safety leads, visibility matters more than isolation.
+  \item Forensics on PLCs is constrained; the network capture is the most valuable evidence.
+  \item Regulators expect short reporting windows -- 24 / 72 hours under NIS2.
+  \item Tabletops surface gaps before incidents do; rehearse recovery, not just plans.
+\end{itemize}
+\end{takeawaybox}
+\note{
+  Closing beats: safety leads, the network capture is your forensic anchor, NIS2 turns reporting into a calendar problem you must solve before the incident, and a rehearsed recovery is the only kind that works. Bridge into the closing arc of the course: in Section 11 we look at standards (IEC 62443, ISO 27019, NIS2) that codify a lot of what we just discussed, so the IR plan does not live in isolation. Quick exit question for the class: pick one device on the lab bench --- can you state its RTO, its RPO, and who would sign off on a restart after an incident? If three students cannot answer that, we have already justified the next section. Encourage them to bring real war stories to the next session --- IR culture is built on shared experience, not slides.
+}
+\end{frame}
+
+\referencesframe{
+  \item NIST SP 800-61 Rev.\,2. \emph{Computer Security Incident Handling Guide}, 2012.
+  \item NIST SP 800-86. \emph{Guide to Integrating Forensic Techniques into Incident Response}, 2006.
+  \item SANS. \emph{Incident Handler's Handbook}, multi-author white papers.
+  \item Directive (EU) 2022/2555 (NIS2). \emph{Article 23 -- Reporting obligations}.
+  \item CISA. \emph{ICS-CERT Incident Response} resources.
+  \item BSI. \emph{IT-Grundschutz, baustein DER.2.3 (Notfallmanagement)}.
+  \item Dragos. \emph{ICS Incident Response Playbook} concepts (sector-specific).
+  \item Idaho National Lab. \emph{Cyber-Informed Engineering for Recovery}, 2022.
+  \item ISO/IEC 27035 series. \emph{Information security incident management}.
+  \item Caltagirone, S., Pendergast, A., Betz, C. \emph{The Diamond Model of Intrusion Analysis}, 2013.
+}
+
+\closingframe
+
+\end{document}

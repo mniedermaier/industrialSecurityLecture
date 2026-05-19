@@ -1,0 +1,63 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\sectionNumber{01}
+\def\sectionTitle{Firmware Reverse Engineering}
+\def\sheetKind{Exercise Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 1.1 -- Source and Verify}
+Pick a consumer or industrial router image you can lawfully obtain (e.g.\ OpenWrt, a discontinued home router model, or vendor partner programme). Document:
+\begin{enumerate}
+  \item How you obtained the image.
+  \item Vendor-published hash and your local hash (match?).
+  \item The license / legal basis under which you analyse it.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 1.2 -- Triage}
+On the same image, run \texttt{binwalk -e} and then:
+\begin{itemize}
+  \item Identify CPU architecture and endianness (use \texttt{binwalk -A}, \texttt{file}).
+  \item List bootloader, kernel, root filesystem (with offsets).
+  \item Mount the root filesystem and dump \texttt{/etc/passwd}, \texttt{/etc/shadow}, and any \texttt{init} scripts of interest.
+\end{itemize}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 1.3 -- Strings to Findings}
+Run \texttt{strings -n 8} over the image, then:
+\begin{enumerate}
+  \item Search for words like \texttt{admin}, \texttt{password}, \texttt{token}, \texttt{secret}.
+  \item Identify three candidate hard-coded secrets and the binary they live in.
+  \item For each, propose how an asset owner could mitigate without a firmware update.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 1.4 -- Ghidra Mini-Reverse}
+Open the most ``interesting'' binary in Ghidra. Pick one symbol (e.g.\ \texttt{login}, \texttt{check\_password}, \texttt{handle\_modbus}) and:
+\begin{enumerate}
+  \item Read the decompiled C.
+  \item Document one weakness (CWE-class) you observe.
+  \item Sketch the patch you would propose to the vendor.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 1.5 -- Disclosure Letter}
+Write the email you would send to a vendor PSIRT for a finding from Exercise 1.4. Include:
+\begin{itemize}
+  \item Affected product, firmware version, hash.
+  \item Reproduction steps (minimal, no exploit code).
+  \item Proposed disclosure timeline (vendor / CERT / public).
+  \item Your contact details and PGP fingerprint.
+\end{itemize}
+\end{taskbox}
+
+\begin{warnbox}
+Only analyse firmware you have a legal basis to handle. Never test the resulting findings against production devices that are not yours.
+\end{warnbox}
+
+\end{document}

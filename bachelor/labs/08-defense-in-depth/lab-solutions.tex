@@ -1,0 +1,154 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\labNumber{08}
+\def\labTitle{Passive OT IDS with Zeek -- Solutions}
+\def\labSection{08}
+\def\labTime{45--60 min}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Lecturer / TA reference: expected log entries, sample patched policy,
+SOC escalation answer, grading rubric.
+\end{goalbox}
+
+\begin{solutionbox}{Step 1 -- Baseline polls and log inspection}
+After one minute of \texttt{modbus\_poll\_loop.py}, \texttt{ls
+zeek-logs/} on the host should list roughly:
+\begin{lstlisting}
+conn.log  modbus.log  known_modbus.log  packet_filter.log  reporter.log
+\end{lstlisting}
+\texttt{dns.log} usually appears too if the student container resolved
+anything during start-up. A representative \texttt{tail
+zeek-logs/modbus.log} line (JSON, one record per poll):
+\begin{lstlisting}
+{"ts":1747500123.456,"uid":"CXyZ12abc","id.orig_h":"172.28.0.20",
+ "id.orig_p":54321,"id.resp_h":"172.28.0.10","id.resp_p":502,
+ "tid":1,"unit":1,"func":"READ_HOLDING_REGISTERS"}
+\end{lstlisting}
+Teaching point: function code \texttt{3} (Read Holding Registers) is a
+benign poll. Source \texttt{172.28.0.20} is the student / engineering
+workstation, destination \texttt{172.28.0.10} is OpenPLC on TCP/502.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 2 -- Trigger the injection}
+\texttt{modbus\_inject.py} issues a \texttt{Write Single Coil}
+(FC~\texttt{5}) at address~0 with value \texttt{0xFF00}. Within a
+second or two, \texttt{tail zeek-logs/notice.log} shows a JSON record
+like:
+\begin{lstlisting}
+{"ts":1747500188.012,"note":"ModbusWatch::Unsolicited_Write",
+ "msg":"Modbus write from 172.28.0.20 to 172.28.0.10 (FC=5)",
+ "src":"172.28.0.20","dst":"172.28.0.10","p":502,
+ "uid":"CabCDe456"}
+\end{lstlisting}
+\texttt{modbus.log} continues to receive both the poll requests
+\emph{and} a new entry with \texttt{func="WRITE\_SINGLE\_COIL"}. The
+analyzer always logs what it parses; the NOTICE stream is the
+alert-worthy subset.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 3 -- Tune one false positive}
+Edit \texttt{bachelor/labs/\_stack/zeek/local.zeek} on the
+\emph{host}, then \texttt{docker compose restart zeek}. The patched
+event handler short-circuits when the source is the sanctioned
+engineering workstation:
+\begin{lstlisting}
+event modbus_message(c: connection, headers: ModbusHeaders,
+                     is_orig: bool) {
+    if (!is_orig) return;
+    # Sanctioned engineering workstation -- writes expected.
+    if (c$id$orig_h == 172.28.0.20) return;
+    if (headers$function_code in set(5, 6, 15, 16)) {
+        NOTICE([$note=Unsolicited_Write,
+                $msg=fmt("Modbus write from %s to %s (FC=%d)",
+                         c$id$orig_h, c$id$resp_h,
+                         headers$function_code),
+                $conn=c]);
+    }
+}
+\end{lstlisting}
+After the restart, re-run \texttt{modbus\_inject.py}. Expected outcome:
+\begin{itemize}[leftmargin=*, nosep]
+  \item \texttt{notice.log} receives \emph{no} new
+        \texttt{ModbusWatch::Unsolicited\_Write} entry.
+  \item \texttt{modbus.log} \emph{does} still receive a fresh
+        \texttt{WRITE\_SINGLE\_COIL} record -- the analyzer still parses
+        the PDU, only the NOTICE is suppressed.
+\end{itemize}
+\end{solutionbox}
+
+\begin{solutionbox}{Model 5-line answer -- SOC escalation}
+\emph{``Who would receive this alert in a real SOC, and what is their
+first action?''}
+\begin{enumerate}[leftmargin=*, nosep]
+  \item A tier-1 SOC analyst on the OT queue (or the on-call OT IR
+        engineer at smaller sites with no dedicated OT shift).
+  \item First action: look up the source IP in the asset inventory and
+        confirm it is \emph{not} a sanctioned engineering workstation.
+  \item Cross-check with the on-shift operator / control room: is a
+        commissioning, recipe change, or maintenance window in progress
+        that legitimately writes to FC~5/6/15/16?
+  \item If unsanctioned, escalate to OT IR and the plant manager
+        \emph{before} any containment action.
+  \item Never unilaterally pull the network cable or block the source
+        -- in OT, an unannounced isolation can trip a safety
+        instrumented system (SIS) and cause an unsafe shutdown.
+\end{enumerate}
+\end{solutionbox}
+
+\begin{solutionbox}{Common student mistakes}
+\begin{itemize}[leftmargin=*, nosep]
+  \item Editing \texttt{local.zeek} \emph{inside} the running container
+        (\texttt{docker compose exec zeek vi ...}). The bind mount goes
+        the other way -- changes inside the container vanish on the
+        next restart. Always edit on the host under
+        \texttt{\_stack/zeek/}.
+  \item Forgetting \texttt{docker compose restart zeek} after the edit.
+        Zeek loads the policy once at start-up.
+  \item Suppressing the wrong source. \texttt{172.28.0.10} is the PLC
+        itself; writing \texttt{if (c\$id\$orig\_h == 172.28.0.10)
+        return;} silences responses that the analyzer would not raise
+        anyway, while leaving the actual attacker IP loud.
+  \item Expecting \texttt{modbus.log} to also fall silent after tuning.
+        It should not -- the tuning only suppresses the
+        \texttt{NOTICE}, the Modbus analyzer keeps logging every PDU.
+  \item Confusing function codes: FC~\texttt{5} = Write Single Coil
+        (the inject script), FC~\texttt{6} = Write Single Register,
+        FC~\texttt{15}/\texttt{16} = the multi-write variants. All four
+        belong in the watchlist.
+\end{itemize}
+\end{solutionbox}
+
+\begin{rubricbox}
+Full marks (100\,\%) require:
+\begin{itemize}[leftmargin=*, nosep]
+  \item \texttt{notice.log} excerpt from Step~2 containing exactly one
+        \texttt{ModbusWatch::Unsolicited\_Write} for FC~5 from
+        \texttt{172.28.0.20} to \texttt{172.28.0.10}.
+  \item Modified \texttt{local.zeek} that suppresses writes from the
+        sanctioned source \emph{and} still raises the NOTICE for any
+        other source (i.e.\ the early-return is guarded by the source
+        IP, not by removing the FC check).
+  \item Post-tuning \texttt{notice.log} excerpt showing no new entry
+        after re-running \texttt{modbus\_inject.py}, together with the
+        matching \texttt{modbus.log} line that proves the write was
+        still observed.
+  \item 5-line SOC answer naming the right responder (tier-1 OT SOC /
+        on-call OT IR), the asset-inventory + operator check as the
+        first action, and the explicit warning against unilateral
+        containment in OT.
+\end{itemize}
+Partial credit: $-20\,\%$ for an over-broad suppression (e.g.\ removing
+the FC set entirely, or matching on \texttt{id\$resp\_h} so all writes
+to the PLC are silenced regardless of source); $-15\,\%$ for missing
+the pre/post \texttt{notice.log} comparison; $-15\,\%$ for a SOC answer
+that jumps straight to network isolation without the asset / operator
+verification step.
+\end{rubricbox}
+
+\end{document}

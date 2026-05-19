@@ -1,0 +1,77 @@
+Industrial Security Lecture Series -- Course Material
+
+Copyright (c) 2026 Matthias Niedermaier and contributors
+
+This course material is licensed under the
+  Creative Commons Attribution-ShareAlike 4.0 International License
+  (CC BY-SA 4.0).
+
+You are free to:
+
+  Share   -- copy and redistribute the material in any medium or format
+  Adapt   -- remix, transform, and build upon the material
+            for any purpose, even commercially.
+
+Under the following terms:
+
+  Attribution -- You must give appropriate credit, provide a link to
+                 the license, and indicate if changes were made. You may
+                 do so in any reasonable manner, but not in any way that
+                 suggests the licensor endorses you or your use.
+
+  ShareAlike  -- If you remix, transform, or build upon the material,
+                 you must distribute your contributions under the same
+                 license as the original.
+
+  No additional restrictions -- You may not apply legal terms or
+                 technological measures that legally restrict others
+                 from doing anything the license permits.
+
+The full legal text is at:
+  https://creativecommons.org/licenses/by-sa/4.0/legalcode
+
+A human-readable summary is at:
+  https://creativecommons.org/licenses/by-sa/4.0/
+
+================================================================================
+
+ATTRIBUTION
+
+When redistributing or adapting this material, please use the following
+attribution string (or an equivalent that conveys the same information):
+
+  "Based on the Industrial Security Lecture Series by Matthias Niedermaier
+   and contributors, licensed under CC BY-SA 4.0."
+
+================================================================================
+
+SCOPE
+
+This CC BY-SA 4.0 license applies to the course content in this repository:
+
+  * Slide decks                (bachelor/sections/**/*.tex, master/sections/**)
+  * Speaker notes              (the \note{} blocks inside the slide sources)
+  * Exercise sheets            (bachelor/exercises/**/exercises.tex)
+  * Solution sheets            (bachelor/exercises/**/solutions.tex)
+  * Lab sheets                 (bachelor/labs/**/lab.tex, master/labs/**)
+  * Lecturer schedule          (bachelor/handouts/delivery-schedule.tex)
+  * Acronym handout            (bachelor/handouts/acronyms.tex)
+  * Cheat-sheet handout        (bachelor/handouts/cheatsheets.tex)
+  * LaTeX templates and styles that produce the artefacts above
+                               (template/*.tex except logo-source.tex)
+  * Compiled PDFs derived from any of the above
+                               (*.pdf in sections/, exercises/, labs/, bachelor/)
+
+Third-party material referenced inside the slides (logos, screenshots,
+quotations from CISA advisories, vendor documentation, peer-reviewed
+papers) remains the property of its respective owners and is used under
+fair use / quotation for educational purposes. Such material is not
+re-licensed by CC BY-SA 4.0.
+
+The code and configuration in this repository (Docker, shell scripts,
+Makefiles, lab Python helpers, landing page HTML/CSS) is licensed
+separately under the MIT License -- see LICENSE.
+
+The placeholder logo at branding/logo.pdf and template/logo.pdf, and
+its source template/logo-source.tex, are public domain -- replace them
+freely.

@@ -1,0 +1,75 @@
+name: Build & verify
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - ".gitignore"
+      - "LICENSE*"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Cancel in-progress runs on the same branch when a newer push lands.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build all PDFs + make verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # Use the upstream TeX Live image; it ships latexmk + every package we use
+    # (beamer, tcolorbox, microtype, fontawesome5, ibm-plex, listings, ...).
+    container:
+      image: texlive/texlive:latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show toolchain versions
+        run: |
+          pdflatex --version | head -1
+          latexmk --version | head -1
+          make --version | head -1
+          python3 --version
+
+      - name: Build everything and verify no overfull boxes
+        run: make verify
+
+      - name: Collect PDFs into a single artefact tree
+        if: always()
+        run: |
+          set -eu
+          mkdir -p _artefacts/bachelor/sections _artefacts/bachelor/exercises _artefacts/bachelor/labs _artefacts/bachelor/handouts _artefacts/master
+          find bachelor/sections \( -name "*-slides.pdf" -o -name "*-notes.pdf" \) -exec cp -v {} _artefacts/bachelor/sections/ \; || true
+          find bachelor/exercises \( -name "*-exercises.pdf" -o -name "*-solutions.pdf" \) -exec cp -v {} _artefacts/bachelor/exercises/ \; || true
+          find bachelor/labs -maxdepth 2 -name "*-lab.pdf" -exec cp -v {} _artefacts/bachelor/labs/ \; || true
+          find bachelor/handouts -maxdepth 1 -name "*.pdf" -exec cp -v {} _artefacts/bachelor/handouts/ \; || true
+          find master -maxdepth 4 -name "*.pdf" -exec cp -v {} _artefacts/master/ \; 2>/dev/null || true
+          echo "--- artefact tree ---"
+          find _artefacts -name "*.pdf" | sort | sed 's/^/  /'
+
+      - name: Upload PDFs as build artefact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: industrialSecurityLecture-pdfs-${{ github.sha }}
+          path: _artefacts/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload LaTeX logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: latex-logs-${{ github.sha }}
+          path: |
+            **/*.log
+            !**/node_modules/**
+          retention-days: 7
+          if-no-files-found: ignore

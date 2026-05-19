@@ -1,0 +1,80 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Bachelor)}
+\def\labNumber{05}
+\def\labTitle{Shodan Reconnaissance -- Solutions}
+\def\labSection{05}
+\def\labTime{30 min}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Lecturer / TA reference: sample Shodan queries, expected banner shapes, ethical framing, common student mistakes, and grading rubric. All examples are illustrative; no real exposed assets are named.
+\end{goalbox}
+
+\begin{solutionbox}{Sample queries and what they typically surface}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \texttt{port:502} -- Modbus/TCP. Tens of thousands of hits worldwide; banner usually shows function code 43 (Read Device Identification) replies with vendor/product strings.
+  \item \texttt{port:47808} -- BACnet/IP. Surfaces building-automation controllers (chillers, AHUs, lighting). Banner includes \texttt{Instance ID}, vendor name, model.
+  \item \texttt{product:siemens} -- Siemens S7 family on TCP/102. Banner exposes module order number (e.g. \texttt{6ES7 ...}) and firmware revision.
+  \item \texttt{tag:industrial} -- Shodan's own ICS tag, a broad catch-all across protocols.
+  \item \texttt{org:"<utility name>"} -- Pivots from an ASN/organisation string to all devices in their address space.
+  \item \texttt{country:DE port:502} -- Narrows Modbus exposure to Germany; useful for the deliverable.
+  \item \texttt{"Unitronics" port:20256} -- Vision/Samba PLCs (the family CISA flagged in late-2023 water-sector attacks).
+\end{itemize}
+\end{solutionbox}
+
+\begin{solutionbox}{Illustrative finding format (fictional)}
+\textit{Use this shape; do not record real IPs or org names in the report.}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Country / ASN:} DE / AS\textit{XXXXX} (regional ISP, business DSL).
+  \item \textbf{Banner:} Modbus/TCP, slave id 1, vendor ``Schneider Electric'', product ``Modicon M221'', firmware 1.x.
+  \item \textbf{Plausible function:} pump/valve controller -- small water-works or district-heating substation, judging by the ASN footprint and DNS suffix pattern.
+  \item \textbf{Why exposed:} most likely a 4G/DSL router with port-forwarding for an integrator's remote-maintenance laptop; no VPN; static IP cheaper than a managed jump host.
+\end{itemize}
+\end{solutionbox}
+
+\begin{solutionbox}{Why these devices end up on the open Internet}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Vendor remote-access shortcuts.} ``Forward TCP/102 to the PLC so we can dial in.'' Documented in many commissioning guides.
+  \item \textbf{Integrator convenience.} ``We put it behind a static IP for the integrator'' -- avoids the cost of a VPN concentrator and per-site credentials.
+  \item \textbf{4G/LTE routers with public APNs.} Many cellular gateways expose the LAN directly; default firewall is permissive.
+  \item \textbf{Legacy migration.} A site that used to be on a private leased line gets ``upgraded'' to commodity Internet with the same flat addressing.
+  \item \textbf{Embedded web servers nobody knew were on.} Vendor firmware ships HTTP/SNMP/FTP enabled by default.
+\end{itemize}
+\end{solutionbox}
+
+\begin{solutionbox}{Ethical and legal framing (read-only contract)}
+Students must \textbf{not} connect, log in, fingerprint, port-scan, or otherwise interact with anything they discover. Browsing the Shodan-cached banner is fine; sending a single TCP packet to the target is not.
+In Germany, \textbf{\S 202c StGB} (``Vorbereiten des Aussp\"ahens und Abfangens von Daten'') and \textbf{\S 202a/b StGB} can criminalise unauthorised probing \textit{even without exploitation or data exfiltration}. Comparable rules exist under the UK Computer Misuse Act 1990 and the US CFAA.
+If a student believes they have found a genuinely exposed safety-relevant asset, the correct action is to report it -- in Germany to \textbf{CERT-Bund} (\texttt{certbund@bsi.bund.de}) with the IP, port, observed banner, and timestamp; not to ``just check if it's really vulnerable.''
+\end{solutionbox}
+
+\begin{solutionbox}{Hand-in expectations}
+A one-page PDF containing: (i) three Shodan queries the student actually ran, (ii) the approximate result count Shodan reported at that moment, (iii) a one-paragraph reflection on whether the scale or the device families were surprising, and (iv) answers to the three responsibility/remedy questions in the lab sheet. No IPs, hostnames, or organisation names.
+\end{solutionbox}
+
+\begin{solutionbox}{Common student mistakes to flag}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item Copy-pasting a discovered IP into \texttt{nmap}, \texttt{curl}, or a Modbus client. This crosses from passive reconnaissance into unauthorised access; fail the deliverable and remind them of \S 202c StGB.
+  \item Mistaking a honeypot for a real PLC. Conpot and similar honeypots leak telltale signatures: unrealistically rich device identification fields, vendor strings that do not match the firmware revision, identical banners across many ASNs, and Shodan's own \texttt{honeypot score} (where shown).
+  \item Equating ``high CVSS'' with ``easy to exploit''. CVSS is severity-if-exploited; reachability, authentication, network segmentation, and patch level often make a 9.8 unreachable in practice and a 6.5 trivially abusable.
+  \item Pasting real IPs/hostnames into the reflection.
+  \item Searching for the lecturer's home country only -- broaden to a second jurisdiction for contrast.
+\end{itemize}
+\end{solutionbox}
+
+\begin{rubricbox}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Three valid queries with counts (3 pt).} Queries syntactically correct, counts plausible, no interaction with targets.
+  \item \textbf{Reflection paragraph (3 pt).} Shows the student understood scale, not just numbers; identifies at least one structural cause (vendor default, integrator convenience, 4G modem, legacy migration).
+  \item \textbf{Responsibility / remedy answers (3 pt).} Names vendor, integrator, asset owner, ISP \emph{and} a regulator/CERT role; concrete first-day action for the asset owner (disconnect, VPN, change creds, notify CERT).
+  \item \textbf{Ethics compliance (1 pt, gating).} Zero IPs / hostnames / org names disclosed; no evidence of active probing. Violation $\Rightarrow$ 0 overall.
+\end{itemize}
+\textbf{Total: 10 pt.}
+\end{rubricbox}
+
+\end{document}

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Industrial Security Labs">
+  <title>Industrial Security Labs</title>
+  <!-- light-blue ring -->
+  <polygon points="32,3 57,17 57,47 32,61 7,47 7,17"
+           fill="none" stroke="#00A0DC" stroke-width="3" stroke-linejoin="round"/>
+  <!-- navy core -->
+  <polygon points="32,7.5 53,19.5 53,44.5 32,56.5 11,44.5 11,19.5"
+           fill="#00205B"/>
+  <!-- IS wordmark -->
+  <text x="32" y="42" text-anchor="middle"
+        font-family="IBM Plex Sans, Helvetica, Arial, sans-serif"
+        font-weight="700" font-size="24" fill="white" letter-spacing="-0.5">IS</text>
+</svg>

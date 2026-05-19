@@ -1,0 +1,50 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\sectionNumber{02}
+\def\sectionTitle{PLC Ladder Logic Reverse Engineering}
+\def\sheetKind{Exercise Sheet}
+
+\input{../../../template/exercise-preamble.tex}
+
+\begin{document}
+\sheetheader
+
+\begin{taskbox}{Exercise 2.1 -- Project vs Runtime}
+On a PLC you own (OpenPLC, or a spare hardware unit):
+\begin{enumerate}
+  \item Write and download a small program (motor seal-in).
+  \item Save the project file and compute its SHA-256.
+  \item Upload the program blocks back from the PLC; compute SHA-256.
+  \item Modify one rung directly on the runtime (without changing the project file). Re-upload. Compare hashes. Document what changed.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 2.2 -- Snap7 Inspection}
+Using \texttt{python-snap7}:
+\begin{enumerate}
+  \item List all blocks on the PLC.
+  \item Upload OB1 and one DB; dump the raw MC7 bytes.
+  \item Identify the block header, local data size, and the code section by hand.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 2.3 -- Logic-Bomb Hunt}
+Given a project file from the instructor:
+\begin{enumerate}
+  \item Identify all unused inputs and all time-/counter-based branches.
+  \item For each suspicious branch, infer the condition under which it fires.
+  \item Write a 1-page memo describing the hidden behaviour and its consequences.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 2.4 -- Defence Pitch}
+Pick one of the defensive controls from the slides (signed downloads, key-switch, checksum monitoring, version-controlled projects). In 1 page:
+\begin{itemize}
+  \item Sketch how to implement it on Siemens S7-1500 \emph{and} Rockwell ControlLogix.
+  \item Identify the trade-off (operational cost, vendor support, downtime).
+  \item Recommend a 12-month rollout plan.
+\end{itemize}
+\end{taskbox}
+
+\end{document}

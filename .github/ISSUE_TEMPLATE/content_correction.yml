@@ -1,0 +1,36 @@
+name: Content correction
+description: A factual error, broken citation, missing source, or outdated advisory in the course material.
+labels: [content, needs-triage]
+body:
+  - type: input
+    id: where
+    attributes:
+      label: Where is the issue?
+      placeholder: "e.g. bachelor/sections/05-threats/slides.tex, frame 'PIPEDREAM (2022)'"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What is wrong?
+      placeholder: |
+        The slide cites CISA AA22-103B but the correct identifier is AA22-103A.
+    validations:
+      required: true
+
+  - type: textarea
+    id: source
+    attributes:
+      label: Authoritative source
+      description: A link or printed reference the maintainers can verify. Standards by number + year. CISA advisories by ID + date.
+      placeholder: |
+        CISA AA22-103A "APT Cyber Tools Targeting ICS/SCADA Devices", 13 Apr 2022.
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggested
+    attributes:
+      label: Suggested replacement
+      description: Optional. If you have draft text, paste it here.

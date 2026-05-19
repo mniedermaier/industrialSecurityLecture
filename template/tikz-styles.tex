@@ -1,0 +1,77 @@
+% =====================================================================
+% Shared TikZ styles for the Industrial Security lecture series.
+% Loaded by every slide deck and exercise sheet that uses TikZ.
+% =====================================================================
+
+\usetikzlibrary{
+  arrows.meta,
+  shapes,
+  shapes.geometric,
+  shapes.symbols,
+  shapes.multipart,
+  positioning,
+  fit,
+  calc,
+  backgrounds,
+  decorations.pathmorphing,
+  decorations.pathreplacing,
+  decorations.text,
+  patterns,
+  matrix,
+  shadows
+}
+
+% --- colour palette --------------------------------------------------
+\definecolor{isOT}{HTML}{1F4E79}     % OT (deep blue)
+\definecolor{isIT}{HTML}{6F2DA8}     % IT (purple)
+\definecolor{isSafety}{HTML}{C00000} % safety red
+\definecolor{isNet}{HTML}{2E7D32}    % network green
+\definecolor{isAttack}{HTML}{B23A48} % attack red
+\definecolor{isAccent}{HTML}{E08E0B} % amber
+\definecolor{isMute}{HTML}{6B6B6B}   % grey
+\definecolor{isLight}{HTML}{EDF2F8}  % light background
+\definecolor{isPLC}{HTML}{2C5282}
+\definecolor{isHMI}{HTML}{2F855A}
+\definecolor{isSCADA}{HTML}{6B46C1}
+
+% --- generic node styles --------------------------------------------
+\tikzset{
+  isnode/.style={
+    draw, rounded corners=2pt, minimum height=8mm, minimum width=18mm,
+    font=\small, align=center, thick
+  },
+  isbox/.style={isnode, fill=isLight},
+  plc/.style={isnode, fill=isPLC!15, draw=isPLC, thick},
+  hmi/.style={isnode, fill=isHMI!15, draw=isHMI, thick},
+  scada/.style={isnode, fill=isSCADA!15, draw=isSCADA, thick},
+  sensor/.style={isnode, fill=isNet!10, draw=isNet, minimum height=6mm, minimum width=14mm, font=\scriptsize},
+  actuator/.style={isnode, fill=isAccent!15, draw=isAccent, minimum height=6mm, minimum width=14mm, font=\scriptsize},
+  firewall/.style={isnode, fill=isAttack!15, draw=isAttack, thick},
+  server/.style={isnode, fill=isMute!15, draw=isMute!80, thick},
+  switch/.style={isnode, fill=isLight, draw=black!60, minimum height=6mm, minimum width=14mm, font=\scriptsize},
+  workstation/.style={isnode, fill=white, draw=isOT, thick},
+  attacker/.style={isnode, fill=isAttack!20, draw=isAttack, thick, font=\small\bfseries},
+  inetnode/.style={draw, ellipse, minimum width=24mm, minimum height=10mm, font=\scriptsize, fill=isLight, thick},
+  process/.style={isnode, fill=isOT!15, draw=isOT, thick, minimum width=24mm},
+  zone/.style={
+    draw, rounded corners=4pt, thick, dashed, inner sep=4mm
+  },
+  conduit/.style={-{Stealth[length=2.5mm]}, thick, isNet!80!black},
+  attack/.style={-{Stealth[length=2.5mm]}, thick, isAttack, dashed},
+  flow/.style={-{Stealth[length=2.5mm]}, thick, isOT!70!black},
+  netline/.style={thick, black!60},
+  axisline/.style={-{Stealth[length=2mm]}, thick, black!70},
+  tag/.style={font=\scriptsize\itshape, fill=white, inner sep=1pt},
+  level/.style={
+    draw, fill=isLight, minimum width=0.85\linewidth, minimum height=8mm,
+    font=\small, anchor=west
+  },
+  brace/.style={decorate, decoration={brace, amplitude=4pt, raise=2pt}},
+  legendbox/.style={draw, rounded corners=2pt, fill=isLight, inner sep=2mm, font=\scriptsize, align=left}
+}
+
+% --- handy macros ----------------------------------------------------
+% \plcicon, \hmiicon etc as simple labelled boxes; useful inline.
+\newcommand{\plcicon}[1][PLC]{\tikz[baseline=-0.6ex]{\node[plc, minimum width=10mm, minimum height=5mm, font=\scriptsize, inner sep=1pt]{#1};}}
+\newcommand{\hmiicon}[1][HMI]{\tikz[baseline=-0.6ex]{\node[hmi, minimum width=10mm, minimum height=5mm, font=\scriptsize, inner sep=1pt]{#1};}}
+\newcommand{\fwicon}[1][FW]{\tikz[baseline=-0.6ex]{\node[firewall, minimum width=10mm, minimum height=5mm, font=\scriptsize, inner sep=1pt]{#1};}}
