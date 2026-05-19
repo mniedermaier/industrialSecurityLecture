@@ -289,6 +289,180 @@ Private 5G     & 1 ms     & 100--500 m & High-density factory \\
 }
 \end{frame}
 
+%% Frame 1: IEC 62443 anchor for §03 -- zones, conduits, restricted data flow
+\begin{frame}{IEC 62443 anchor for this section}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.82, transform shape]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, align=left] (a)
+    {\textbf{62443-3-2:2020} \ Risk assessment for system design --- the \emph{process} that produces zones and conduits};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=110mm, font=\small, align=left, below=of a] (b)
+    {\textbf{Zone} \ a grouping of assets with a common security target (SL-T 1--4); think ``trust domain''};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=110mm, font=\small, align=left, below=of b] (c)
+    {\textbf{Conduit} \ the only sanctioned channel between zones; think ``the firewall rule \emph{plus} the wire''};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small, align=left, below=of c] (d)
+    {\textbf{62443-3-3 SR\,5} \ Restricted data flow --- enforce zone boundaries, deny by default, log every conduit};
+\end{tikzpicture}
+\par\vspace{2mm}
+{\footnotesize IT analogue: zones are AWS VPCs, conduits are the security-group rules between them --- but in OT the wire itself is part of the boundary.}
+\source{IEC 62443-3-2:2020, \emph{Security risk assessment for system design} \textbar{} IEC 62443-3-3:2013, \emph{System security requirements and security levels}, FR\,5 (Restricted Data Flow).}
+\note{
+  Spine of the section: every topology, firewall, and diode we draw later is in service of producing a defensible zone/conduit diagram for an assessor. IT analogue: in AWS you draw VPCs and security groups, in OT you draw zones and conduits --- the algebra is the same but the wire is part of the boundary. SR\,5 in 62443-3-3 is the requirement family that says ``you actually have to enforce the conduit you drew.'' Transition: ``what runs on the wire between zones?''
+}
+\end{frame}
+
+%% Frame 2: Industrial Ethernet Variants Compared
+\begin{frame}{Industrial Ethernet Variants Compared}
+\centering
+\renewcommand{\arraystretch}{1.1}
+\scriptsize
+\begin{tabular}{|p{20mm}|p{18mm}|p{16mm}|p{20mm}|p{38mm}|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Variant} & \textbf{Determinism} & \textbf{OSI reuse} & \textbf{Lead vendor} & \textbf{What it actually is} \\
+\hline
+Modbus TCP   & soft (best-effort) & L1--L4 std        & Schneider          & Modbus RTU framed inside TCP/502 \\
+\hline
+EtherNet/IP  & soft (CIP)         & L1--L4 std        & Rockwell / ODVA    & CIP objects over UDP/TCP \\
+\hline
+PROFINET RT  & hard (1\,ms)       & L1--L2 std, custom L3 & Siemens (PNO)  & VLAN-tagged Ethernet frames, no IP \\
+\hline
+PROFINET IRT & hard (\textmu s)   & custom MAC sched. & Siemens (PNO)      & TDMA slots in switch silicon \\
+\hline
+EtherCAT     & hard (\textmu s)   & custom L2         & Beckhoff (ETG)     & ``processing on the fly'' summation frame \\
+\hline
+\end{tabular}
+\par\vspace{2mm}
+\begin{notebox}{IT analogue}
+Modbus TCP $\approx$ HTTP on a LAN: works on any switch. EtherCAT $\approx$ InfiniBand: needs special silicon and dedicated wiring. The harder the real-time guarantee, the less of the standard IP stack survives.
+\end{notebox}
+\source{IEC 61784-2:2023, \emph{Industrial communication networks --- Profiles --- Part 2: Additional fieldbus profiles for real-time networks} \textbar{} ODVA, \emph{The CIP Networks Library}, Vol.\,2, 2024.}
+\note{
+  Read top-to-bottom by determinism: Modbus TCP is Modbus RTU in TCP/502, works on any office switch but no timing guarantee. EtherNet/IP (``IP'' = Industrial Protocol, naming trap) is Rockwell's CIP stack and dominates NA factories. PROFINET RT keeps Ethernet frames but skips IP for cycle traffic (VLAN priority 6, EtherType 0x8892). PROFINET IRT pre-schedules transmit slots in switch ASIC. EtherCAT is the odd one: a single frame goes round the ring and each slave reads/writes its slice on the fly. Wireshark works for Modbus TCP and EtherNet/IP, partial for PROFINET, largely useless for IRT/EtherCAT without specialised taps. Transition: ``can we converge OT and IT on one wire? TSN promises that.''
+}
+\end{frame}
+
+%% Frame 3: Time-Sensitive Networking (TSN)
+\begin{frame}{Time-Sensitive Networking (TSN)}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.88, transform shape]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=120mm, font=\scriptsize, align=left] (a)
+    {\textbf{IEEE 802.1AS} \ Time sync --- profile of PTP, sub-\textmu s across the bridge};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=120mm, font=\scriptsize, align=left, below=of a] (b)
+    {\textbf{IEEE 802.1Qbv} \ Time-Aware Shaper --- gated transmit windows per traffic class};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=120mm, font=\scriptsize, align=left, below=of b] (c)
+    {\textbf{IEEE 802.1CB} \ Frame Replication \& Elimination --- send twice, drop the duplicate};
+  \node[isbox, fill=isNet!15, draw=isNet, minimum width=120mm, font=\scriptsize, align=left, below=of c] (d)
+    {\textbf{IEEE 802.1Qci} \ Per-Stream Filtering \& Policing --- rate-limit and police at ingress};
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{notebox}{IT analogue}
+TSN is QoS that is actually \emph{enforceable}. DiffServ ``please prioritise'' becomes ``you may transmit between 200--250\,\textmu s, no exceptions.'' One switch carries a motor-control loop and a CCTV stream on the same cable without either starving.
+\end{notebox}
+\source{IEEE 802.1Q-2022 (Time-Sensitive Networking amendments) \textbar{} IEC/IEEE 60802 (TSN profile for industrial automation, FDIS 2024).}
+\note{
+  TSN is the ``one wire for OT and IT'' pitch. The four standards: 802.1AS gives a clock everyone agrees on; 802.1Qbv gives every priority class a guaranteed slot (CCTV burst cannot delay PROFINET by even a \textmu s); 802.1CB hides single-cable failures by sending each frame on two disjoint paths and dropping duplicates; 802.1Qci stops a misbehaving talker from flooding the schedule. Pre-empt: ``isn't this just QoS?'' --- DSCP and 802.1p are advisory; 802.1Qbv is a hardware gate that physically does not open until your slot. Security relevance: TSN trusts its schedule absolutely, so the schedule itself (engineered via 802.1Qcc / NETCONF) is a new attack surface --- own the CNC controller, own the network. Transition: ``Wired determinism is solved. Wireless?''
+}
+\end{frame}
+
+%% Frame 4: Wireless OT -- security focus
+\begin{frame}{Wireless OT --- Security Models Compared}
+\centering
+\renewcommand{\arraystretch}{1.25}
+\scriptsize
+\begin{tabular}{|p{22mm}|p{20mm}|p{22mm}|p{46mm}|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Tech} & \textbf{Standard} & \textbf{Crypto} & \textbf{Security model} \\
+\hline
+WirelessHART  & IEC 62591         & AES-128-CCM     & Network + join key, mesh, ch.\ hopping (TSCH) \\
+\hline
+ISA-100.11a   & IEC 62734         & AES-128-CCM     & Per-link + per-session keys, IPv6/6LoWPAN \\
+\hline
+Private 5G    & 3GPP Rel.\,16/17  & AES-128/256, SNOW, ZUC & SIM (AKA) auth, per-slice isolation, dedicated spectrum \\
+\hline
+\end{tabular}
+\par\vspace{2mm}
+\begin{warnbox}{Encryption is not jamming-proof}
+All three encrypt the payload; none stop an SDR-driven jammer on the same band. Treat radio as untrusted transport: AES protects \emph{confidentiality}, never \emph{availability}.
+\end{warnbox}
+\source{IEC 62591:2016 (WirelessHART) \textbar{} IEC 62734:2014 (ISA-100.11a) \textbar{} 3GPP TS 33.501 (5G security architecture), Rel.\,17, 2022.}
+\note{
+  WirelessHART and ISA-100.11a both use AES-128 in CCM mode and both mesh, but key hierarchy differs: WirelessHART has one network key plus per-device join keys; ISA-100.11a layers per-link master keys with per-session keys (closer to TLS but heavier). Both hop channels on a TSCH schedule (jam-resistant, not jam-proof). Private 5G: SIM-based AKA authentication is rooted in a tamper-resistant element; network slicing gives the OT slice its own scheduler; on dedicated spectrum you control the airwaves administratively. Pre-empt: ``5G is just Wi-Fi with a SIM'' --- no, the SIM is load-bearing, slicing gives QoS that survives congestion, and dedicated spectrum gives you a regulator on your side. Warning: encryption stops a passive eavesdropper, not a 20-euro jammer. Transition: ``How do we survive a single failure without the line stopping?''
+}
+\end{frame}
+
+%% Frame 5: Network Redundancy Patterns -- HSR / MRP / PRP
+\begin{frame}{Network Redundancy --- HSR, MRP, PRP}
+\centering
+\begin{tikzpicture}[node distance=4mm, scale=0.82, transform shape, font=\scriptsize]
+  \begin{scope}[shift={(0,0)}]
+    \node[font=\scriptsize\bfseries] at (0,2.0) {MRP};
+    \node[switch, minimum width=8mm, minimum height=5mm] (m1) at (90:1.1) {M};
+    \node[plc, minimum width=8mm, minimum height=5mm] (m2) at (162:1.1) {A};
+    \node[plc, minimum width=8mm, minimum height=5mm] (m3) at (234:1.1) {B};
+    \node[plc, minimum width=8mm, minimum height=5mm] (m4) at (306:1.1) {C};
+    \node[plc, minimum width=8mm, minimum height=5mm] (m5) at (18:1.1) {D};
+    \draw[netline] (m1)--(m2)--(m3)--(m4)--(m5)--(m1);
+    \node[font=\tiny, below=18mm of m1, align=center] {1 mgr blocks 1 port\\recover $\le$200\,ms};
+  \end{scope}
+  \begin{scope}[shift={(4.5,0)}]
+    \node[font=\scriptsize\bfseries] at (0,2.0) {HSR};
+    \node[plc, minimum width=8mm, minimum height=5mm] (h1) at (90:1.1) {A};
+    \node[plc, minimum width=8mm, minimum height=5mm] (h2) at (162:1.1) {B};
+    \node[plc, minimum width=8mm, minimum height=5mm] (h3) at (234:1.1) {C};
+    \node[plc, minimum width=8mm, minimum height=5mm] (h4) at (306:1.1) {D};
+    \node[plc, minimum width=8mm, minimum height=5mm] (h5) at (18:1.1) {E};
+    \draw[netline] (h1)--(h2)--(h3)--(h4)--(h5)--(h1);
+    \node[font=\tiny, below=18mm of h1, align=center] {send both ways\\zero-loss};
+  \end{scope}
+  \begin{scope}[shift={(9,0)}]
+    \node[font=\scriptsize\bfseries] at (0,2.0) {PRP};
+    \node[plc, minimum width=8mm, minimum height=5mm] (pa) at (0,1.2) {Src};
+    \node[switch, minimum width=6mm, minimum height=4mm] (lan1) at (-0.9,0) {L1};
+    \node[switch, minimum width=6mm, minimum height=4mm] (lan2) at (0.9,0) {L2};
+    \node[plc, minimum width=8mm, minimum height=5mm] (pd) at (0,-1.2) {Dst};
+    \draw[netline] (pa)--(lan1); \draw[netline] (pa)--(lan2);
+    \draw[netline] (lan1)--(pd); \draw[netline] (lan2)--(pd);
+    \node[font=\tiny, below=18mm of pa, align=center] {two parallel LANs\\zero-loss};
+  \end{scope}
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{notebox}{IT analogue}
+HSRP/VRRP failover takes seconds and drops in-flight packets --- fine for a web session, fatal for a 4\,ms control loop. MRP recovers under 200\,ms; HSR and PRP are \emph{bumpless} (zero packet loss) because every frame is already duplicated.
+\end{notebox}
+\source{IEC 62439-2:2021 (MRP) \textbar{} IEC 62439-3:2021 (PRP and HSR) \textbar{} Hirschmann, \emph{Redundancy in Industrial Networks}, application note, 2022.}
+\note{
+  MRP (IEC 62439-2) elects one Media Redundancy Manager that holds one port blocked, like RSTP --- when a link breaks, the manager opens the blocked port; ring re-converges in $<$200\,ms; good enough for HMI traffic, too slow for motion control. HSR and PRP both deliver every frame twice and the receiver drops the duplicate; recovery time is zero. HSR runs on a single ring with dual-port end nodes; PRP runs two physically separate LANs in parallel with a Redundancy Control Trailer. Substations standardised on PRP under IEC 61850; railway / IEC 61375 trains prefer HSR (one cable down the train). Pre-empt: ``redundancy is a security control'' --- it is an \emph{availability} control; nothing against an attacker who can write to the PLC, but buys you uptime during investigation. Transition: ``Last new transport --- cellular and private 5G.''
+}
+\end{frame}
+
+%% Frame 6: Cellular / Private 5G in OT
+\begin{frame}{Cellular and Private 5G in OT}
+\centering
+\begin{tikzpicture}[node distance=6mm, scale=0.86, transform shape, font=\scriptsize]
+  \node[isbox, fill=isOT!12, draw=isOT, minimum width=22mm, minimum height=12mm, align=center] (dev) {RTU\\(SIM)};
+  \node[inetnode, right=of dev, minimum width=18mm, minimum height=12mm] (gnb) {gNodeB};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of gnb, minimum width=28mm, minimum height=12mm, align=center] (core) {5G core\\(AMF/UPF)};
+  \node[isbox, fill=isIT!12, draw=isIT, right=of core, minimum width=22mm, minimum height=12mm, align=center] (scada) {SCADA\\head-end};
+  \draw[flow] (dev) -- (gnb) -- (core) -- (scada);
+  \node[attacker, below=10mm of gnb, align=center] (atk1) {SIM swap\\IMSI catcher};
+  \node[attacker, below=10mm of dev, align=center] (atk2) {baseband\\firmware};
+  \draw[attack] (atk1) -- (gnb);
+  \draw[attack] (atk2) -- (dev);
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{tipbox}{When to reach for it}
+Use cellular when wiring is impossible (pipelines, wind farms, mobile assets) or when you need site-wide mobility with deterministic QoS (AGVs, mobile HMIs). Otherwise wired plus TSN is cheaper and tighter.
+\end{tipbox}
+\par\vspace{1mm}
+{\footnotesize Attack surface: \textbf{SIM swap} at the carrier, \textbf{IMSI catcher} fake base stations, \textbf{baseband} CVEs in the modem firmware (a second CPU your OS does not see).}
+\source{ENISA, \emph{Security in 5G Specifications --- Controls in 3GPP}, 2021 \textbar{} BSI TR-03163, \emph{Sicherheit in 5G-Campusnetzen}, 2023 \textbar{} 3GPP TS 33.501 Rel.\,17.}
+\note{
+  Two worlds: public-carrier LTE-M/NB-IoT/5G is the boring workhorse for remote telemetry (pipeline RTUs, smart-meter concentrators) --- the carrier is your perimeter, which is why SIM swap is the canonical attack and every RTU SIM should be locked to a private APN with an allowlisted destination. Private 5G (Rel.\,16+) is the new shiny: you buy spectrum (3.7--3.8\,GHz in DE via Bundesnetzagentur, CBRS in the US), stand up a Nokia DAC / Ericsson / Athonet core on-prem, and get carrier-grade authentication, slicing, URLLC $<$10\,ms inside your fence. Pre-empt: (1) ``5G is faster Wi-Fi with a SIM'' --- no, AKA mutual authentication is rooted in a tamper-resistant SIM, slicing gives QoS, dedicated spectrum gives administrative control; (2) ``too expensive'' --- a small campus core is now low-six-figures EUR; (3) ``the modem is just a peripheral'' --- the baseband is a second CPU with DMA into your application processor; baseband CVEs bypass your OS. BSI TR-03163 is the German hardening reference. Transition: ``That closes the architecture tour --- next section opens the protocols.''
+}
+\end{frame}
+
+
 \begin{frame}{Summary -- Section \sectionNumber}
 \begin{takeawaybox}{What to remember from this section}
 \begin{itemize}\setlength{\itemsep}{2pt}

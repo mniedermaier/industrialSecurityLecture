@@ -115,6 +115,49 @@ In OT, \textbf{availability} and \textbf{safety} dominate the CIA triad. A block
 }
 \end{frame}
 
+\begin{frame}{The Purdue Reference Model -- a Preview}
+\centering
+\begin{tikzpicture}[y=0.62cm, x=1cm]
+  \foreach \lvl/\name/\col in {
+    5/{L5 -- Enterprise (ERP, web, email)}/isIT,
+    4/{L4 -- Site business systems}/isIT,
+    3.5/{L3.5 -- iDMZ (firewall + jump host)}/isAccent,
+    3/{L3 -- Site operations \& historian}/isOT,
+    2/{L2 -- Supervisory (HMI, SCADA)}/isOT,
+    1/{L1 -- Basic control (PLC, RTU, DCS)}/isPLC,
+    0/{L0 -- Field devices (sensor, actuator)}/isPLC}{
+    \draw[fill=\col!15, draw=\col, thick] (0, \lvl) rectangle (10, \lvl+0.55);
+    \node[font=\scriptsize, anchor=west] at (0.2, \lvl+0.27) {\name};
+  }
+  \draw[-{Stealth[length=3mm]}, very thick, isAttack] (10.6, 5.3) -- (10.6, 0.27);
+  \node[rotate=-90, font=\tiny, anchor=south] at (11.0, 2.8) {Trust drops};
+\end{tikzpicture}
+\par\vspace{1mm}
+{\footnotesize Section 03 will use these levels constantly --- think of them as IT's DMZ tiers, sharpened for safety boundaries.}
+\source{ISA-99 / IEC 62443-1-1:2009 (zones derived from the Purdue Enterprise Reference Architecture, T.\ Williams, 1989).}
+\note{
+  Preview the Purdue model now so it stops being a surprise in Section 03. Spell out the analogy explicitly: each level is a trust zone, like nested DMZs in an IT network --- L5 is the corporate web, L3.5 is the de-militarised zone you cross with a jump host, L0 is the wire that actually moves a valve. Two quick facts students should walk away with: (a) IEC 62443 inherits this model directly, so when you read 62443-3-2 about zones-and-conduits you are talking about Purdue, and (b) most real plants violate the model at L3.5 because someone needed remote access ``just this once.'' Ask: ``Which level would a phishing email land at?'' --- L5. ``Which level can break a turbine?'' --- L1/L0. The job is keeping the first away from the second. Transition: ``How did we end up with these layers? A bit of history.''
+}
+\end{frame}
+
+\begin{frame}{IEC 62443 -- The Standard We'll Anchor To}
+\centering
+\begin{tikzpicture}[node distance=2mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small] (g) {\textbf{1-x \ Concepts \& terminology} \hfill (read first)};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=110mm, font=\small, below=of g] (p) {\textbf{2-x \ Asset owner / operator policies} \hfill ($\to$ Sec.\,07, 09, 10)};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=110mm, font=\small, below=of p] (s) {\textbf{3-x \ System integrator: zones \& security levels} \hfill ($\to$ Sec.\,03, 08)};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small, below=of s] (c) {\textbf{4-x \ Component vendor: secure dev + product requirements} \hfill ($\to$ Sec.\,04, 06)};
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{notebox}{One family, four audiences}
+A PLC is \emph{not} ``62443 compliant'' on its own --- it can be \emph{62443-4-2 certified}. The plant operator owns 2-x; the integrator owns 3-x.
+\end{notebox}
+\source{IEC 62443 series (ISA/IEC), published in parts 2009--2024 \textbar{} ISA Global Cybersecurity Alliance, \emph{Quick Start Guide: An Overview of ISA/IEC 62443}, 2022.}
+\note{
+  Plant the flag on day one: IEC 62443 is the spine of OT cybersecurity, and every later section in this course will reference at least one of its parts. The four-row split is the load-bearing idea --- 1-x is glossary and concepts; 2-x is what the asset owner (the utility, the factory) is on the hook for; 3-x is what a system integrator delivers when they design a plant; 4-x is what a component vendor like Siemens or Rockwell has to prove about their PLC. Push back hard on vendor marketing that claims a single product is ``62443 compliant'' --- the standard does not work that way. Promise the class that by the end of Section 09 they will be able to read a 62443-4-2 certificate and tell what it actually proves. Transition: ``With the standard in mind, here is the history of how we got here.''
+}
+\end{frame}
+
 % --------------------------------------------------------------
 \section{Context and History}
 
@@ -140,6 +183,40 @@ In OT, \textbf{availability} and \textbf{safety} dominate the CIA triad. A block
 \small Each milestone made systems more capable -- and more reachable.
 \note{
   Anchor the timeline with two human stories: Dick Morley building the first Modicon PLC in 1968 to replace relay logic on a GM assembly line, and the 2010 Stuxnet discovery by VirusBlokAda in Belarus. The 1990s Ethernet jump is the moment the air gap started leaking --- before that, plant networks spoke proprietary serial buses no IT engineer could touch. TRITON / TRISIS (Schneider Triconix safety controllers, Saudi petrochemical plant, 2017) is the one the room often hasn't heard of --- emphasise it is the first malware that targeted a Safety Instrumented System, i.e.\ the thing designed to prevent loss of life. Ask: ``Why did it take until 2010 for the first public ICS-targeted malware --- or did it?'' That opens the door to the ``we just don't see them'' counter-argument. This sets up why the threat picture today looks different.
+}
+\end{frame}
+
+\begin{frame}{Two Decades of Notable ICS Incidents}
+\centering
+\renewcommand{\arraystretch}{1.05}
+\scriptsize
+\begin{tabular}{|c|p{32mm}|p{28mm}|p{38mm}|}
+\hline
+\rowcolor{isMute!20}
+\textbf{Year} & \textbf{Target / actor} & \textbf{Vector} & \textbf{What broke}\\
+\hline
+2000 & Maroochy Shire sewage (AU) & Ex-contractor + radio & 800\,000\,L sewage spilled\\
+\hline
+2010 & Natanz / Stuxnet (IR) & USB $\to$ Step7 $\to$ VFDs & $\sim$1\,000 centrifuges destroyed\\
+\hline
+2015 & Ukraine power, 3 utilities & Phish $\to$ VPN $\to$ HMI & 225\,000 customers offline 1--6\,h\\
+\hline
+2016 & Kyiv substation / Industroyer & IEC 101/104 toolkit & First protocol-aware grid weapon\\
+\hline
+2017 & Saudi petrochemical / TRITON & Eng.\ WS $\to$ Triconex SIS & First malware hitting a safety layer\\
+\hline
+2017 & NotPetya (Maersk, Merck, \dots) & M.E.Doc + SMBv1 & \$10\,bn agg., Maersk 10-day outage\\
+\hline
+2021 & Colonial Pipeline / DarkSide & Leaked VPN password & 5-day fuel shortage, \$4.4\,M ransom\\
+\hline
+2022 & PIPEDREAM (CHERNOVITE) & Modular ICS toolkit & Caught \emph{before} use --- multi-vendor RCE\\
+\hline
+2023 & Volt Typhoon, US infra & LotL in routers \& VPNs & Pre-positioning, no kinetic impact \emph{yet}\\
+\hline
+\end{tabular}
+\source{Dragos / Mandiant / SANS public reports; CISA advisories AA22-103A (PIPEDREAM), AA23-144A (Volt Typhoon); D.\ Albright et al., ISIS, 2010 (Natanz).}
+\note{
+  This is the case-study spine of the entire course; flag that we will return to each row in depth in Sections 4 and 5. Maroochy is the bookend nobody knows about --- 2000, no malware, an insider with a stolen radio, 46 unauthorised commands over 3 months, and the first public ICS prosecution. Stuxnet is the inflection point. Ukraine 2015 vs 2016 is worth distinguishing: 2015 was a manual HMI session by human operators sitting in a Moscow cafe, 2016 was Industroyer running autonomously --- the same outcome via two completely different sophistication levels. TRITON is the moment safety became a target. NotPetya proves the IT/OT boundary is theoretical when ransomware crosses it. Colonial proves billing systems can shut a pipeline. PIPEDREAM is the one that should worry students most --- it was caught before deployment, which means we got lucky once. Volt Typhoon is the current ``what comes next'' --- nation-state actors pre-positioning for a future conflict. Transition: ``If those are the case studies, what is pushing the trend?''
 }
 \end{frame}
 
@@ -235,6 +312,29 @@ In OT, \textbf{availability} and \textbf{safety} dominate the CIA triad. A block
 }
 \end{frame}
 
+\begin{frame}{The ICS Kill Chain --- IT $\to$ Engineering $\to$ Process}
+\centering
+\begin{tikzpicture}[node distance=2mm, every node/.style={font=\scriptsize}, scale=0.82, transform shape]
+  \node[isbox, fill=isIT!15, draw=isIT, minimum width=18mm, minimum height=13mm, align=center] (a) {1. Phish /\\stolen creds};
+  \node[isbox, fill=isIT!15, draw=isIT, right=of a, minimum width=18mm, minimum height=13mm, align=center] (b) {2. Pivot\\across IT LAN};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of b, minimum width=18mm, minimum height=13mm, align=center] (c) {3. Cross\\iDMZ / jump};
+  \node[isbox, fill=isOT!15, draw=isOT, right=of c, minimum width=18mm, minimum height=13mm, align=center] (d) {4. Engineering\\workstation};
+  \node[isbox, fill=isPLC!15, draw=isPLC, right=of d, minimum width=18mm, minimum height=13mm, align=center] (e) {5. PLC /\\controller};
+  \node[isbox, fill=isAttack!15, draw=isAttack, right=of e, minimum width=18mm, minimum height=13mm, align=center] (f) {6. Process /\\physical};
+  \foreach \x/\y in {a/b, b/c, c/d, d/e, e/f}{\draw[attack] (\x) -- (\y);}
+  \node[font=\tiny, below=4mm of a.south, align=left] {IT realm:\\Stages 1--2};
+  \node[font=\tiny, below=4mm of d.south, align=left] {OT realm:\\Stages 4--6};
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{notebox}{The defender's leverage}
+Detection \emph{anywhere} on the chain stops the attack. The boundary at Stage 3 (iDMZ) is where IT skills still apply --- after Stage 4, OT-aware controls take over.
+\end{notebox}
+\source{Adapted from M.\ Assante \& R.\ Lee, \emph{The Industrial Control System Cyber Kill Chain}, SANS, 2015.}
+\note{
+  This is the model Mike Assante and Rob Lee published in 2015 and that Dragos, Mandiant, and Claroty all reference. The two-stage framing matters: Stage~1 (IT compromise, recon, lateral movement) is bog-standard IT attack work, where IT defences and IT skills still help. Stage~2 (cross the iDMZ, land on the engineering workstation, push code to a PLC, cause physical effect) is the part where IT defences run out of road. Every case study from the previous slide fits this pattern: Stuxnet stalled at Stage~5; Ukraine 2015 stopped at Stage~3 because humans had to click buttons in real time on the HMI; TRITON reached Stage~5 but the payload bug aborted Stage~6. Push the leverage point: a defender does not have to win at every stage --- breaking the chain anywhere defeats the attack. That motivates the layered defences in Section~08.
+}
+\end{frame}
+
 \begin{frame}{The Cost of ICS Incidents}
 \centering
 \begin{tikzpicture}[x=1.4cm]
@@ -268,6 +368,43 @@ Every cloud connector is a new ingress -- and a new authentication challenge for
 \end{importantbox}
 \note{
   Industry 4.0 is the German-coined term for the chain on this slide; the US-equivalent buzzword is Industrial IoT. Concrete examples land better than buzzwords: Siemens MindSphere (now Insights Hub), AWS IoT SiteWise, Azure Digital Twins, GE Predix. Each box on the chain is a different security domain --- the PLC speaks Modbus, the edge gateway speaks MQTT, the cloud speaks REST with OAuth, and the ML layer ingests time-series with its own auth model. The legacy-auth point is concrete: a Siemens S7-300 has no notion of a user identity; bolting cloud-grade authentication onto it requires a gateway that becomes the trust anchor for the whole stack. Pre-empt the misconception that this is optional --- predictive maintenance ROI is real and the business will deploy these connectors with or without security input. Question to provoke: ``What does an attacker get from compromising the digital twin that they don't get from the plant itself?'' --- often a better map of the plant than the operator has.
+}
+\end{frame}
+
+\begin{frame}{The Bachelor Lab Track at a Glance}
+\centering
+\renewcommand{\arraystretch}{1.05}
+\scriptsize
+\begin{tabular}{|c|l|l|}
+\hline
+\rowcolor{isMute!20}
+\textbf{\#} & \textbf{Lab} & \textbf{What you actually do}\\
+\hline
+1 & Introduction & Stand up the shared Docker stack; explore an HMI in a browser\\
+\hline
+2 & ICS fundamentals & Trace a control loop through OpenPLC, sensor sim, HMI\\
+\hline
+3 & Network architecture & Place 10 assets onto Purdue levels; draw zones \& conduits\\
+\hline
+4 & Protocols & Read Modbus on the wire; talk to a PLC from Python\\
+\hline
+5 & Threats & Replay an HMI session; reproduce a small Stuxnet-shaped trick\\
+\hline
+6 & Vulnerabilities & Map CVEs to your stack; read a CISA advisory end-to-end\\
+\hline
+7 & Risk management & Build a Cyber-PHA register for the lab plant\\
+\hline
+8 & Defense in depth & Tune Zeek + Suricata rules against simulated attacks\\
+\hline
+9 & Standards & Walk the lab plant through an IEC 62443-3-2 zoning exercise\\
+\hline
+10 & Incident response & Run a 60-minute tabletop on a Triconex-style scenario\\
+\hline
+\end{tabular}
+\par\vspace{2mm}
+{\footnotesize One Docker stack, ten labs --- OpenPLC + OPC UA + MQTT + Zeek, all on your laptop.}
+\note{
+  Tell them up front that this is the practical spine of the course --- the labs are the reason the homework feels real. The stack is one \texttt{docker compose up -d} away; the OpenPLC simulator is the closest you can get to a real Siemens or Allen-Bradley PLC without spending €5k. Walk the labs as a story: Labs 1--4 build vocabulary on a working plant; Labs 5--6 turn the tools on the plant offensively; Labs 7--9 apply the standards-side discipline; Lab 10 brings it all together in a tabletop. The Lab 10 tabletop is the one students remember --- a Triconex-style safety-controller scenario where they decide, in real time, whether to keep producing or shut the unit down. Pre-empt the question ``can I do these on Windows?'' --- yes, but WSL2 + Docker Desktop, not native PowerShell. Transition: ``With that map in mind, here is where this can take your career.''
 }
 \end{frame}
 
@@ -307,6 +444,49 @@ Headhunter reports consistently rank OT security in the top three hardest-to-fil
 \end{tikzpicture}
 \note{
   Walk top-to-bottom and flag the labs that go with each row so students see the through-line. Sections 1--3 are the vocabulary --- if you cannot name a PLC, an HMI, a historian, an RTU, and Modbus / DNP3 / S7comm / OPC UA, the rest of the course is opaque. Sections 4--5 are where the room usually wakes up: real attacks, real CVEs, real shodan dorks. Section 6 (risk) is the one students underrate and practitioners rate highest --- it is what they will actually do for a living. Section 7 maps directly to IEC 62443 zones and conduits. Section 8 is the bureaucratic glue that pays the bills. Section 9 closes the loop with incident response, which is where everything from sections 1--8 gets tested under stress. Pre-empt the question ``why isn't AI / ML its own section?'' --- it is woven through threat detection in 4 and anomaly detection in 9 rather than carved out separately. Transition: ``Let's wrap up what we covered today.''
+}
+\end{frame}
+
+\begin{frame}{Where to Read Next}
+\begin{columns}[T,onlytextwidth]
+\column{0.48\textwidth}
+\textbf{Standards (read selectively)}
+\begin{itemize}\setlength{\itemsep}{1pt}\scriptsize
+  \item IEC 62443-1-1, -2-1, -3-2, -3-3, -4-1, -4-2
+  \item NIST SP 800-82 Rev.\,3 (ICS Security Guide)
+  \item NIST CSF 2.0 -- the OT mapping
+  \item Directive (EU) 2022/2555 -- NIS2
+\end{itemize}
+\textbf{Books}
+\begin{itemize}\setlength{\itemsep}{1pt}\scriptsize
+  \item Knapp \& Langill, \emph{Industrial Network Security}
+  \item Bodungen et al., \emph{Hacking Exposed: ICS}
+  \item Bochman \& Freeman, \emph{Countering Cyber Sabotage} (CCE)
+  \item Zetter, \emph{Countdown to Zero Day} (Stuxnet)
+\end{itemize}
+
+\column{0.48\textwidth}
+\textbf{Threat intel reports (free, annual)}
+\begin{itemize}\setlength{\itemsep}{1pt}\scriptsize
+  \item Dragos \emph{Year in Review}
+  \item Mandiant \emph{M-Trends}
+  \item ENISA \emph{Threat Landscape}
+  \item Verizon \emph{DBIR} (manufacturing chapter)
+\end{itemize}
+\textbf{Live feeds}
+\begin{itemize}\setlength{\itemsep}{1pt}\scriptsize
+  \item CISA ICS advisories (\url{cisa.gov/ics})
+  \item BSI CERT-Bund Warnmeldungen (DE)
+  \item Vendor PSIRTs (Siemens, Rockwell, Schneider)
+  \item ICS-CERT mailing list \& X / Mastodon
+\end{itemize}
+\end{columns}
+\vspace{1mm}
+\begin{notebox}{Curated, not exhaustive}
+Pick \emph{one} book + \emph{one} report this term. Read CISA advisories weekly.
+\end{notebox}
+\note{
+  Closing the loop with a curated reading list saves students from drowning in a search engine. The Knapp \& Langill book is the canonical textbook --- if a student buys one, it should be that one. Bodungen et al.\ is the practitioner-flavoured deep dive with concrete attack walk-throughs. Bochman \& Freeman from Idaho National Lab is the CCE bible and shapes how serious operators think about consequence. Zetter's book is the only readable narrative of Stuxnet. For threat intel, Dragos' annual Year in Review is the single most-cited free document in the field; Mandiant's M-Trends complements it from an IT-side perspective. The CISA ICS advisories feed is the daily operational diet --- I expect you to scan it weekly during this course. Pre-empt the ``can I just YouTube it?'' --- conference talks (S4, ARC, ICS Village at DEF CON) are excellent supplements but not substitutes for reading the standards. Transition: ``Let's land Section 01.''
 }
 \end{frame}
 

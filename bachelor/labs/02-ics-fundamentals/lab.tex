@@ -2,9 +2,9 @@
 
 \def\courseTitle{Industrial Security (Bachelor)}
 \def\labNumber{02}
-\def\labTitle{First Contact with OpenPLC}
+\def\labTitle{Inside a Control Loop -- Reading a Live PLC}
 \def\labSection{02}
-\def\labTime{30--45 min}
+\def\labTime{60--90 min}
 
 \input{../../../template/lab-preamble.tex}
 
@@ -12,41 +12,399 @@
 \labheader
 
 \begin{goalbox}
-Bring up the lab Docker stack and confirm that the soft PLC accepts and runs a ladder-logic program. End the lab with a Modbus read working against it.
+Walk an industrial control loop end-to-end against a real soft-PLC: read the program it is running, query its inputs and outputs over the wire, measure its scan cycle, watch what happens when the cycle is overloaded, and compare the flat Modbus register space with the structured OPC~UA model. You will leave this lab able to point at every box in the slide-deck control-loop diagram and say what it does, what it speaks, and how you would observe it.
 \end{goalbox}
 
-\begin{stepbox}{1 -- Bring up the stack}
+\bigskip
+
+\noindent\textbf{IT-to-OT cheat sheet (refer back to this throughout).}
+\begin{center}
+\footnotesize
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{OT term} & \textbf{What it is in IT terms} & \textbf{Where you meet it in this lab} \\
+\midrule
+PLC                  & Embedded server with a fixed event loop & \texttt{openplc} container, port 502 \\
+Ladder logic         & Visual dataflow DSL (relay diagram as code) & \texttt{conveyor.st} \\
+Scan cycle           & The event-loop tick; deterministic & 20\,ms interval, Step~5 \\
+Coil (\%QX)          & Output GPIO bit & \texttt{Motor}, \texttt{Lamp} \\
+Discrete input (\%IX) & Input GPIO bit & \texttt{Start}, \texttt{Stop}, \texttt{Guard1/2} \\
+Holding register     & 16-bit key/value cell at a fixed offset & Registers 0--9 \\
+Modbus TCP           & Fixed-offset key/value store over TCP & Port 502 \\
+HMI                  & Operator dashboard (the plant's admin web UI) & OpenPLC \emph{Monitoring} page \\
+OPC UA               & Structured RPC with a typed object tree & Port 4840 \\
+Watchdog             & Liveness probe with a hard reset on overrun & Cycle-time monitor \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% =============================================================
+\section*{Pre-flight}
+
+\begin{stepbox}{0 -- Bring the stack up and verify reachability}
+From the repository root, on the \emph{host}:
 \begin{lstlisting}[language=bash]
 cd bachelor/labs/_stack
-docker compose up -d        # one shot: brings every service up
-docker compose ps           # all services should show Up
+docker compose up -d
+docker compose ps
 \end{lstlisting}
-The \texttt{openplc-init} sidecar uploads \texttt{conveyor.st} and starts the PLC automatically, so Modbus on port 502 is open within $\sim$20\,s of \texttt{up -d}.
-\end{stepbox}
-
-\begin{stepbox}{2 -- Open the lab landing page \& the OpenPLC web UI}
-Browse to \url{http://127.0.0.1:8000} for the lab home page (overview of every lab and the stack). Then open \url{http://127.0.0.1:8080} for the OpenPLC web UI; log in with the default OpenPLC credentials (\texttt{openplc} / \texttt{openplc}) and change the password right away. Record the new password in your notes.
-\end{stepbox}
-
-\begin{stepbox}{3 -- Inspect the running ladder program}
-The \texttt{openplc-init} sidecar has already uploaded \texttt{conveyor.st} and clicked \textbf{Start PLC} for you. Open the \textbf{Programs} page to see the uploaded program, then open the \textbf{Monitoring} page and watch \texttt{Motor} toggle when you flip \texttt{Start}. Note the cycle time shown at the bottom of the page.
+Wait $\sim$20\,s for the \texttt{openplc-init} sidecar to upload \texttt{conveyor.st}
+and click \emph{Start PLC} for you. All services should report \texttt{Up}
+(or \texttt{Exited (0)} for the one-shot \texttt{openplc-init}).
 
 \smallskip
-\emph{Optional:} stop the PLC, then upload \texttt{bachelor/labs/\_stack/scripts/ladder/conveyor.st} yourself from your filesystem to see the workflow end-to-end -- this is what the init container automated.
+Now confirm the \texttt{student} container can talk to the \texttt{openplc}
+container:
+\begin{lstlisting}[language=bash]
+docker compose exec student bash -c "getent hosts openplc"
+docker compose exec student bash -c "nc -zv 172.28.0.10 502"
+\end{lstlisting}
+Expected output:
+\begin{lstlisting}
+172.28.0.10     openplc
+Connection to 172.28.0.10 502 port [tcp/*] succeeded!
+\end{lstlisting}
+If \texttt{nc} cannot connect, the PLC is still starting; wait 10\,s and retry. If it still fails, jump to the \emph{Troubleshooting} section.
 \end{stepbox}
 
-\begin{stepbox}{4 -- Read holding registers}
+\begin{stepbox}{0b -- Open a shell on the student container}
+Almost every command in this lab runs \emph{inside} the \texttt{student} container so that no tooling is required on your host:
 \begin{lstlisting}[language=bash]
-docker compose exec student python3 /labs/scripts/modbus_read.py
+docker compose exec student bash
 \end{lstlisting}
-You should see ten register values. They will all be zero unless the program has written to them. Record the first three values in your notes.
+Your prompt should change to \texttt{root@is-student:/\#}. Keep this shell open in a terminal tab; in the steps below, lines that start with \texttt{\$} run \emph{inside} this shell, lines that start with \texttt{docker compose} run on the host.
 \end{stepbox}
+
+% =============================================================
+\section*{Part A -- The program: reading ladder logic as dataflow}
+
+\begin{stepbox}{1 -- Read the running ladder program (\texttt{conveyor.st})}
+The PLC is currently executing the program at
+\texttt{\_stack/scripts/ladder/}\allowbreak\texttt{conveyor.st}. Open the file in your editor; it is short. The full program is:
+\begin{lstlisting}[basicstyle=\ttfamily\footnotesize]
+PROGRAM main
+  VAR
+    Start  AT %IX0.0 : BOOL;
+    Stop   AT %IX0.1 : BOOL := TRUE;   (* normally closed *)
+    Guard1 AT %IX0.2 : BOOL := TRUE;
+    Guard2 AT %IX0.3 : BOOL := TRUE;
+    Motor  AT %QX0.0 : BOOL;
+    Lamp   AT %QX0.1 : BOOL;
+  END_VAR
+
+  Motor := (Start OR Motor) AND Stop AND Guard1 AND Guard2;
+  Lamp  := Motor;
+END_PROGRAM
+\end{lstlisting}
+
+\noindent\textbf{Decode each line as if it were Python.}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \texttt{Start AT \%IX0.0 : BOOL} --- ``\texttt{Start} is a Boolean variable bound to discrete input bit 0.0''. Think \texttt{Start = GPIO.input(0)}.
+  \item \texttt{Stop ... := TRUE} --- the initial value is \texttt{True}. This is the \emph{normally closed} convention: an undriven wire (or a cut wire) reads \texttt{True}, so the motor runs only when the Stop button is \emph{not} pressed. The cut-wire-stops-the-motor property is the OT version of \emph{fail-safe defaults}.
+  \item \texttt{Motor AT \%QX0.0} --- ``\texttt{Motor} is a Boolean bound to discrete output bit 0.0''. Think \texttt{GPIO.output(0, Motor)} at the end of every tick.
+  \item \texttt{Motor := (Start OR Motor) AND Stop AND Guard1 AND Guard2} --- the entire control law, in one line. Read it as: ``\texttt{Motor} stays on once started, but only while \texttt{Stop} is not pressed and both guards are closed.'' The \texttt{(Start OR Motor)} term is the \emph{seal-in latch} --- it is the OT equivalent of the assignment\\
+  \hbox{}\quad\texttt{self.running = self.running or button.pressed}\\
+  inside the event loop, which makes the state survive the moment the button is released.
+\end{itemize}
+
+\noindent\textbf{Answer in your notes:}
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item Which IT data type does \texttt{BOOL} map to? Which networking ``port'' do \texttt{\%IX} and \texttt{\%QX} resemble?
+  \item Trace, in writing, what \texttt{Motor} becomes for these four input vectors $(Start, Stop, Guard1, Guard2)$: $(0,1,1,1)$, $(1,1,1,1)$, $(0,1,1,1)$ \emph{just after} the previous case, $(1,0,1,1)$.
+  \item Where is the program's main loop? (Hint: look at the \texttt{CONFIGURATION} block and \texttt{TASK Main(INTERVAL := T\#20ms ...)}.) What does that interval mean in event-loop terms?
+\end{enumerate}
+\end{stepbox}
+
+\begin{stepbox}{2 -- Match the program to the HMI}
+Open \url{http://127.0.0.1:8080} in your browser. Log in (default \texttt{openplc} / \texttt{openplc}; change the password and record the new one in your notes). On the left, click \emph{Monitoring}.
+
+You should see six rows --- \texttt{Start, Stop, Guard1, Guard2, Motor, Lamp} --- with their live values. \textbf{Click ``Force'' on \texttt{Start} and set it to \texttt{TRUE}.} \texttt{Motor} and \texttt{Lamp} should flip to \texttt{TRUE} within one cycle.
+
+\smallskip
+Now release \texttt{Start} (force \texttt{FALSE}). What happens to \texttt{Motor}? Why? (This is the seal-in latch in action; the program does not care that \texttt{Start} returned to \texttt{FALSE} because the \texttt{OR Motor} term keeps it true.)
+
+\smallskip
+Finally, force \texttt{Stop} to \texttt{FALSE} (operator pressed the button). \texttt{Motor} drops the same cycle. Record the observed cycle time shown at the bottom of the Monitoring page.
+\end{stepbox}
+
+% =============================================================
+\section*{Part B -- The wire: the four Modbus data types}
+
+A PLC exposes its state to the outside world through four parallel arrays, each addressed by a 16-bit offset. Modbus is intentionally small --- it is a fixed-offset key/value store over TCP, with no authentication and no schema. The four address spaces are:
+
+\smallskip
+\begin{center}
+\footnotesize
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Type} & \textbf{Read fn} & \textbf{Width} & \textbf{Analogue} \\
+\midrule
+Coil (read/write)               & FC1 / FC5,15 & 1 bit  & Output GPIO bit (\texttt{\%QX}) \\
+Discrete input (read-only)      & FC2          & 1 bit  & Input GPIO bit (\texttt{\%IX}) \\
+Input register (read-only)      & FC4          & 16 bit & Sensor reading \\
+Holding register (read/write)   & FC3 / FC6,16 & 16 bit & Setpoint / parameter \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{stepbox}{3 -- Read holding registers (FC3)}
+Inside the \texttt{student} shell:
+\begin{lstlisting}[language=bash]
+python3 /labs/scripts/modbus_read.py
+\end{lstlisting}
+Expected output (values may differ; the point is that you get ten 16-bit numbers):
+\begin{lstlisting}
+Registers 0..9: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+\end{lstlisting}
+The script issues a single \texttt{ReadHoldingRegisters} call against unit~1, offset~0, count~10. In HTTP terms it is one \texttt{GET /holding[0..9]}. Record the values in your notes.
+\end{stepbox}
+
+\begin{stepbox}{4 -- Read coils (FC1) and discrete inputs (FC2)}
+Still in the \texttt{student} shell, run an inline Python session that hits all three read function codes:
+\begin{lstlisting}[language=bash]
+python3 - <<'PY'
+from pymodbus.client import ModbusTcpClient
+c = ModbusTcpClient("172.28.0.10", port=502); c.connect()
+
+coils  = c.read_coils(address=0, count=8, slave=1)
+inputs = c.read_discrete_inputs(address=0, count=8, slave=1)
+holds  = c.read_holding_registers(address=0, count=10, slave=1)
+
+print("coils 0..7 (%QX) :", coils.bits[:8])
+print("inputs 0..7 (%IX):", inputs.bits[:8])
+print("holding 0..9     :", holds.registers)
+c.close()
+PY
+\end{lstlisting}
+Expected output (with the program in its idle state):
+\begin{lstlisting}
+coils 0..7 (%QX) : [False, False, False, False, False, False, False, False]
+inputs 0..7 (%IX): [False, True, True, True, False, False, False, False]
+holding 0..9     : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+\end{lstlisting}
+
+\noindent\textbf{Check your understanding.} The discrete-input bits 1, 2, 3 read \texttt{True}. Open \texttt{conveyor.st} again --- which variables are these? Why are they \texttt{True} by default? (\emph{Hint:} normally-closed inputs and fail-safe defaults.)
+
+\smallskip
+Now flip \texttt{Motor} on via the HMI (force \texttt{Start} = \texttt{TRUE} from Step~2) and re-run the snippet. \texttt{coils[0]} should become \texttt{True}. You have just observed the PLC's output bit from outside, over the network, with no authentication.
+\end{stepbox}
+
+% =============================================================
+\section*{Part C -- The clock: measuring the scan cycle}
+
+In the slide deck the PLC's scan cycle was drawn as a four-step loop (read inputs, execute, write outputs, housekeeping). \texttt{conveyor.st} pins that loop to a 20\,ms interval. From outside, we cannot see the loop directly --- but we can sample the registers at a high rate, observe when they change, and measure how steady the cadence is. The IT analogue is \emph{measuring the tick rate of a remote event loop by polling it}.
+
+\begin{stepbox}{5 -- Time a tight read loop}
+Inside the \texttt{student} shell:
+\begin{lstlisting}[language=bash]
+python3 - <<'PY'
+import time, statistics
+from pymodbus.client import ModbusTcpClient
+
+c = ModbusTcpClient("172.28.0.10", port=502); c.connect()
+samples = []
+t0 = time.perf_counter()
+for _ in range(200):
+    a = time.perf_counter()
+    c.read_holding_registers(address=0, count=10, slave=1)
+    b = time.perf_counter()
+    samples.append((b - a) * 1000.0)        # ms per round-trip
+elapsed = time.perf_counter() - t0
+c.close()
+
+print(f"200 reads in {elapsed*1000:7.1f} ms total")
+print(f"per-read  min  {min(samples):6.2f} ms")
+print(f"per-read  mean {statistics.mean(samples):6.2f} ms")
+print(f"per-read  p95  {sorted(samples)[int(0.95*len(samples))]:6.2f} ms")
+print(f"per-read  max  {max(samples):6.2f} ms")
+PY
+\end{lstlisting}
+Expected output (the exact numbers depend on your laptop, but the \emph{shape} should match):
+\begin{lstlisting}
+200 reads in   ~700 ms total
+per-read  min     ~1.5 ms
+per-read  mean    ~3.5 ms
+per-read  p95     ~6.0 ms
+per-read  max    ~15.0 ms
+\end{lstlisting}
+
+\noindent\textbf{Interpret the numbers.}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item The \emph{minimum} is close to one network round-trip --- the request can be answered out of the PLC's last published register snapshot.
+  \item The \emph{maximum} is bounded by the scan cycle: the response cannot be served faster than once per cycle, because the comms task is serviced in step~4 (``housekeeping''). A max around 15--25\,ms is consistent with the configured 20\,ms cycle.
+  \item Record min, mean, p95, and max in your notes.
+\end{itemize}
+\end{stepbox}
+
+\begin{stepbox}{6 -- Run the supplied baseline poller in the background}
+A pre-written 2\,Hz baseline poller is included for the later IDS lab. Start it in the background and watch it tick:
+\begin{lstlisting}[language=bash]
+python3 /labs/scripts/modbus_poll_loop.py &
+sleep 6
+kill %1
+wait %1 2>/dev/null
+\end{lstlisting}
+The script does one read every 2 seconds. With nothing else going on the PLC barely notices it. We will add load next.
+\end{stepbox}
+
+% =============================================================
+\section*{Part D -- Jitter under load: what cycle-time degradation looks like}
+
+\begin{stepbox}{7 -- Saturate the comms task and re-measure}
+In your existing \texttt{student} shell, launch a noisy concurrent reader in the background, then re-run the measurement from Step~5 \emph{while} the noise is running.
+\begin{lstlisting}[language=bash]
+# Background: a tight read loop with no sleep.
+python3 - <<'PY' &
+from pymodbus.client import ModbusTcpClient
+c = ModbusTcpClient("172.28.0.10", port=502); c.connect()
+try:
+    while True:
+        c.read_holding_registers(address=0, count=125, slave=1)
+PY
+NOISE_PID=$!
+
+# Foreground: same measurement as Step 5.
+python3 - <<'PY'
+import time, statistics
+from pymodbus.client import ModbusTcpClient
+c = ModbusTcpClient("172.28.0.10", port=502); c.connect()
+samples = []
+for _ in range(200):
+    a = time.perf_counter()
+    c.read_holding_registers(address=0, count=10, slave=1)
+    b = time.perf_counter()
+    samples.append((b - a) * 1000.0)
+c.close()
+print(f"under load  mean {statistics.mean(samples):6.2f} ms")
+print(f"under load  p95  {sorted(samples)[int(0.95*len(samples))]:6.2f} ms")
+print(f"under load  max  {max(samples):6.2f} ms")
+PY
+
+kill $NOISE_PID 2>/dev/null
+wait $NOISE_PID 2>/dev/null
+\end{lstlisting}
+
+\smallskip
+Compare the four numbers (min, mean, p95, max) against Step~5. You should see mean and p95 grow visibly; max can climb into the tens of milliseconds.
+
+\smallskip\noindent\textbf{IT analogue.} This is exactly the picture you get when you point \texttt{ab} or \texttt{wrk} at an HTTP server until its event loop saturates: the mean response time creeps up first, then the tail explodes, then liveness probes start failing. The OT consequence is harder: on a real plant the PLC's watchdog can decide the cycle ran too long and \emph{reset the controller}, which on a continuous process can be a several-million-EUR event. Do not run this kind of load against equipment you do not own.
+
+\smallskip\noindent\textbf{Record in your notes:} (a) the four numbers under load, (b) the percentage increase versus Step~5, (c) one sentence on why a security tool that polls Modbus aggressively can itself be an availability incident.
+\end{stepbox}
+
+% =============================================================
+\section*{Part E -- The picture above: the HMI}
+
+\begin{stepbox}{8 -- Read the HMI as a view onto the registers}
+The OpenPLC \emph{Monitoring} page is doing exactly what your Python loop did in Step~5 --- it polls the PLC over Modbus and renders the result. Convince yourself of this:
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item Open browser dev-tools (\textsf{F12}) $\to$ Network tab, then refresh the \emph{Monitoring} page.
+  \item Watch the XHR requests: the page polls the OpenPLC backend every $\sim$1\,s.
+  \item Force \texttt{Start} = \texttt{TRUE} in the HMI. From your terminal, immediately run the inline snippet from Step~4 again --- \texttt{coils[0]} is now \texttt{True}, and the HMI agrees.
+  \item Now go the other way: from the terminal, write the coil directly:
+\begin{lstlisting}[language=bash]
+python3 /labs/scripts/modbus_inject.py
+\end{lstlisting}
+        and watch the HMI flip the displayed value for \texttt{Motor} within a refresh. \emph{One register, two windows.}
+\end{enumerate}
+
+\noindent\textbf{Security takeaway.} The HMI is a \emph{view}, not the source of truth. An attacker with Modbus write access has already won; the HMI will faithfully report whatever the PLC believes. This is the exact pattern Stuxnet exploited at scale --- it replayed normal-looking values to the HMI while the centrifuges spun themselves apart.
+\end{stepbox}
+
+% =============================================================
+\section*{Part F -- A glimpse of the next protocol (OPC UA preview)}
+
+\begin{stepbox}{9 -- Browse the OPC UA server's address space}
+The same lab stack runs an OPC~UA server at \texttt{172.28.0.11:4840}. OPC~UA is the modern OT protocol: where Modbus is a flat array of unlabelled 16-bit cells, OPC~UA exposes a typed, hierarchical \emph{namespace} --- think filesystem vs.\ raw block device.
+
+\smallskip
+In the \texttt{student} shell:
+\begin{lstlisting}[language=bash]
+python3 /labs/scripts/opcua_browse.py
+\end{lstlisting}
+Expected output (names will vary slightly with the open62541 example server):
+\begin{lstlisting}
+Connected to: opc.tcp://172.28.0.11:4840
+ - QualifiedName(NamespaceIndex=0, Name=Server)
+ - QualifiedName(NamespaceIndex=1, Name=the.answer)
+ ...
+\end{lstlisting}
+
+\smallskip\noindent\textbf{Side-by-side compare in your notes.}
+\begin{center}
+\footnotesize
+\begin{tabular}{@{}lll@{}}
+\toprule
+                          & \textbf{Modbus TCP}             & \textbf{OPC UA} \\
+\midrule
+What you ask for          & ``coil 7''                      & ``Objects/Conveyor/Motor.Status'' \\
+What it returns           & 1 bit                           & typed value + timestamp + status \\
+Discovery                 & none --- you must know offsets  & browse the tree at runtime \\
+Authentication            & none                            & user/cert (mode-dependent) \\
+Confidentiality           & none                            & TLS / message signing \\
+On-the-wire cost          & $\sim$12 bytes                  & hundreds of bytes \\
+\bottomrule
+\end{tabular}
+\end{center}
+We dig into both in Lab~04. For now, the takeaway is that ``industrial protocol'' is not a monolith --- the protocol choice changes what the attacker has to know and what the defender can authenticate.
+\end{stepbox}
+
+% =============================================================
+\section*{Troubleshooting}
+
+\begin{stepbox}{T -- When something refuses to work}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item \textbf{\texttt{nc -zv 172.28.0.10 502} fails.} The init sidecar has not finished. \texttt{docker compose logs openplc-init} should end with \texttt{program started ok}; if it ended with an error, re-run \texttt{docker compose up -d openplc openplc-init}.
+  \item \textbf{Modbus call returns \texttt{Modbus Error: [Input/Output] No Response received from the remote unit}.} The PLC is up but not running a program. Open the web UI, go to \emph{Programs}, confirm \texttt{conveyor.st} is selected, and click \emph{Start PLC}.
+  \item \textbf{The web UI rejects \texttt{openplc/openplc}.} Somebody changed the password (possibly the init sidecar in an earlier run). Re-create the volume with \texttt{docker compose down -v \&\& docker compose up -d}.
+  \item \textbf{Step~7 numbers look identical to Step~5.} Your noise loop crashed early --- check that the background Python process is still running (\texttt{ps -ef | grep python}) before you launch the foreground measurement.
+  \item \textbf{Browser cannot reach \texttt{127.0.0.1:8080}.} Confirm the port forward exists with \texttt{docker compose port openplc 8080}; on macOS / WSL you may need to use the published host port reported there.
+\end{itemize}
+\end{stepbox}
+
+% =============================================================
+\section*{Stretch goal (optional)}
+
+\begin{stepbox}{S -- Find the watchdog limit}
+\textbf{Do not run this against any system you do not own.} In the lab container only: gradually increase the noise (more concurrent connections, larger \texttt{count} per request, or several concurrent clients) until you can observe one of the following in the OpenPLC log (\texttt{docker compose logs -f openplc}):
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item the reported cycle time stops being reported at exactly $\sim$20\,ms,
+  \item the runtime restarts the program,
+  \item the Modbus server starts dropping connections.
+\end{itemize}
+Document the smallest configuration that reproduces this and a single mitigation an asset owner could deploy (rate-limit, ACL, separate management VLAN, etc.).
+\end{stepbox}
+
+% =============================================================
+\section*{Deliverable}
 
 \begin{deliverbox}
-Hand in: (a) a screenshot of the OpenPLC \emph{Monitoring} page with your running program, (b) the terminal output of \texttt{modbus\_read.py}, and (c) the observed PLC cycle time.
+Hand in a single PDF or markdown file containing:
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item Your annotated transcript of \texttt{conveyor.st} (Step~1, Q1--Q3 answered).
+  \item A screenshot of the OpenPLC \emph{Monitoring} page with \texttt{Motor} latched on via the seal-in (Step~2).
+  \item The terminal output of Step~4 (all three function codes) and one sentence identifying which discrete-input bit is which variable.
+  \item A small table of min / mean / p95 / max round-trip times for Step~5 (idle) and Step~7 (under load), plus the percentage increase.
+  \item One paragraph (5--7 lines) answering: \emph{Why is an aggressive Modbus poller a plausible cause of an availability incident on a real plant, and which two of the four register types in Part~B are write-capable from the network with no authentication?}
+  \item Your filled-in Modbus-vs.-OPC~UA comparison table from Step~9.
+\end{enumerate}
 \end{deliverbox}
 
+% =============================================================
+\section*{References}
+
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item IEC 61131-3:2013. \emph{Programmable controllers -- Part 3: Programming languages.}
+  \item Modbus Organization. \emph{Modbus Application Protocol Specification V1.1b3}, 26 Apr 2012.
+  \item Modbus Organization. \emph{Modbus Messaging on TCP/IP Implementation Guide V1.0b}, 24 Oct 2006.
+  \item OPC Foundation. \emph{OPC UA Specification, Part 3: Address Space Model}, 2022.
+  \item OpenPLC Project. \emph{OpenPLC Runtime documentation}, \url{https://openplcproject.com/docs/}.
+  \item Lecture slides, Section 02 -- ICS and SCADA Fundamentals (control-loop, scan-cycle, ladder-logic, HMI frames).
+\end{itemize}
+
+% =============================================================
 \begin{warnbox}
-The Modbus listener is bound to \texttt{127.0.0.1:502} on your host. Do not expose it to your network. The OpenPLC default credentials are well known -- treat them as already compromised until you change them.
+The Modbus listener on this lab is bound to \texttt{127.0.0.1:502} on your host; do not publish it to a wider network. The default OpenPLC credentials (\texttt{openplc/openplc}) are well known --- treat any PLC reachable with them as already compromised. The load-and-jitter steps in Part~D can crash or trip a real PLC; never run them against equipment you do not own, and never against equipment that is wired to anything that can move, heat, or hold pressure.
 \end{warnbox}
+
 \end{document}

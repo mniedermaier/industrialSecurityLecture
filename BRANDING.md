@@ -21,8 +21,8 @@ preambles. You never need to edit any preamble file.
    title slide and 1.5 cm in the footer.
 2. **(Optional) change the brand colours** in `branding.tex`:
    ```latex
-   \definecolor{slideAccent}{HTML}{1F4E79}     % primary
-   \definecolor{slideSecondary}{HTML}{E08E0B}  % accent
+   \definecolor{slideAccent}{HTML}{00205B}     % primary
+   \definecolor{slideSecondary}{HTML}{00A0DC}  % accent
    ```
    Both expect 6-digit hex codes. Keep enough contrast against white
    text in the title bar.

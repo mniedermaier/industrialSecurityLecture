@@ -119,9 +119,9 @@ Likelihood depends on adversary capability \emph{and} exploit difficulty.
 \begin{tikzpicture}[y=0.7cm]
   \foreach \r/\name/\col in {
     0/{Process design}/isOT,
-    1/{BPCS control loops}/isPLC,
+    1/{BPCS control loops (main controller)}/isPLC,
     2/{Alarms and operator action}/isHMI,
-    3/{SIS interlocks}/isAttack,
+    3/{SIS interlocks (independent safety)}/isAttack,
     4/{Physical protection}/isAccent,
     5/{Plant emergency response}/isMute,
     6/{Community emergency response}/isMute}{
@@ -296,6 +296,190 @@ Insurance is a backstop. Premiums rise sharply if your baseline is weak, and ``a
   A risk register is a living document, not a tickbox --- every row carries an owner, a control set, a residual rating, and a review date. Read one entry aloud: \emph{SIS reprogrammed by attacker} --- unlikely, but catastrophic, hence still high; mitigations are key-switch and signed downloads, both per IEC~62443-3-3. Stress that this register is the artefact regulators (NIS2, NIST~800-82~R3) actually ask to see during an inspection. Without it you cannot demonstrate that risks were considered and consciously treated. Ask the class: ``what would you add to this list for a water utility?'' --- expect chlorine dosing, SCADA poll-rate, and remote-pumping-station physical security.
 }
 \end{frame}
+
+%% Frame 1: IEC 62443 anchor for §07
+\begin{frame}{IEC 62443 anchor for this section}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.85, transform shape]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, align=left] (a)
+    {\textbf{62443-3-2:2020} \ Security risk assessment for system design --- ZCR 1--7};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=110mm, font=\small, align=left, below=of a] (b)
+    {\textbf{62443-2-1:2024} \ Security program for the asset owner --- policies, roles, IR};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=110mm, font=\small, align=left, below=of b] (c)
+    {\textbf{62443-3-3:2013} \ System SRs grouped by SL-T 1--4 (the target you assign per zone)};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small, align=left, below=of c] (d)
+    {\textbf{62443-4-2:2019} \ Component capability levels SL-C 1--4 (what a vendor can prove)};
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{notebox}{From assessment to SL-T}
+3-2 walks you ZCR-by-ZCR: identify SUC $\to$ partition into zones/conduits $\to$ assess unmitigated risk $\to$ assign \textbf{SL-T} (target) $\to$ procure devices with matching \textbf{SL-C} (capability).
+\end{notebox}
+\source{IEC 62443-3-2:2020 \textbar{} IEC 62443-2-1:2024 \textbar{} IEC 62443-3-3:2013 \textbar{} IEC 62443-4-2:2019.}
+\note{
+  3-2 is the methodology document: 7 ZCRs walk the asset owner from ``what is the System under Consideration'' to ``what Security Level must each zone reach.'' SL-T = target you assign per zone based on risk assessment (basement HMI may be SL-T~2, turbine control SL-T~3); SL-C = what the vendor's box can prove. They must match. 2-1 is the program-management partner --- governance, training, IR --- equivalent to ISO 27001 but written for plant asset owner. Pre-empt: ``62443 is just a checklist'' --- 3-2 is explicitly risk-driven; SLs are an \emph{output} of risk analysis, not a default.
+}
+\end{frame}
+
+%% Frame 2: Cyber-PHA Worked Example
+\begin{frame}{Cyber-PHA Worked Example --- Chlorine Dosing}
+\centering
+\begin{tikzpicture}[node distance=3mm, scale=0.84, transform shape]
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=44mm, minimum height=12mm, align=center, font=\small]
+    (top) {Top event\\Chlorine overdose};
+  \node[isbox, fill=isPLC!12, draw=isPLC, font=\scriptsize, align=center, left=14mm of top, yshift=12mm]
+    (i1) {IE-1: spoof\\residual sensor};
+  \node[isbox, fill=isPLC!12, draw=isPLC, font=\scriptsize, align=center, left=14mm of top]
+    (i2) {IE-2: write\\setpoint via HMI};
+  \node[isbox, fill=isPLC!12, draw=isPLC, font=\scriptsize, align=center, left=14mm of top, yshift=-12mm]
+    (i3) {IE-3: bypass\\SIS interlock};
+  \node[isbox, fill=isNet!12, draw=isNet, font=\scriptsize, align=center, right=14mm of top]
+    (c1) {Public health\\hospitalisations};
+  \draw[flow] (i1.east) -- (top.north west);
+  \draw[flow] (i2.east) -- (top.west);
+  \draw[flow] (i3.east) -- (top.south west);
+  \draw[flow] (top.east) -- (c1.west);
+\end{tikzpicture}
+\par\vspace{1mm}
+{\scriptsize\centering
+\begin{tabular}{|p{22mm}|p{22mm}|p{22mm}|p{22mm}|p{22mm}|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Layer} & \textbf{IPL} & \textbf{PFD} & \textbf{Cyber-vulnerable?} & \textbf{Credit} \\
+\hline
+BPCS dosing loop & ratio control & $10^{-1}$ & yes (Modbus) & none \\
+\hline
+Alarm + operator & high-Cl alarm & $10^{-1}$ & shares HMI & none \\
+\hline
+SIS interlock & SIL-2 trip & $10^{-2}$ & independent & $10^{-2}$ \\
+\hline
+\end{tabular}}
+\source{ISA TR84.00.09:2017 (Cybersecurity \& Functional Safety) \textbar{} AWWA M19, \emph{Emergency Planning for Water and Wastewater Utilities}, 2018.}
+\note{
+  Walk end-to-end: municipal water plant. PLC ratios sodium hypochlorite to flow; residual analyser closes the loop; SIS trips on high-Cl. Three cyber initiating events: spoofed Modbus reading (PLC thinks Cl is low, ramps dosing); unauthorised setpoint write at HMI; SIS interlock bypass (TRITON-style). LOPA: BPCS and alarm both run on same Schneider HMI/SCADA stack, so a cyber compromise collapses both layers to one common-cause failure --- zero risk-reduction credit. Only the independent SIL-2 SIS still contributes its $10^{-2}$. Punchline: cyber turns independent layers into one layer. Oldsmar (FL, 2021) lye-dosing intrusion is the real-world cousin.
+}
+\end{frame}
+
+%% Frame 3: FAIR for OT
+\begin{frame}{FAIR for OT --- Quantitative Risk in Practice}
+\centering
+\begin{tikzpicture}[node distance=3mm, scale=0.92, transform shape]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=34mm, minimum height=12mm, align=center, font=\small] (lef) {LEF\\$0.2$ / yr};
+  \node[font=\Large\bfseries, right=2mm of lef] (x) {$\times$};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=34mm, minimum height=12mm, align=center, font=\small, right=2mm of x] (lm) {LM\\\$18.4M};
+  \node[font=\Large\bfseries, right=2mm of lm] (eq) {$=$};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=34mm, minimum height=12mm, align=center, font=\small, right=2mm of eq] (ale) {ALE\\\$3.7M / yr};
+\end{tikzpicture}
+\par\vspace{1mm}
+{\scriptsize\centering
+\begin{tabular}{|p{36mm}|p{24mm}|p{40mm}|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Loss component} & \textbf{Estimate} & \textbf{Basis (automotive tier-1)} \\
+\hline
+Production loss & \$45k / h $\times$ 168\,h & line down 1 week, ransomware \\
+\hline
+Recovery + forensics & \$1.8M & IR retainer + rebuild \\
+\hline
+Regulatory (NIS2 / GDPR) & \$2.0M & up to 2\,\% of group turnover \\
+\hline
+Customer penalties (OTD) & \$7.0M & contractual late-delivery clauses \\
+\hline
+\end{tabular}}
+\begin{warnbox}{Where FAIR runs out of road}
+FAIR monetises everything --- but \textbf{a fatality is not a dollar figure}. For safety risk use ALARP / LOPA; reserve FAIR for production, IP, and regulatory loss.
+\end{warnbox}
+\source{The Open Group, \emph{Risk Analysis (O-RA)} C20A:2021 \textbar{} J.\ Jones \& J.\ Freund, \emph{Measuring and Managing Information Risk}, Butterworth-Heinemann, 2014.}
+\note{
+  LEF = Loss Event Frequency: 0.2/yr (``once every five years'') --- calibrate against Verizon DBIR manufacturing vertical, Dragos year-in-review. LM = Loss Magnitude: build bottom-up from the four rows. Biggest line is almost always customer penalties: tier-1 auto suppliers face per-minute fines from OEMs --- recall 2022 Toyota shutdown after Kojima Industries was hit: one supplier, one day, 13\,000 vehicles unbuilt. Open Group O-RA standard formalises the decomposition; Jones \& Freund (2014) is the practitioner book. Warnbox is the load-bearing caveat: do not put a price tag on human life --- regulators (Seveso III, IEC 61511) refuse that framing.
+}
+\end{frame}
+
+%% Frame 4: Risk Register Template
+\begin{frame}{Risk Register --- Template and Worked Row}
+\centering
+\scriptsize
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{|p{14mm}|p{20mm}|p{22mm}|p{14mm}|p{18mm}|p{18mm}|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Zone} & \textbf{Threat} & \textbf{Vulnerability} & \textbf{Likely.} & \textbf{Consequence} & \textbf{Residual} \\
+\hline
+\textbf{Z-03}\newline Dosing ctrl & Setpoint write by remote attacker & HMI on flat VLAN; no MFA on vendor VPN & Possible & Major\newline (public health) & \textcolor{calImportant}{\textbf{HIGH}} \\
+\hline
+\multicolumn{6}{|p{122mm}|}{\textbf{Controls in place:} SIS trip on high-Cl (SIL-2), weekly PLC project backup. \quad
+\textbf{Treatment:} segment Z-03 behind 62443 conduit + MFA on vendor jump host (Q3). \quad
+\textbf{Owner:} Plant ICS lead. \quad \textbf{Review:} 6 mo. \quad \textbf{SL-T:} 3.} \\
+\hline
+\end{tabular}
+\par\vspace{2mm}
+\begin{tipbox}{Minimum viable register}
+Six columns, one owner, one review date. Anything more elaborate becomes shelfware --- regulators (NIS2, NIST 800-82 R3) ask to see \emph{this}, not a 40-column spreadsheet.
+\end{tipbox}
+\source{ISO 31000:2018 \,\textbar{}\, NIST SP 800-82 Rev.\,3 (2023) \,\textbar{}\, IEC 62443-3-2:2020 (ZCR 5).}
+\note{
+  The artefact a regulator/auditor will demand --- not the heat map, not the FAIR spreadsheet, the \emph{register}. Z-03 is the chlorine-dosing zone from Frame 2; threat is the setpoint-write scenario; vulnerability names concrete weakness (flat VLAN, no MFA); likelihood + consequence drive residual rating. Second row records controls, treatment, owner, review, target SL. Registers fail when they grow past 8 columns --- nobody updates a 40-column spreadsheet. Pre-empt ``shouldn't every CVE go in here?'' --- no, the register tracks \emph{risks}, not vulnerabilities. Tie to 62443-3-2 ZCR 5 (document residual risk per zone) and NIS2 Art.\,21 evidence requirement.
+}
+\end{frame}
+
+%% Frame 5: Cyber Insurance for OT
+\begin{frame}{Cyber Insurance for OT --- Underwriting in 2024}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.92, transform shape]
+  \node[isbox, fill=isAttack!12, draw=isAttack, minimum width=54mm, minimum height=12mm, font=\scriptsize, align=left]
+    (req) {\textbf{Underwriter's minimum baseline}\\
+           asset inventory \,$\bullet$\, network segmentation\\
+           MFA on remote access \,$\bullet$\, EDR on engineering WS\\
+           immutable backups \,$\bullet$\, tested IR plan};
+  \node[isbox, fill=isOT!12, draw=isOT, minimum width=54mm, minimum height=12mm, font=\scriptsize, align=left, right=4mm of req]
+    (trend) {\textbf{2022--2024 trends}\\
+             premiums $+50$--$100\%$ (2022 peak)\\
+             sub-limits on ransomware payouts\\
+             ``act of war'' exclusions rewritten\\
+             OT inspection now common pre-bind};
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{warnbox}{Transfer is not mitigation}
+Insurance pays the bill; it does not stop the centrifuge. Exclusions (state-attributed attacks, unpatched known CVEs, missing MFA) are tested in court every year --- read the policy before you cite it in the risk register.
+\end{warnbox}
+\source{Munich Re, \emph{Cyber Insurance: Risks and Trends 2024} \textbar{} Marsh, \emph{Global Insurance Market Index} Q4 2023 \textbar{} Merck \& Co.\ v.\ Ace American Ins., NJ App.\ Div., 2022.}
+\note{
+  Insurance is the formal home of the ``transfer'' response. New thing for IT students: underwriters have become \emph{de facto} regulators --- 200-question OT questionnaire + third-party scan to bind a policy. Munich Re 2024: global cyber market $\sim$\$15bn GWP, manufacturing fastest-growing OT segment. Marsh: 2022 peak premiums up $\sim$110\%, cooling through 2023 as baseline tightened. Merck v.\ Ace American (NJ App., 2022): Merck won \$1.4bn because NotPetya-era policy language pre-dated state-attributed cyber. Read three lines: war exclusion, unpatched-CVE exclusion, ransomware sub-limit.
+}
+\end{frame}
+
+%% Frame 6: ALARP Principle
+\begin{frame}{ALARP --- As Low As Reasonably Practicable}
+\centering
+\begin{tikzpicture}[scale=0.72, transform shape]
+  \fill[isAttack!30] (0,4) -- (5,4) -- (2.5,5.2) -- cycle;
+  \fill[isAccent!25] (0,1.5) -- (5,1.5) -- (5,4) -- (0,4) -- cycle;
+  \fill[isOT!25] (0,0) -- (5,0) -- (5,1.5) -- (0,1.5) -- cycle;
+  \draw[thick] (0,0) rectangle (5,4);
+  \draw[thick] (0,4) -- (2.5,5.2) -- (5,4);
+  \node[font=\small\bfseries, align=center] at (2.5,4.6) {Intolerable};
+  \node[font=\small\bfseries, align=center] at (2.5,2.75) {ALARP region};
+  \node[font=\scriptsize, align=center] at (2.5,2.25) {reduce \emph{if} cost not\\grossly disproportionate};
+  \node[font=\small\bfseries, align=center] at (2.5,0.75) {Broadly acceptable};
+  \begin{scope}[xshift=8cm, yshift=0.3cm]
+    \draw[->, thick] (0,0) -- (5,0) node[right, font=\scriptsize] {risk reduction};
+    \draw[->, thick] (0,0) -- (0,4) node[above, font=\scriptsize] {EUR cost};
+    \draw[thick, isPLC, very thick] (0,0.3) .. controls (2,0.6) and (3,1.2) .. (3.5,2);
+    \draw[thick, isAttack, very thick] (3.5,2) .. controls (3.8,3) and (3.9,3.5) .. (4,3.8);
+    \node[font=\scriptsize, isAttack, align=center] at (4.6,3.3) {kink:\\dispropor-\\tionate};
+    \draw[dashed] (3.5,0) -- (3.5,2);
+    \node[font=\scriptsize, below] at (3.5,0) {ALARP};
+  \end{scope}
+\end{tikzpicture}
+\par\vspace{1mm}
+\begin{notebox}{Why ALARP matters for cyber-physical risk}
+UK HSE law (HSWA 1974) and IEC 61508 require operators to keep reducing risk \emph{until} further reduction costs grossly more than the safety gain. The ``kink'' is where the duty stops --- and the operator must \emph{prove} they reached it.
+\end{notebox}
+\source{UK HSE, \emph{Reducing Risks, Protecting People (R2P2)}, 2001 \textbar{} IEC 61508-1:2010, Annex B \textbar{} \emph{Edwards v.\ National Coal Board}, UK Court of Appeal, 1949.}
+\note{
+  ALARP is the safety-engineering counterweight to FAIR. FAIR: ``risk costs \$X/yr, spend up to \$X/yr.'' ALARP: ``keep spending \emph{past} that point until the next pound buys disproportionately little safety.'' Legal root: \emph{Edwards v.\ National Coal Board} (1949). Codified in HSE R2P2 (2001) and IEC 61508 Annex B. Inverted triangle: thin intolerable cap (no cost-benefit lets you operate here), broad ALARP region (reduce \emph{if} reasonably practicable), broadly-acceptable floor. The cost-benefit kink: spending tracks risk reduction linearly until diminishing returns, then asymptotes. Duty-holder must \emph{document} they reached the kink --- ``we didn't bother'' is not a defence.
+}
+\end{frame}
+
 
 \begin{frame}{Summary -- Section \sectionNumber}
 \begin{takeawaybox}{What to remember from this section}

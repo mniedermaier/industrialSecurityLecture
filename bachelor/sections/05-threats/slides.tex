@@ -109,7 +109,7 @@ Code that produces a \emph{physical} effect (mass, energy, motion) by acting on 
   \item \textbf{4 Windows zero-days} (LNK CVE-2010-2568, print-spooler, two privilege escalations) -- unprecedented for a single payload.
   \item \textbf{Stolen code-signing certificates} from Realtek and JMicron used to sign kernel drivers.
   \item \textbf{USB-borne propagation}, then lateral movement on engineering LANs; final stage hooks the Siemens Step7 / WinCC DLLs to inject custom ladder logic.
-  \item \textbf{Sabotage logic:} drove Fararo Paya / Vacon VFDs outside spec -- alternating $\sim$1\,410\,Hz and $\sim$2\,Hz bursts (normal: $\sim$807--1\,210\,Hz), stressing rotors over weeks.
+  \item \textbf{Sabotage logic:} drove the Fararo Paya / Vacon VFDs (variable-frequency motor drives) outside spec -- alternating $\sim$1\,410\,Hz and $\sim$2\,Hz bursts (normal: $\sim$807--1\,210\,Hz), stressing rotors over weeks.
   \item \textbf{HMI deception:} 21 seconds of \emph{recorded normal} sensor data played back during attacks -- operators saw a healthy plant.
 \end{itemize}
 \source{N.\ Falliere, L.\ Murchu, E.\ Chien, \emph{W32.Stuxnet Dossier} v1.4, Symantec, Feb 2011 \textbar{} R.\ Langner, \emph{To Kill a Centrifuge}, The Langner Group, Nov 2013.}
@@ -467,6 +467,33 @@ Volt Typhoon's target list (water, power, ports) and its persistence in OT-adjac
 \source{Dragos \emph{Year in Review 2024} -- initial access vectors observed across 23 OT-targeting groups.}
 \note{
   This is the slide to tie the case studies back into a defender's prioritisation list. Map each tile to a case the students have just seen: spearphish-corporate-IT $\rightarrow$ Ukraine 2015; compromised-vendor $\rightarrow$ NotPetya via M.E.Doc; Internet-exposed PLC $\rightarrow$ CyberAv3ngers; USB $\rightarrow$ Stuxnet; stolen/shared credentials $\rightarrow$ Colonial; vendor remote access $\rightarrow$ Volt Typhoon's edge appliances; VPN without MFA $\rightarrow$ Colonial again; insider with physical access $\rightarrow$ Maroochy. The Dragos \emph{Year in Review} is the best public data set for relative frequency --- in their 2024 numbers, exploitation of Internet-facing services and abuse of valid accounts dominate. Ask the room which of these their own organisation would catch in detection, which in prevention, and which in response. Then close: the rest of the course is the toolkit for answering that question.
+}
+\end{frame}
+
+%% Frame 1: IEC 62443 anchor for §05
+\begin{frame}{IEC 62443 anchor for this section}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.85, transform shape]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, align=left] (a)
+    {\textbf{62443-1-1} \ Reference model \& threat-actor taxonomy};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=110mm, font=\small, align=left, below=of a] (b)
+    {\textbf{62443-3-3} \ System security requirements --- Security Levels SL\,1--4};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=110mm, font=\small, align=left, below=of b] (c)
+    {\textbf{62443-4-2} \ Component requirements --- the SL a single PLC/HMI/SIS is built to};
+\end{tikzpicture}
+\par\vspace{2mm}
+\scriptsize
+\begin{tabular}{p{12mm}p{50mm}p{60mm}}
+\textbf{SL} & \textbf{Adversary (62443-1-1)} & \textbf{Real-world tier} \\
+\hline
+SL\,1 & casual / coincidental violation & curious insider, accidental misuse \\
+SL\,2 & low resources, generic skills & opportunist, script kiddie (CyberAv3ngers) \\
+SL\,3 & moderate resources, ICS-specific skills & cybercrime crew, hacktivist with toolkit \\
+SL\,4 & extended resources, ICS-specific, motivated & nation-state APT (Sandworm, Volt Typhoon, CHERNOVITE) \\
+\end{tabular}
+\source{IEC 62443-1-1:2009 (threat actor model) \textbar{} IEC 62443-3-3:2013 (system SL) \textbar{} IEC 62443-4-2:2019 (component SL-C).}
+\note{
+  62443-1-1 gives ``threat actor'' an ICS-specific meaning; 62443-3-3 turns that into four capability tiers (SL\,1--4) that a \emph{system} can be designed against; 62443-4-2 carries the same scale down to a single component as SL-C/SL-T. The case studies in this deck are concrete instances of SL\,2--SL\,4 adversaries: CyberAv3ngers hitting Unitronics on default credentials is SL\,2; Sandworm with Industroyer2 is SL\,4. IT-student bridge: SL = ``what attacker model is this segment designed to resist,'' like TLS cipher choice. Pre-empt: an SL\,4 \emph{component} does not buy an SL\,4 \emph{system} --- chain only as strong as the weakest zone.
 }
 \end{frame}
 

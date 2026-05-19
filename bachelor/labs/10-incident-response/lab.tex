@@ -2,9 +2,9 @@
 
 \def\courseTitle{Industrial Security (Bachelor)}
 \def\labNumber{10}
-\def\labTitle{Saturday Night Tabletop Exercise}
+\def\labTitle{Incident Response -- Tabletop and First-Response Forensics}
 \def\labSection{10}
-\def\labTime{90 min, group of 6}
+\def\labTime{90--120 min}
 
 \input{../../../template/lab-preamble.tex}
 
@@ -12,44 +12,309 @@
 \labheader
 
 \begin{goalbox}
-Play out an unexpected OT incident in real time. Practise safety-first decisions, role coordination, and forensic preservation when nobody is at full strength.
+Run a 60--90 minute tabletop exercise on a Triconex-style water-utility scenario, then perform first-response forensics on the lab stack's real Zeek logs and PCAPs. By the end you will have produced three concrete artefacts: a one-page evidence packet, a NIS2 24-hour early-warning draft, and an after-action timeline that names the decisions you missed.
 \end{goalbox}
 
-\begin{stepbox}{Scenario}
-\begin{quote}
-\textbf{Saturday, 03:00.} The night-shift operator notices valves cycling on the HMI without any commanded change. The Historian shows write traffic from an engineering workstation that should be powered off. The plant manager is unreachable. Mobile reception is patchy.
-\end{quote}
+\begin{warnbox}
+This lab is mostly paper. Resist the urge to ``just open Wireshark'' before you have written down who has authority to decide what. In real incidents the failure mode is almost never the tooling -- it is that nobody knows who calls the shutdown.
+\end{warnbox}
 
-\textbf{Roles} (one student each):
+\section*{Roles (assign before you start)}
+
+Six students, one role each. If you are fewer, double up the SOC analyst and security manager; the on-call engineer and plant manager must remain separate people.
+
 \begin{itemize}\setlength{\itemsep}{1pt}
-  \item Night-shift operator
-  \item Control / process engineer (on-call)
-  \item OT security lead (on-call)
-  \item IT SOC analyst
-  \item Plant manager (reachable after 90 min sim)
-  \item Communications / legal lead
+  \item \textbf{Plant manager} -- accountable for production and safety. Only role that can authorise a controlled shutdown.
+  \item \textbf{On-call control engineer} -- understands the process, can read ladder logic, has the engineering workstation credentials.
+  \item \textbf{SOC analyst} -- IT-side first responder; sees the Zeek alert before anyone else.
+  \item \textbf{OT security manager} -- bridges IT and OT, owns the IR playbook, drafts the regulator notification.
+  \item \textbf{Communications / legal lead} -- talks to the regulator (BSI), the press, and the customer hotline.
+  \item \textbf{Scribe / facilitator} -- runs the kitchen timer, writes every decision into a shared log with timestamps. Does not vote.
+\end{itemize}
+
+\section*{Part A -- Pre-flight (10 min)}
+
+\begin{stepbox}{A1 -- Bring up the stack and confirm artefacts}
+From the repo's \texttt{bachelor/labs/\_stack} directory:
+\begin{lstlisting}[language=bash]
+cd bachelor/labs/_stack
+docker compose up -d
+sleep 10
+docker compose ps
+\end{lstlisting}
+You need three artefact families on disk before the tabletop starts:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item Lab 04/05 PCAPs in \texttt{./captures/} (the unauthenticated Modbus injection).
+  \item Lab 08 Zeek logs in \texttt{./zeek-logs/} (\texttt{conn.log}, \texttt{modbus.log}, \texttt{notice.log}).
+  \item The ladder-logic program from earlier labs, on the OpenPLC web UI at \url{http://127.0.0.1:8080}.
 \end{itemize}
 \end{stepbox}
 
-\begin{stepbox}{Phase 1 -- First 30 minutes (sim)}
-Operator notifies whom? Who has authority to act? What \emph{not} to do? Document every decision and timestamp in a shared log.
+\begin{stepbox}{A2 -- Generate fresh evidence if you skipped Lab 08}
+If \texttt{./zeek-logs/notice.log} is empty or missing, replay the attack so you have real artefacts to investigate:
+\begin{lstlisting}[language=bash]
+docker compose exec -d student python3 /labs/scripts/modbus_poll_loop.py
+sleep 30
+docker compose exec student python3 /labs/scripts/modbus_inject.py
+sleep 5
+docker compose exec student pkill -f modbus_poll_loop
+ls -lh zeek-logs/
+\end{lstlisting}
+You should now see \texttt{notice.log} with at least one \texttt{ModbusWatch::Unsolicited\_Write} entry.
 \end{stepbox}
 
-\begin{stepbox}{Phase 2 -- 30--90 minutes (sim)}
-Triage. Containment options (each with process impact). Forensic preservation
-(network capture, HMI screenshots, Historian snapshot). External notification
-trigger conditions (NIS2 24-hour clock).
+\begin{stepbox}{A3 -- Set the clock}
+Open a shared text file or whiteboard titled \texttt{decision-log.txt}. The scribe writes every entry as: \texttt{HH:MM | role | decision | rationale}. Start the kitchen timer at \texttt{T+0\,min}. From here on, \emph{simulated} time runs at $5\times$ real time -- five minutes of wall-clock equals 25 minutes in the scenario, so the on-call rota and the NIS2 clock feel realistic.
 \end{stepbox}
 
-\begin{stepbox}{Phase 3 -- Recovery and lessons}
-What does ``back to normal'' mean? Who signs off? Three follow-ups that should be open issues by Monday morning.
+\section*{Part B -- Tabletop (60--75 min)}
+
+\begin{stepbox}{B1 -- Read the scenario aloud}
+\textbf{Scenario brief.} \emph{The facilitator reads this once, then puts the page face down. Do not refer back to it.}
+
+\vspace{1mm}
+\emph{It is 02:14 local time on a Sunday. You operate a regional drinking-water utility serving 180{,}000 households across two cantons. The treatment plant is a single site with a chlorination stage controlled by a Triconex-class Safety Instrumented System (SIS) and a Modicon M580 PLC stack for the basic process control. Engineering workstations sit in a separate VLAN; remote access goes through a jump host with MFA.}
+
+\vspace{1mm}
+\emph{At 02:08 the SOC's Zeek sensor logged an unsolicited Modbus write from an IP inside the engineering VLAN that the asset inventory does not recognise. At 02:10 the customer hotline received a complaint of ``off-taste, smells faintly of bleach'' from a household three kilometres downstream of the treatment plant. At 02:14 the on-call engineer logs into the HMI from home: the residual-chlorine trend is nominal -- 0.45\,mg/L, exactly within the regulatory band. The SIS has not tripped. Nobody is on site.}
+
+\vspace{1mm}
+\emph{You are now at T+0 of your response. The next 75 minutes of wall-clock are the first 6 hours of the incident.}
+\end{stepbox}
+
+\begin{stepbox}{B2 -- Decision point 1: authority to declare}
+\textbf{At T+5\,min, decide and record:}
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item Who declares ``this is a security incident'' (not just an alert)? Name the role.
+  \item Who decides to send field staff to the site at 02:30 on a Sunday?
+  \item Who has authority to switch the plant to manual control? To shut down chlorination? To shut down distribution?
+  \item Which of those decisions requires a phone call to a second person, and who is that second person?
+\end{enumerate}
+Write the answer as a four-row mini-RACI (R / A / C / I per decision). If your team disagrees, that disagreement is the finding -- record both positions.
+\end{stepbox}
+
+\begin{stepbox}{B3 -- Decision point 2: containment versus visibility}
+\textbf{At T+15\,min, the SOC analyst proposes:} ``Block the suspicious source IP at the engineering-VLAN firewall, now.''
+
+Debate the trade-off out loud. Each role argues from its own incentives:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{IT instinct (SOC analyst):} pull the cable, stop the bleeding.
+  \item \textbf{OT priority (on-call engineer):} maintain visibility; you cannot read the PLC state through a blocked link, and the SIS arbitration logic depends on heartbeats.
+  \item \textbf{Safety-first rule (plant manager):} a wrong containment action can be worse than the original incident -- ask Natanz 2010 or the 2017 TRITON event at Petro Rabigh.
+\end{itemize}
+Decide and record: \emph{block, monitor with full capture, or split (block writes, allow reads)}? Justify in one sentence with reference to the safety-first rule from the lecture.
+\end{stepbox}
+
+\begin{stepbox}{B4 -- Decision point 3: the HMI is lying}
+\textbf{At T+25\,min, the on-call engineer notices:} the HMI residual-chlorine reading has not moved by more than 0.01\,mg/L for the last 18 minutes. The customer hotline has logged two more off-taste complaints from the same neighbourhood.
+
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item Is the HMI displaying live data, replayed data, or a frozen image?
+  \item What is the cheapest physical-world check you can do in the next 10 minutes that does not depend on the compromised network? (Hint: a paper logbook at the chlorination pump, a phone call to a field operator with a portable colorimeter, the regulatory composite sample.)
+  \item If the HMI is lying, every downstream decision based on it is also wrong. What do you do with the alarms list?
+\end{itemize}
+\end{stepbox}
+
+\begin{stepbox}{B5 -- Decision point 4: the 24-hour clock starts now}
+\textbf{At T+35\,min:} the OT security manager realises that under NIS2 Article\,23(4a) the 24-hour early-warning clock starts at \emph{detection of a significant incident}, not at confirmation. Detection happened at 02:08 in the Zeek log. It is now 02:43 simulated time. You have 23\,h 25\,min to file.
+
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item Who has the BSI Meldeportal login credentials? Is that person reachable on a Sunday at 02:43?
+  \item Who signs off on the legal wording? (Communications lead drafts, legal approves, plant manager submits is the usual flow.)
+  \item What is the minimum content the early warning must contain -- and what would you deliberately leave out at this stage?
+\end{itemize}
+\end{stepbox}
+
+\begin{stepbox}{B6 -- Decision point 5: recovery readiness}
+\textbf{At T+55\,min:} containment is in place, the attacker IP has been firewalled at the boundary (you decided that in B3 or you didn't -- either is fine). The plant manager asks: ``When can I tell the regulator we are back to normal?''
+
+Walk through the 6-step recovery sequence from the lecture and, for each step, state \emph{what evidence proves it succeeded}. Fill the table below:
+
+\vspace{1mm}
+\begin{tabular}{p{5cm}p{9cm}}
+\toprule
+\textbf{Step} & \textbf{Evidence of success} \\
+\midrule
+1. Confirm safe state           & \\
+2. Preserve evidence            & \\
+3. Restore from golden image    & \\
+4. Re-validate logic            & \\
+5. Re-link to process (staged)  & \\
+6. Re-authorise operators       & \\
+\bottomrule
+\end{tabular}
+
+\vspace{1mm}
+\emph{Hint:} ``the HMI is green'' is never evidence. Hashes, signed firmware reports, witnessed loop checks, fresh credentials with first-login timestamps, and a 72-hour heightened-monitoring window are.
+\end{stepbox}
+
+\begin{stepbox}{B7 -- Curveball (facilitator, T+65\,min)}
+The facilitator now injects \emph{one} curveball, chosen at random. The team has five minutes to absorb it before continuing.
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item ``A regional newspaper is on the phone. They got a tip-off from a customer. Do you comment?''
+  \item ``The vendor's PSIRT calls back: their Modicon firmware has a known CVE that matches the function codes you saw. They want a remote session to look at the controller.''
+  \item ``The Zeek sensor died 12 minutes ago. The SOC analyst missed it because she was on the call with you.''
+  \item ``A second alert just fired -- different source IP, same function codes. Is this a second attacker or the same one pivoting?''
+\end{itemize}
+Record how the team's existing decisions held up under the curveball.
+\end{stepbox}
+
+\section*{Part C -- Hands-on forensics (25--35 min)}
+
+Now the paper exercise is over. The SOC analyst and on-call engineer move to a laptop with the lab stack running. The rest of the team observes and challenges every command.
+
+\begin{stepbox}{C1 -- Identify the suspicious source}
+Open the Zeek connection log on the host and rank the talkers by byte volume:
+\begin{lstlisting}[language=bash]
+cd bachelor/labs/_stack
+ls -lh zeek-logs/
+zcat -f zeek-logs/conn.log | head -3
+\end{lstlisting}
+Because \texttt{LogAscii::use\_json = T} in our \texttt{local.zeek}, every line is a JSON object. Pull the source IPs and a small slice of metadata:
+\begin{lstlisting}[language=bash]
+cat zeek-logs/conn.log \
+  | python3 -c 'import sys,json
+for l in sys.stdin:
+  r=json.loads(l)
+  print(r["ts"], r.get("id.orig_h"), r.get("id.resp_h"), r.get("id.resp_p"), r.get("proto"))' \
+  | sort | uniq -c | sort -rn | head
+\end{lstlisting}
+Write down the suspicious source IP. In the lab, the attacker is the \texttt{student} container at \texttt{172.28.0.20}; in a real plant it would be the unfamiliar engineering-VLAN host the scenario brief mentioned.
+\end{stepbox}
+
+\begin{stepbox}{C2 -- Pin the function codes and target registers}
+Now look at \texttt{modbus.log} for the function codes used and the registers touched:
+\begin{lstlisting}[language=bash]
+cat zeek-logs/modbus.log \
+  | python3 -c 'import sys,json
+for l in sys.stdin:
+  r=json.loads(l)
+  print(r["ts"], r.get("id.orig_h"), r.get("func"), r.get("exception",""))' \
+  | sort | tail -20
+\end{lstlisting}
+You are looking for any of function codes \texttt{WRITE\_SINGLE\_COIL} (5), \texttt{WRITE\_SINGLE\_REGISTER} (6), \texttt{WRITE\_MULTIPLE\_COILS} (15), \texttt{WRITE\_MULTIPLE\_REGISTERS} (16). The \texttt{modbus\_inject.py} script in this stack uses FC\,5 against coil 0 -- confirm you can see exactly that line.
+
+Cross-check by reading the matching ladder logic in \texttt{\_stack/scripts/ladder/conveyor.st} -- coil 0 is \texttt{\%QX0.0}, the conveyor motor. In a water utility the equivalent would be the chlorine dosing pump.
+\end{stepbox}
+
+\begin{stepbox}{C3 -- Extract the timestamp and hash the evidence}
+Convert the Zeek epoch timestamp to a human string, then hash the log files so you can swear to chain of custody:
+\begin{lstlisting}[language=bash]
+grep -h "ModbusWatch" zeek-logs/notice.log | head -1
+python3 -c 'import json,sys,datetime
+r=json.loads(sys.stdin.read().splitlines()[0])
+print(datetime.datetime.utcfromtimestamp(float(r["ts"])).isoformat()+"Z")' \
+  < <(grep -h "ModbusWatch" zeek-logs/notice.log | head -1)
+sha256sum zeek-logs/conn.log zeek-logs/modbus.log zeek-logs/notice.log
+\end{lstlisting}
+\emph{If a PCAP is available} from Lab 04 (e.g.\ \texttt{captures/lab04-mb.pcap}), hash that too and cross-reference the timestamp:
+\begin{lstlisting}[language=bash]
+sha256sum captures/lab04-mb.pcap 2>/dev/null || echo "(no Lab 04 PCAP -- skip)"
+tshark -r captures/lab04-mb.pcap -Y 'modbus.func_code==5' 2>/dev/null | head -3
+\end{lstlisting}
+\end{stepbox}
+
+\begin{stepbox}{C4 -- Produce the one-page evidence packet}
+Open a new file \texttt{evidence-packet.md} and fill these eight fields. This is the artefact you will hand in.
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item \textbf{Incident ID} and detection timestamp (UTC).
+  \item \textbf{Source IP} of the suspicious traffic and how you identified it.
+  \item \textbf{Destination} (target PLC IP and TCP port 502).
+  \item \textbf{Modbus function codes observed} and the register / coil addresses written.
+  \item \textbf{Process meaning} of those addresses (cite the ladder logic file and line).
+  \item \textbf{Evidence files} captured, with SHA-256 hashes and on-disk paths.
+  \item \textbf{First-response actions taken}, with timestamps and operator initials.
+  \item \textbf{What is \emph{not} yet known} -- explicit list of open questions for the next responder.
+\end{enumerate}
+One page, A4, monospace. No speculation about attribution. No screenshots of the HMI without a hash.
+\end{stepbox}
+
+\section*{Part D -- NIS2 24-hour early-warning draft (10 min)}
+
+\begin{stepbox}{D1 -- Draft the early warning}
+NIS2 Article\,23(4a) requires essential entities to file an early warning within 24 hours of becoming aware of a \emph{significant} incident. The notice must indicate whether the incident is \emph{suspected to be caused by unlawful or malicious acts} and whether it has \emph{cross-border impact}. It is intentionally short -- regulators expect a fuller picture in the 72-hour notification.
+
+Draft one paragraph (8--12 lines) that covers:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item Reporting entity and contact point.
+  \item Detection timestamp (UTC) and short factual summary.
+  \item Suspected cause: malicious / unknown / not yet determined.
+  \item Cross-border / cross-sector impact: yes / no / unknown, with one-line justification.
+  \item Indicators of compromise as far as known (the source IP, function codes, target register from Part C).
+  \item Containment status: in progress / contained / not yet effective.
+  \item Next contact point in your organisation and expected time of the 72-hour update.
+\end{itemize}
+
+\textbf{Discipline.} Use the ``what we know / what we do not know'' separation explicitly. A regulator who reads a confident sentence that turns out wrong will trust nothing you write later. Cap any monetary impact estimate in EUR -- do not use the \texttt{\textbackslash{}euro} macro, write \texttt{EUR\,250{,}000} in plain text.
+\end{stepbox}
+
+\begin{stepbox}{D2 -- Sanity-check the draft}
+Read the draft back out loud to the team. Three questions:
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item Would the plant manager sign this with their own name? (If not, why not?)
+  \item Does the legal lead spot any sentence that admits liability you cannot yet support?
+  \item Would the SOC analyst recognise the technical facts as accurate?
+\end{enumerate}
+\end{stepbox}
+
+\section*{Part E -- After-action review (15 min)}
+
+\begin{stepbox}{E1 -- Reconstruct the timeline}
+Pull the scribe's \texttt{decision-log.txt} and rebuild the timeline as a table. Two columns: \textbf{Decisions made} (with timestamps) and \textbf{Decisions missed}. A missed decision is any choice that the team \emph{should} have made by a given simulated time but did not -- e.g.\ ``never decided who calls the regulator if the OT security manager is unreachable''.
+
+Aim for 8--12 made and 3--6 missed. If you have zero missed, you have not been honest with yourselves; re-watch B3 and B5.
+\end{stepbox}
+
+\begin{stepbox}{E2 -- One improvement per missed decision}
+For every \emph{missed} decision, write one concrete improvement that prevents the same miss next time. Use this five-field schema (steal it for real after-actions):
+
+\vspace{1mm}
+{\setlength{\tabcolsep}{3pt}\footnotesize
+\begin{tabular}{p{3.0cm}p{4.0cm}p{2cm}p{2cm}p{1.6cm}}
+\toprule
+\textbf{Missed decision} & \textbf{Improvement} & \textbf{Owner} & \textbf{Due date} & \textbf{Tracking ID} \\
+\midrule
+e.g. no BSI Meldeportal contingency on weekends & Add second portal-credentialled person to the on-call rota & OT sec mgr & T+30 days & IR-2026-014 \\
+\bottomrule
+\end{tabular}}
+
+\vspace{1mm}
+``IT shall improve things'' is not an improvement -- name a person and a calendar date or the action item is theatre.
+\end{stepbox}
+
+\begin{stepbox}{E3 -- Blameless framing}
+Before you publish the after-action, scrub the document for blame. Every sentence that names an individual in a negative light gets rewritten to name the \emph{system} that allowed the failure. Example: ``the SOC analyst missed the notice'' becomes ``the notice channel did not page on a Sunday at 02:00''. A blameful post-mortem trains people to hide mistakes; a blameless one trains them to surface near-misses early.
+\end{stepbox}
+
+\section*{Part F -- Stretch goal: map your actions to MITRE D3FEND and NIST CSF}
+
+\begin{stepbox}{F1 -- Tag every response action}
+Optional but recommended. For each first-response action from Part C and each decision from Part B, tag it with the matching MITRE D3FEND technique or NIST CSF subcategory. Examples:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item Reading \texttt{conn.log} for unfamiliar talkers $\to$ D3FEND \texttt{D3-NTA} Network Traffic Analysis; CSF \texttt{DE.AE-3} (event data collected and correlated).
+  \item Hashing evidence files before any other action $\to$ CSF \texttt{RS.AN-3} (forensics performed); SANS chain-of-custody.
+  \item Drafting the 24-h NIS2 notice $\to$ CSF \texttt{RS.CO-4} (coordination with stakeholders consistent with response plans).
+  \item Staged re-link to process from B6 $\to$ CSF \texttt{RC.RP-1} (recovery plan executed during/after incident).
+\end{itemize}
+Coverage gaps in this map are real defects in your incident response programme, not just a paper exercise. If three students cannot place an action onto a CSF subcategory, that action is probably ad-hoc and should be added to the playbook.
 \end{stepbox}
 
 \begin{deliverbox}
-Hand in: the decision log with timestamps, the final containment choice with justification, and a 1-page lessons-learned summary highlighting what your team would change in the playbook.
+Hand in, as a single PDF (or zip), labelled by team and date:
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item \textbf{Decision log} from the scribe, with all timestamps (Part B).
+  \item \textbf{Mini-RACI} from B2 -- who declares, who shuts down, who calls the regulator.
+  \item \textbf{Recovery evidence table} from B6 with all six steps filled in.
+  \item \textbf{One-page evidence packet} from C4 (the eight fields).
+  \item \textbf{NIS2 24-hour early-warning draft} from D1 -- one paragraph, 8--12 lines.
+  \item \textbf{After-action timeline + improvement table} from E1--E2.
+  \item \textbf{(Stretch)} CSF / D3FEND mapping from F1 if you got there.
+\end{enumerate}
+Grading rewards honesty about missed decisions. A team that reports six misses and an owner-and-due-date for each scores higher than a team that claims a flawless run.
 \end{deliverbox}
 
 \begin{warnbox}
-The instructor will inject curveballs (false alarms, contradictory information, a panicked phone call). Track what your team did right and where pressure made things worse.
+\textbf{Do not run any forensic command against a real plant on the strength of this lab.} The Zeek queries and \texttt{tshark} filters here assume a known-malicious offline log; on a production network they would generate load, possibly trigger IDS-on-IDS, and almost certainly need written authorisation under your local cyber-physical incident response policy. When in doubt, the answer is always: ask the plant manager and the OT security manager first, in writing.
 \end{warnbox}
+
 \end{document}

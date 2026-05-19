@@ -2,9 +2,9 @@
 
 \def\courseTitle{Industrial Security (Bachelor)}
 \def\labNumber{08}
-\def\labTitle{Passive OT IDS with Zeek}
+\def\labTitle{Passive OT IDS with Zeek -- Tuning Rules Against Modbus Attacks}
 \def\labSection{08}
-\def\labTime{45--60 min}
+\def\labTime{105--135 min}
 
 \input{../../../template/lab-preamble.tex}
 
@@ -12,46 +12,389 @@
 \labheader
 
 \begin{goalbox}
-Show that a passive ICS-aware IDS detects the same Modbus injection you ran in Lab 04 without ever sending a packet itself. Tune one false positive at the end.
+Stand up a passive ICS-aware IDS (Zeek) on the lab network, baseline the ``normal'' Modbus chatter coming out of OpenPLC, then write and tune a custom detection rule against a simulated attack. By the end you will be able to read a Zeek policy script the way you read a Suricata signature -- and explain why ``policy-as-code'' is the right vocabulary for what we are doing.
 \end{goalbox}
 
-\begin{stepbox}{1 -- Stack and baseline traffic}
-The Zeek container shares the OpenPLC network namespace so it sees all Modbus traffic on port 502. From \texttt{bachelor/labs/\_stack}, generate one minute of baseline polls:
+\begin{notebox}{\faInfoCircle\ How to read this lab if you come from IT}
+You do not need a PLC background. Use these one-line analogues whenever a piece of OT jargon appears:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Modbus TCP} $\approx$ HTTP for the plant -- a request/response protocol on port 502, but with no auth, no TLS, no host header.
+  \item \textbf{\texttt{modbus.log}} $\approx$ \texttt{access.log} for the PLC -- one line per request/response, with a verb (\emph{function code}) and an object (register or coil address).
+  \item \textbf{Function code} $\approx$ HTTP verb. FC1/2/3/4 = ``GET'' (read). FC5/6/15/16 = ``POST/PUT'' (write). The interesting ones are the writes.
+  \item \textbf{\texttt{local.zeek}} $\approx$ a Suricata rules file -- except it is a real (Turing-complete) scripting language, not a flat signature list. We call this \emph{policy-as-code}.
+  \item \textbf{\texttt{notice.log}} $\approx$ \texttt{alerts.json} -- one line per Zeek-raised alert, ready for SIEM ingest.
+\end{itemize}
+\end{notebox}
+
+% ---------------------------------------------------------------------------
+\section*{Pre-flight}
+% ---------------------------------------------------------------------------
+
+\begin{stepbox}{0 -- Stack up and Zeek alive}
+From the repo root, bring up the full lab stack and confirm Zeek is producing logs. The Zeek container shares OpenPLC's network namespace (\texttt{network\_mode: service:openplc} in \texttt{docker-compose.yml}), so its \texttt{eth0} sees every packet to/from the PLC -- the Docker equivalent of a SPAN port hanging off the process switch.
 \begin{lstlisting}[language=bash]
 cd bachelor/labs/_stack
+docker compose up -d
+docker compose ps zeek openplc student
+\end{lstlisting}
+All three services must show \texttt{Up}. Confirm Zeek has begun writing to the host-mounted log directory:
+\begin{lstlisting}[language=bash]
+ls zeek-logs/
+\end{lstlisting}
+You should see at least \texttt{conn.log} and \texttt{packet\_filter.log}. \texttt{modbus.log} appears the first time a Modbus packet is seen.
+\end{stepbox}
+
+\begin{stepbox}{0a -- Sanity check the dissector}
+\begin{lstlisting}[language=bash]
+docker compose exec student python3 /labs/scripts/modbus_read.py
+sleep 2
+ls zeek-logs/ | grep modbus
+tail -n 2 zeek-logs/modbus.log
+\end{lstlisting}
+Expected: two JSON lines, one with \texttt{"pdu\_type":"REQ"} and one with \texttt{"pdu\_type":"RESP"}, both naming the function (e.g.\ \texttt{READ\_HOLDING\_REGISTERS}). If you see no \texttt{modbus.log}, Zeek either did not bind to \texttt{eth0} or the Modbus analyzer is not loaded -- check \texttt{docker compose logs zeek}.
+\end{stepbox}
+
+% ---------------------------------------------------------------------------
+\section*{Part A -- Baseline}
+% ---------------------------------------------------------------------------
+
+\begin{stepbox}{1 -- Generate one minute of legitimate traffic}
+Before you can detect ``abnormal'' you need to know what ``normal'' looks like. Start the polling helper in the background and let it run for sixty seconds:
+\begin{lstlisting}[language=bash]
 docker compose exec -d student python3 /labs/scripts/modbus_poll_loop.py
 sleep 60
 docker compose exec student pkill -f modbus_poll_loop
 \end{lstlisting}
-Inspect host-side logs (still from \texttt{\_stack/}):
-\begin{lstlisting}[language=bash]
-ls zeek-logs/
-tail zeek-logs/modbus.log
-\end{lstlisting}
-\emph{Observation:} you should see one Modbus request line per poll. Note the function code and the source/dest pair.
+The helper issues one \texttt{READ\_HOLDING\_REGISTERS} (FC3) every two seconds -- the kind of polling rhythm an HMI maintains in real life.
 \end{stepbox}
 
-\begin{stepbox}{2 -- Trigger the injection}
+\begin{stepbox}{2 -- Inspect \texttt{conn.log} (the netflow view)}
+Look at the connection summary first. \texttt{conn.log} is Zeek's equivalent of a NetFlow record: one line per TCP/UDP flow, with byte counts, duration, and the application-layer service Zeek decoded:
 \begin{lstlisting}[language=bash]
+tail -n 5 zeek-logs/conn.log | jq '{ts, "src":."id.orig_h", "dst":."id.resp_h",
+                                     dport:."id.resp_p", service, duration,
+                                     orig_bytes, resp_bytes}'
+\end{lstlisting}
+Expected: at least one row with \texttt{"service":"modbus"}, source \texttt{172.28.0.20} (the student container), destination \texttt{172.28.0.10} (OpenPLC), destination port \texttt{502}. \emph{This is the only flow your baseline should show on port 502.} Anything else is a finding.
+\end{stepbox}
+
+\begin{stepbox}{3 -- Inspect \texttt{modbus.log} (the application view)}
+Now drop down one layer to the Modbus dissector output:
+\begin{lstlisting}[language=bash]
+jq -r '[.ts, ."id.orig_h", ."id.resp_h", .func, .pdu_type] | @tsv' \
+    zeek-logs/modbus.log | head -10
+\end{lstlisting}
+Expected output (timestamps will differ):
+\begin{lstlisting}[language=bash]
+1779125580.566   172.28.0.20   172.28.0.10   READ_HOLDING_REGISTERS   REQ
+1779125580.570   172.28.0.10   172.28.0.20   READ_HOLDING_REGISTERS   RESP
+1779125582.567   172.28.0.20   172.28.0.10   READ_HOLDING_REGISTERS   REQ
+1779125582.571   172.28.0.10   172.28.0.20   READ_HOLDING_REGISTERS   RESP
+...
+\end{lstlisting}
+\textbf{Record the baseline as a set of \emph{(source IP, destination IP, function)} triples} -- this is the inventory of ``legitimate Modbus conversations'' for the rest of the lab:
+\begin{lstlisting}[language=bash]
+jq -r '"\(."id.orig_h")\t\(."id.resp_h")\t\(.func)"' zeek-logs/modbus.log \
+    | sort -u > /tmp/baseline_triples.tsv
+cat /tmp/baseline_triples.tsv
+\end{lstlisting}
+You should see exactly one read triple and the matching response. Keep this file -- you will compare against it after the attack.
+\end{stepbox}
+
+% ---------------------------------------------------------------------------
+\section*{Part B -- Read the existing detection policy}
+% ---------------------------------------------------------------------------
+
+\begin{stepbox}{4 -- Walk through \texttt{local.zeek} in plain English}
+Open \texttt{bachelor/labs/\_stack/zeek/local.zeek} in your editor. The file is short on purpose -- read every line. Below is the same script annotated for an IT reader:
+\begin{lstlisting}[language=bash]
+@load base/protocols/modbus                       # turn on the dissector
+@load policy/protocols/modbus/known-masters-slaves# enumerate hosts seen on 502
+
+redef LogAscii::use_json = T;                     # log as JSON, not TSV
+
+module ModbusWatch;                               # our own namespace
+export {
+    redef enum Notice::Type += { Unsolicited_Write };
+}
+
+event modbus_message(c: connection, headers: ModbusHeaders, is_orig: bool) {
+    if (!is_orig) return;                         # only inspect requests
+    if (headers$function_code in set(5, 6, 15, 16)) {
+        NOTICE([$note=Unsolicited_Write,
+                $msg=fmt("Modbus write from %s to %s (FC=%d)",
+                         c$id$orig_h, c$id$resp_h, headers$function_code),
+                $conn=c]);
+    }
+}
+\end{lstlisting}
+What each line does, in IT terms:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \texttt{@load base/protocols/modbus} -- enable the Modbus \emph{analyzer} (``install the Wireshark dissector inside Zeek''). Without it, port 502 is just a TCP byte stream.
+  \item \texttt{@load policy/protocols/modbus/known-masters-slaves} -- a built-in policy that produces \texttt{known\_modbus.log}, a unique-pair inventory of who talked Modbus to whom. Asset-discovery freebie.
+  \item \texttt{redef LogAscii::use\_json = T} -- emit JSON so SIEMs ingest it without a custom parser.
+  \item \texttt{module ModbusWatch} -- declare a namespace so our notice type does not clash with Zeek-shipped ones.
+  \item \texttt{redef enum Notice::Type += \{ Unsolicited\_Write \}} -- register a new alert category. Notices are Zeek's first-class alert primitive; they land in \texttt{notice.log} with a stable identifier you can pivot on in the SOC.
+  \item \texttt{event modbus\_message(\dots)} -- Zeek calls this handler every time the dissector finishes parsing a Modbus PDU. \texttt{is\_orig = T} means ``client to server'' (a request).
+  \item \texttt{set(5, 6, 15, 16)} is the write-side function codes: FC5 = write single coil, FC6 = write single register, FC15 = write multiple coils, FC16 = write multiple registers.
+  \item \texttt{NOTICE([\dots])} raises an alert. The \texttt{\$conn=c} field attaches the full connection 5-tuple so the SOC can pivot to \texttt{conn.log}.
+\end{itemize}
+\textbf{The conceptual point.} This file is a tiny Python-flavoured DSL doing exactly what your Suricata or Snort rules file would do -- the difference is that here we have full programmatic state (sets, tables, loops, timers, file I/O). That is why people call Zeek ``policy-as-code'' instead of ``signature matching.''
+\end{stepbox}
+
+% ---------------------------------------------------------------------------
+\section*{Part C -- Trigger the existing detection}
+% ---------------------------------------------------------------------------
+
+\begin{stepbox}{5 -- Fire the attack and watch \texttt{notice.log}}
+Re-run a few baseline polls to make sure the noise is still flowing, then inject a single unauthenticated write to coil~0:
+\begin{lstlisting}[language=bash]
+docker compose exec -d student python3 /labs/scripts/modbus_poll_loop.py
+sleep 5
 docker compose exec student python3 /labs/scripts/modbus_inject.py
-tail zeek-logs/notice.log
+sleep 2
+tail -n 3 zeek-logs/notice.log
 \end{lstlisting}
-Within a few seconds, a notice should land in \texttt{notice.log} tagged \texttt{ModbusWatch::Unsolicited\_Write}.
+Expected line (JSON, one field per attribute):
+\begin{lstlisting}[language=bash]
+{"ts":...,"note":"ModbusWatch::Unsolicited_Write",
+ "msg":"Modbus write from 172.28.0.20 to 172.28.0.10 (FC=5)",
+ "id.orig_h":"172.28.0.20","id.resp_h":"172.28.0.10",...}
+\end{lstlisting}
+Stop the poller before continuing:
+\begin{lstlisting}[language=bash]
+docker compose exec student pkill -f modbus_poll_loop
+\end{lstlisting}
 \end{stepbox}
 
-\begin{stepbox}{3 -- Tune one false positive}
-Edit \texttt{bachelor/labs/\_stack/zeek/local.zeek} so writes from the student container (\texttt{172.28.0.20}) are no longer treated as notices -- assume the engineering workstation is sanctioned. Reload Zeek:
+\begin{stepbox}{6 -- Confirm the alert in \texttt{modbus.log} too}
+Cross-check by grepping the application log for any write function code. There should be exactly one matching record:
+\begin{lstlisting}[language=bash]
+jq -r 'select(.func | test("WRITE")) | [.ts, ."id.orig_h", .func] | @tsv' \
+    zeek-logs/modbus.log
+\end{lstlisting}
+Expected: one line per injected write, naming \texttt{WRITE\_SINGLE\_COIL}. If \texttt{notice.log} has the alert but \texttt{modbus.log} does not show the write, your dissector is misconfigured -- not your detection.
+\end{stepbox}
+
+% ---------------------------------------------------------------------------
+\section*{Part D -- Write your own detection}
+% ---------------------------------------------------------------------------
+
+\begin{stepbox}{7 -- The new rule: ``a source that has never written before''}
+\textbf{Problem statement.} The default rule alerts on \emph{every} write. In a real plant the engineering workstation legitimately writes during change windows -- so the rule is noisy. A better question is: \emph{has this source IP ever written before?} The first write from a previously read-only source is the detection that catches Stuxnet-shaped attacks.
+
+\textbf{Approach.} Maintain a stateful set of \texttt{(src,dst)} pairs that have ever sent a write. On each write packet, check the set; if the pair is new, raise a different notice (\texttt{First\_Time\_Writer}) and add the pair.
+
+Open \texttt{bachelor/labs/\_stack/zeek/local.zeek} and \textbf{append} the following block (do not delete the existing handler -- the two will coexist):
+\begin{lstlisting}[language=bash]
+# --- Rule 2: first-time writer ----------------------------------------
+module ModbusWatch;
+
+export {
+    redef enum Notice::Type += { First_Time_Writer };
+}
+
+# (src,dst) pairs we have ever seen issuing a write
+global seen_writers: set[addr, addr] = set();
+
+event modbus_message(c: connection, headers: ModbusHeaders, is_orig: bool)
+    &priority=-5      # run after the existing handler
+{
+    if (!is_orig) return;
+    if (headers$function_code !in set(5, 6, 15, 16)) return;
+
+    local src = c$id$orig_h;
+    local dst = c$id$resp_h;
+
+    if ([src, dst] in seen_writers) return;     # already known: be quiet
+    add seen_writers[src, dst];
+
+    NOTICE([$note=First_Time_Writer,
+            $msg=fmt("First Modbus write ever seen from %s to %s (FC=%d)",
+                     src, dst, headers$function_code),
+            $conn=c]);
+}
+\end{lstlisting}
+Things worth pointing out:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \texttt{global seen\_writers: set[addr, addr]} -- Zeek has first-class sets keyed on any tuple of typed values. This is the bit you cannot do in Suricata.
+  \item \texttt{\&priority=-5} -- when two handlers respond to the same event, Zeek runs the higher priority first. Negative priority means ``after the other one,'' so Rule~1's alert is chronologically before Rule~2's in \texttt{notice.log}.
+  \item State is per Zeek process, in memory. It resets every time you restart the container. For real deployments you would persist via \texttt{Broker} or an external store -- out of scope here.
+\end{itemize}
+\end{stepbox}
+
+\begin{stepbox}{8 -- Reload Zeek and retrigger the attack}
 \begin{lstlisting}[language=bash]
 docker compose restart zeek
+sleep 3
+docker compose logs --tail=20 zeek    # confirm clean startup, no syntax errors
 \end{lstlisting}
-Re-run the injection: the notice should now be suppressed while normal polls keep being logged.
+If Zeek fails to start, the logs show the exact line and column of the syntax error -- fix and try again.
+
+Generate fresh baseline, then attack:
+\begin{lstlisting}[language=bash]
+docker compose exec -d student python3 /labs/scripts/modbus_poll_loop.py
+sleep 5
+docker compose exec student python3 /labs/scripts/modbus_inject.py
+sleep 2
+docker compose exec student pkill -f modbus_poll_loop
+\end{lstlisting}
+Inspect \texttt{notice.log}:
+\begin{lstlisting}[language=bash]
+jq -r 'select(.note | test("ModbusWatch")) | [.ts, .note, .msg] | @tsv' \
+    zeek-logs/notice.log
+\end{lstlisting}
+Expected: \textbf{two} ModbusWatch notices in chronological order -- first \texttt{Unsolicited\_Write} (Rule~1), then \texttt{First\_Time\_Writer} (Rule~2). If you run \texttt{modbus\_inject.py} a second time without restarting Zeek, only Rule~1 fires -- Rule~2 stays silent because the writer is no longer first-time. \emph{Confirm this experimentally.}
 \end{stepbox}
 
+% ---------------------------------------------------------------------------
+\section*{Part E -- Tune one false positive}
+% ---------------------------------------------------------------------------
+
+\begin{stepbox}{9 -- Pick a noise source and silence it}
+In this lab the student workstation (\texttt{172.28.0.20}) \emph{is} our sanctioned engineering host. Treating its writes as alerts is the textbook false-positive case in any new IDS deployment.
+
+Add a \emph{suppression}: any write where the source is \texttt{172.28.0.20} and the destination is \texttt{172.28.0.10} is acknowledged engineering-workstation behaviour. \textbf{Append} this block below your second rule:
+\begin{lstlisting}[language=bash]
+# --- Tuning: trusted engineering workstation --------------------------
+module ModbusWatch;
+
+# (src,dst) pairs that are sanctioned engineering channels
+global trusted_writers: set[addr, addr] = {
+    [172.28.0.20, 172.28.0.10],
+};
+
+hook Notice::policy(n: Notice::Info)
+{
+    if (n$note != Unsolicited_Write && n$note != First_Time_Writer) return;
+    if (!n?$conn) return;
+    if ([n$conn$id$orig_h, n$conn$id$resp_h] in trusted_writers)
+        add n$actions[Notice::ACTION_IGNORE];
+}
+\end{lstlisting}
+Why a \texttt{Notice::policy} hook rather than editing the rules themselves? Separation of concerns. Detection logic answers \emph{``is this suspicious?''} The notice policy answers \emph{``do we care right now?''} A real SOC tunes the second without touching the first -- so on day two, when the engineering host moves to \texttt{172.28.0.21}, you update one set.
+
+Reload and verify the noise is gone:
+\begin{lstlisting}[language=bash]
+docker compose restart zeek
+sleep 3
+> zeek-logs/notice.log            # truncate for a clean before/after
+docker compose exec -d student python3 /labs/scripts/modbus_poll_loop.py
+sleep 5
+docker compose exec student python3 /labs/scripts/modbus_inject.py
+sleep 2
+docker compose exec student pkill -f modbus_poll_loop
+wc -l zeek-logs/notice.log
+\end{lstlisting}
+Expected: \texttt{0 zeek-logs/notice.log}. The polls are still logged in \texttt{modbus.log} and the write is still logged in \texttt{modbus.log} -- nothing is hidden, only \emph{the alert} is suppressed. Real-world principle: never delete the evidence, only suppress the page.
+\end{stepbox}
+
+% ---------------------------------------------------------------------------
+\section*{Part F -- Layered defence diagram and 62443 mapping}
+% ---------------------------------------------------------------------------
+
+\begin{stepbox}{10 -- Draw the layered defence for this stack}
+On paper (or in any diagramming tool), draw the pipeline below left-to-right, naming the host or container at each stage:
+\begin{center}
+\begin{tikzpicture}[node distance=4mm, every node/.style={font=\scriptsize}]
+  \node[draw, fill=labAccent!10, minimum height=10mm, minimum width=22mm, align=center] (a) {Wire / netns\\(\texttt{eth0})};
+  \node[draw, fill=labAccent!10, minimum height=10mm, minimum width=22mm, align=center, right=of a] (b) {Zeek\\(dissector)};
+  \node[draw, fill=labAccent!10, minimum height=10mm, minimum width=22mm, align=center, right=of b] (c) {\texttt{local.zeek}\\(policy)};
+  \node[draw, fill=labAccent!10, minimum height=10mm, minimum width=22mm, align=center, right=of c] (d) {\texttt{notice.log}\\(JSON)};
+  \node[draw, fill=labAccent!10, minimum height=10mm, minimum width=22mm, align=center, right=of d] (e) {SIEM\\forward};
+  \node[draw, fill=labAccent!10, minimum height=10mm, minimum width=22mm, align=center, right=of e] (f) {SOC\\playbook};
+  \draw[->, thick] (a) -- (b);
+  \draw[->, thick] (b) -- (c);
+  \draw[->, thick] (c) -- (d);
+  \draw[->, thick] (d) -- (e);
+  \draw[->, thick] (e) -- (f);
+\end{tikzpicture}
+\end{center}
+Label each stage with the IEC~62443-3-3 Foundational Requirement it primarily satisfies (same FR vocabulary as the slides). Write the FR number under each box in your sketch:
+
+\renewcommand{\arraystretch}{1.15}
+\begin{center}
+\begin{tabular}{p{26mm}p{18mm}p{78mm}}
+\toprule
+\textbf{Stage} & \textbf{FR} & \textbf{Why} \\
+\midrule
+PCAP capture (netns, SPAN, TAP) & FR3 & System integrity: monitoring channel cannot be tampered with by an attacker on the data plane. \\
+Zeek dissector            & FR6 & Timely response: turning bytes into structured events is the precondition for any alert. \\
+\texttt{local.zeek} policy & FR6 & Detection content. Without rules, the dissector is just an expensive logger. \\
+\texttt{notice.log}        & FR6 & Centralised logging. \\
+SIEM forwarding            & FR5/FR6 & Restricted data flow (one-way push out of the OT zone) plus timely response. \\
+SOC playbook               & FR6 & Human-in-the-loop. The playbook is where ``alert'' becomes ``action.'' \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Reflection question (write the answer in your notes): \emph{which one stage, if it failed silently, would defeat all the others?} Argue for one answer in two sentences.
+\end{stepbox}
+
+% ---------------------------------------------------------------------------
+\section*{Part G -- Stretch: one-line incident summary}
+% ---------------------------------------------------------------------------
+
+\begin{stepbox}{11 -- Build an incident one-liner (stretch goal)}
+The classic Zeek tool is \texttt{zeek-cut}, which selects columns from a TSV log. Our \texttt{local.zeek} sets \texttt{LogAscii::use\_json = T}, so \texttt{notice.log} is JSON -- the modern equivalent is \texttt{jq}. Both paths are shown.
+
+\textbf{Path A: \texttt{jq} on the current JSON logs} (recommended):
+\begin{lstlisting}[language=bash]
+jq -r 'select(.note=="ModbusWatch::First_Time_Writer") |
+       "[\(.ts | todate)] src=\(."id.orig_h") fc=write attacker_msg=\(.msg)"' \
+    zeek-logs/notice.log
+\end{lstlisting}
+Correlate with the write payload from \texttt{modbus.log} (which carries the register address and value) and join on the connection UID:
+\begin{lstlisting}[language=bash]
+UID=$(jq -r 'select(.note=="ModbusWatch::First_Time_Writer") | .uid' \
+        zeek-logs/notice.log | tail -n 1)
+jq -r --arg u "$UID" \
+   'select(.uid==$u and .pdu_type=="REQ") |
+    "alert ts=\(.ts) src=\(."id.orig_h") dst=\(."id.resp_h") func=\(.func)
+                  addr=\(.address // "n/a") value=\(.values // "n/a")"' \
+   zeek-logs/modbus.log
+\end{lstlisting}
+\textbf{Path B: classic \texttt{zeek-cut}.} Toggle Zeek back to TSV first by commenting out the \texttt{redef LogAscii::use\_json = T;} line in \texttt{local.zeek}, restart Zeek, retrigger the attack, then:
+\begin{lstlisting}[language=bash]
+docker compose exec zeek bash -c \
+   'cat /usr/local/zeek/logs/notice.log | \
+    zeek-cut -d ts src note msg | grep First_Time_Writer'
+\end{lstlisting}
+Expected output (single line, columns tab-separated):
+\begin{lstlisting}[language=bash]
+2026-05-19T14:32:07+0000   172.28.0.20   ModbusWatch::First_Time_Writer  ...
+\end{lstlisting}
+Either path gives the SOC the four facts they need to triage in under a minute: \emph{when, who, what, where}. Paste your one-liner into the deliverable.
+\end{stepbox}
+
+% ---------------------------------------------------------------------------
+\section*{Wrap-up}
+% ---------------------------------------------------------------------------
+
 \begin{deliverbox}
-Hand in: \texttt{notice.log} excerpts before and after tuning, your modified \texttt{local.zeek}, and a 5-line answer to: ``\emph{Who would receive this alert in a real SOC, and what is their first action?}''
+Hand in a single PDF or text file with:
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item Your \texttt{/tmp/baseline\_triples.tsv} (the legitimate Modbus inventory).
+  \item The first 5 lines of \texttt{modbus.log} during baseline and the offending lines during the attack.
+  \item \texttt{notice.log} excerpts at three checkpoints: (i) after Step~5 with one alert, (ii) after Step~8 with two alerts, (iii) after Step~9 with zero alerts.
+  \item Your modified \texttt{local.zeek}, complete.
+  \item Your layered-defence sketch with FR labels (Step~10).
+  \item The one-line incident summary from Step~11.
+  \item A 5-line answer to: \emph{``If this alert lands in the SOC at 03:00, who is paged, what is their first action, and what is the one piece of evidence they should preserve before doing anything else?''}
+\end{enumerate}
 \end{deliverbox}
 
+\begin{notebox}{\faLightbulb\ What you should have learned}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item A passive ICS IDS is a dissector plus a policy script. The dissector turns wire bytes into structured events; the policy decides what is notable.
+  \item \texttt{local.zeek} is \emph{code}, not a config file -- stateful sets and event handlers let you express detections that Suricata cannot.
+  \item Tuning is a separate concern from detection. Use \texttt{Notice::policy} hooks to silence noise without weakening the rule.
+  \item Every layer in the pipeline (capture, dissect, decide, log, forward, respond) maps onto an IEC~62443-3-3 FR -- and a single silent failure anywhere in the chain breaks the whole detection.
+\end{itemize}
+\end{notebox}
+
 \begin{warnbox}
-Lab containers only. Zeek here passively observes a private Docker network; running it on a production network requires explicit authorisation and usually a SPAN/TAP feed, not a shared netns.
+Everything in this lab runs against containers you own on a private Docker bridge. Running Zeek on a production network is fine -- it is passive by definition -- but you must use a real SPAN port or a hardware TAP, not a shared network namespace, and you must have written authorisation from the network owner. Writing detection rules against live OT traffic without an agreed change window is also out of scope: a buggy rule that emits a NOTICE on every packet can fill a disk and crash the analyser.
 \end{warnbox}
+
 \end{document}

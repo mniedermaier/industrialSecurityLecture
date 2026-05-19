@@ -19,6 +19,56 @@
   \item Recognise why Safety Instrumented Systems must remain independent.
 }
 
+\begin{frame}{ICS terms in IT language}
+\begin{defbox}{Quick reference --- one-line analogues for the jargon in this deck}
+\begin{columns}[T,onlytextwidth]
+\column{0.5\textwidth}
+\scriptsize
+\begin{itemize}\setlength{\itemsep}{1.5pt}
+  \item \textbf{PLC} --- ruggedised embedded controller with a hard real-time loop.
+  \item \textbf{RTU} --- a PLC variant for remote, low-bandwidth sites (pipelines, substations).
+  \item \textbf{HMI} --- operator dashboard; the ``admin web UI'' of the plant.
+  \item \textbf{SCADA} --- central polling + supervisory commands across many sites.
+  \item \textbf{DCS} --- distributed control system with strict timing SLAs.
+  \item \textbf{SIS} --- independent safety guardrail; trips the plant to a safe state.
+\end{itemize}
+\column{0.5\textwidth}
+\scriptsize
+\begin{itemize}\setlength{\itemsep}{1.5pt}
+  \item \textbf{Historian} --- time-series DB (think InfluxDB / Prometheus).
+  \item \textbf{Scan cycle} --- the PLC's event loop; deterministic, watchdog-enforced.
+  \item \textbf{Ladder logic} --- visual dataflow DSL; the relay diagram that became code.
+  \item \textbf{Modbus} --- tiny key/value store over TCP at fixed 16-bit offsets.
+  \item \textbf{Fieldbus} --- umbrella for industrial network protocols (Modbus, S7, \dots).
+  \item \textbf{Watchdog} --- hardware reset on overrun; like a Kubernetes liveness probe.
+\end{itemize}
+\end{columns}
+\end{defbox}
+\note{
+  Frame this for an IT audience: the deck assumes no electrical-engineering background, so anchor every OT term to its IT equivalent and refer back to this slide whenever a new acronym appears. If a student has only seen web stacks, this single slide should make the rest of the section parseable.
+}
+\end{frame}
+
+\begin{frame}{IEC 62443 anchor for this section}
+\centering
+\begin{tikzpicture}[node distance=2mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small] (a)
+    {\textbf{62443-1-1} \ Concepts \& terminology --- the model and the words};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=110mm, font=\small, below=of a] (b)
+    {\textbf{62443-1-2} \ Master glossary --- one definition of every term};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=110mm, font=\small, below=of b] (c)
+    {\textbf{62443-3-3} \ System security requirements --- maps onto components below};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small, below=of c] (d)
+    {\textbf{62443-4-2} \ Component requirements (PLC, RTU, HMI, SIS, gateway)};
+\end{tikzpicture}
+\par\vspace{2mm}
+{\footnotesize When this section names a device (PLC, RTU, HMI, historian, SIS), \,62443-4-2 says what it must do; \,62443-3-3 says how it fits the system.}
+\source{IEC 62443-1-1:2009 \textbar{} IEC 62443-1-2 (CDV, 2024) \textbar{} IEC 62443-3-3:2013 \textbar{} IEC 62443-4-2:2019.}
+\note{
+  Anchor every component name in this section back to 62443. The standard is the spine; do not let students treat ``PLC'' as a vendor word --- 62443-4-2 specifies what makes something a 62443-compliant PLC (FRs 1--7, capability levels SL-C 1--4). The 1-2 master glossary settles every term we use; if a student argues over a definition this term, send them to 1-2 first. The 3-3 system requirements are the ones we will revisit in Section 08 (defense-in-depth). Pre-empt the misconception that 62443 is just paperwork --- it is the only standard family that names the device classes you can see on a factory floor. Transition: ``Open the standard --- here is the canonical control loop it talks about.''
+}
+\end{frame}
+
 \section{Control Loop and Field Devices}
 
 \begin{frame}{Anatomy of a Control Loop}
@@ -37,6 +87,45 @@
 \end{tikzpicture}
 \note{
   Walk them through the loop physically: a thermocouple drops 4--20\,mA into an analog input card, the PLC scans, the output card drives a contactor, the contactor opens a valve. Pre-empt the IT-brain misconception: in OT, input is \emph{polled} every cycle, not event-driven --- a missed sensor edge between scans is simply lost. A war story I tell: a Siemens S7-300 in a brewery whose cycle slowed from 8 to 60\,ms after someone added a \emph{single} chatty Modbus poll, and the dosing valve started overshooting. Ask the room: ``where in this loop would \emph{you} attack?'' --- they will say PLC, the right answer is usually the sensor or the engineering link. Transition: next slide opens the PLC box itself.
+}
+\end{frame}
+
+\begin{frame}{Sensors --- How the Plant Talks to the PLC}
+\centering
+\begin{tikzpicture}[node distance=2mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, align=left] (a)
+    {\textbf{Analog} (continuous values, like an ADC reading)\\
+     \quad 4--20\,mA current loop (industry default, robust over long cable) \,$\bullet$ \,0--10\,V\\
+     \quad RTD / thermocouple (temperature) \,$\bullet$ \,strain gauge, vibration, level};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=110mm, font=\small, align=left, below=of a] (b)
+    {\textbf{Digital} (discrete on/off, like a GPIO pin)\\
+     \quad 24\,V DC ``DI'' (proximity, limit switch, push-button) \,$\bullet$ \,relay contact\\
+     \quad encoder (pulse train) \,$\bullet$ \,fieldbus message (HART, IO-Link)};
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{notebox}{Security relevance}
+A sensor that lies fools every layer above it. \,4--20\,mA has a built-in tamper signal: 0\,mA = wire cut.
+\end{notebox}
+\source{ISA 5.1-2009 (Instrumentation Symbols) \textbar{} ISA-50.00.01 (4-20 mA standard).}
+\note{
+  Spend a moment on why 4--20\,mA dominates even in 2024: the 4\,mA floor is the integrity check --- a broken or sabotaged wire reads 0\,mA, which is out of band and instantly diagnosable. Compare to 0--5\,V where a cut wire reads 0\,V, indistinguishable from ``valve closed.'' Frame the digital row for IT students: a 24\,V DI is just a GPIO with shock-resistant wiring; an encoder is the same idea as a quadrature input on an Arduino, just rugged. Security relevance lands at the top: every later control decision trusts these readings; if the sensor lies, the PLC, HMI, and historian all lie too. Stuxnet exploited this --- the 21-second replay was a sensor-layer lie. Transition: ``Sensors talk in --- actuators talk out.''
+}
+\end{frame}
+
+\begin{frame}{Actuators --- How the PLC Acts on the Plant}
+\centering
+\begin{tikzpicture}[node distance=3mm]
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=52mm, minimum height=18mm, align=center, font=\small] (a) {\textbf{Discrete}\\\scriptsize relay, contactor, solenoid valve};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=52mm, minimum height=18mm, align=center, font=\small, right=of a] (b) {\textbf{Modulating}\\\scriptsize VFD, control valve, servo drive};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, minimum height=14mm, align=center, font=\small, below=of a, xshift=27mm] (c) {\textbf{Final element} --- the wrench that touches the process};
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{notebox}{Attack target}
+Stuxnet did not attack a sensor or a PLC --- it attacked the \emph{VFDs} (variable-frequency drives) running the centrifuges. Final elements are where consequences live.
+\end{notebox}
+\source{IEC 60534 (Industrial-process control valves) \textbar{} IEC 61800 (Adjustable-speed electrical power drive systems).}
+\note{
+  Two flavours: discrete (binary --- relay open or closed; valve fully open or shut) and modulating (continuous --- VFD speeds, control-valve positions). Stress that the final element is where physics happens; everything else is a digital prelude. Stuxnet's brilliance was that it ignored the PLC's control logic entirely and went straight to the VFDs --- which is why the centrifuges destroyed themselves while every operator screen showed normal readings. Pre-empt the question ``why don't actuators have their own integrity checks?'' --- many do (positioner feedback, motor current, valve travel sensors) but the PLC ignores them by default if not engineered in. Transition: ``The thing wiring sensors to actuators is the PLC.''
 }
 \end{frame}
 
@@ -208,6 +297,28 @@
 }
 \end{frame}
 
+\begin{frame}{ISA-101 --- HMI Design Discipline}
+\centering
+\begin{tikzpicture}[node distance=2mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, align=left] (a)
+    {\textbf{Greyscale by default} --- colour reserved for \emph{abnormal} state};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=110mm, font=\small, align=left, below=of a] (b)
+    {\textbf{Hierarchical layout} --- L1 overview $\to$ L2 unit $\to$ L3 detail $\to$ L4 trends};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=110mm, font=\small, align=left, below=of b] (c)
+    {\textbf{Alarm rationalisation} --- every alarm has a defined operator response};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small, align=left, below=of c] (d)
+    {\textbf{No chrome, no flashing} --- visual noise hides the one alarm that matters};
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{notebox}{Why this matters for security}
+A compromised HMI that follows ISA-101 stands out; a vendor HMI with 500 blinking widgets hides the lie. Good design \emph{is} a detection control.
+\end{notebox}
+\source{ISA-101.01-2015 (Human-Machine Interfaces for Process Automation Systems) \textbar{} B.\ Hollifield et al., \emph{High Performance HMI Handbook}, PAS, 2008.}
+\note{
+  ISA-101 was written in direct response to Three Mile Island (1979) and Deepwater Horizon (2010), both of which had operator-error contributing factors traceable to bad HMI design. The greyscale-by-default rule is the hardest one for IT students to accept --- they expect green to mean ``running'' but ISA-101 says everything normal should be \emph{muted} so the eye is drawn to abnormal red/yellow. The hierarchical L1--L4 layout matches the way an operator moves attention: glance at the overview, drill into a unit if something looks off, drill into a single device only when triaging. Pre-empt the question ``what about modern web-style HMIs?'' --- Inductive Automation Ignition Perspective, AVEVA HMI Studio, and Siemens WinCC Unified all support ISA-101 styling but ship with non-compliant templates by default. Transition: ``The data flowing through those displays goes to the historian.''
+}
+\end{frame}
+
 \begin{frame}{Historian -- Time-Series of the Plant}
 \centering
 \begin{tikzpicture}[node distance=10mm]
@@ -314,6 +425,33 @@ Different processes have different ``safe states'' -- shutdown is fine for discr
 \end{notebox}
 \note{
   The takeaway here is that ``just shut it down'' is bad incident-response advice in OT. A discrete car-body line can stop mid-rung and resume; a continuous catalytic cracker cannot --- cooling without flow cokes the tubes and turns a million-euro vessel into scrap. Batch plants (ISA-88 recipe management) sit in between: a hold-point exists, but only at specific phase transitions. Pre-empt the misconception ``isolating the network is always safe'' --- yanking the network on a continuous DCS can starve the controllers of setpoints they need, which itself trips the plant. Optional question: ``what is the safe state of an offshore gas platform?'' --- usually depressurise-and-vent, which is itself a controlled, hours-long procedure. Transition: wrap up with the summary takeaways for this section.
+}
+\end{frame}
+
+\begin{frame}{From Field Wire to Cloud --- the Modern Data Path}
+\centering
+\begin{tikzpicture}[node distance=3mm, every node/.style={font=\scriptsize}, scale=0.86, transform shape]
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=22mm, minimum height=12mm, align=center] (s) {Sensor\\4--20\,mA};
+  \node[isbox, fill=isPLC!20, draw=isPLC, minimum width=22mm, minimum height=12mm, align=center, right=of s] (plc) {PLC\\(scan loop)};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=22mm, minimum height=12mm, align=center, right=of plc] (hmi) {HMI\\(L2)};
+  \node[isbox, fill=isOT!20, draw=isOT, minimum width=22mm, minimum height=12mm, align=center, right=of hmi] (hist) {Historian\\(L3)};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=22mm, minimum height=12mm, align=center, right=of hist] (gw) {Edge GW\\(L3.5)};
+  \node[isbox, fill=isIT!15, draw=isIT, minimum width=22mm, minimum height=12mm, align=center, right=of gw] (cloud) {Cloud\\(L4/5)};
+  \foreach \x/\y in {s/plc, plc/hmi, hmi/hist, hist/gw, gw/cloud}{\draw[flow] (\x) -- (\y);}
+  \node[font=\tiny, below=2mm of s] {analog};
+  \node[font=\tiny, below=2mm of plc] {Modbus};
+  \node[font=\tiny, below=2mm of hmi] {OPC UA};
+  \node[font=\tiny, below=2mm of hist] {SQL};
+  \node[font=\tiny, below=2mm of gw] {MQTT/TLS};
+  \node[font=\tiny, below=2mm of cloud] {REST};
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{importantbox}{Six protocols, six trust boundaries}
+Each arrow is a different protocol \emph{and} a different security domain. The edge gateway is where most modern attacks land.
+\end{importantbox}
+\source{Section 03 (Network Architecture) and Section 04 (Protocols) revisit each hop in depth.}
+\note{
+  This is the ``one slide that explains the rest of the course'' slide. The data path from a 4--20\,mA sensor wire to a cloud REST endpoint passes through six protocols and six trust boundaries; every later section in this course is about defending one or two of those hops. Walk left-to-right and ask the room ``which hop is hardest to authenticate?'' --- usually the Modbus one, because the protocol has no notion of identity. Point at the edge gateway and tell them this is where most modern attacks land in 2024 --- compromised gateway with a stolen cloud key, exfiltrate or inject. Pre-empt the question ``does every plant look like this?'' --- many still stop at the historian and have no cloud arrow; an equal number have started with the cloud arrow and have not yet built the historian. Transition: ``We have seen the static picture. Section 03 now puts a network underneath it.''
 }
 \end{frame}
 

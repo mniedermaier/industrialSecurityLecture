@@ -4,13 +4,10 @@
 \documentclass[border=2pt]{standalone}
 \usepackage{tikz}
 \usetikzlibrary{shapes.geometric}
-\definecolor{logoA}{HTML}{1F4E79}
-\definecolor{logoB}{HTML}{E08E0B}
+\definecolor{logoA}{HTML}{00205B}
+\definecolor{logoB}{HTML}{00A0DC}
 \begin{document}
 \begin{tikzpicture}
-  \node[regular polygon, regular polygon sides=6, draw=logoA, line width=1.5pt, minimum size=18mm, fill=logoA!10] (h) {};
-  \node[font=\bfseries\Large, color=logoA] at (h.center) {IS};
-  \node[anchor=west, font=\bfseries\Large, color=logoA] at (h.east) {Industrial};
-  \node[anchor=west, font=\bfseries\Large, color=logoB] at ([yshift=-5mm]h.east) {Security};
+  \node[font=\bfseries\Large, color=logoA] {Industrial};
 \end{tikzpicture}
 \end{document}

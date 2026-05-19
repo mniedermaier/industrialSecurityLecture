@@ -259,6 +259,164 @@ When you cannot patch quickly, deploy a virtual patch (IPS rule) or tighten the 
 }
 \end{frame}
 
+%% Frame 1: IEC 62443 anchor for §06
+\begin{frame}{IEC 62443 anchor for this section}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.85, transform shape]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, align=left] (a)
+    {\textbf{62443-4-1} \ Secure Product Development Lifecycle --- \emph{vendor side}\\
+     \quad threat modelling, secure coding, vuln handling, PSIRT, signed firmware};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=110mm, font=\small, align=left, below=of a] (b)
+    {\textbf{62443-2-3} \ Patch management --- \emph{asset-owner side}\\
+     \quad subscribe, compatibility-test, schedule, rollback, document};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=110mm, font=\small, align=left, below=of b] (c)
+    {\textbf{62443-3-2} \ Risk assessment for the SuC --- consequence scoring per zone};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small, align=left, below=of c] (d)
+    {\textbf{62443-4-2} \ Component requirements --- what a ``patchable'' PLC must support};
+\end{tikzpicture}
+\par\vspace{2mm}
+{\footnotesize Vendor ships a signed patch under 4-1; operator decides \emph{when} to install under 2-3.}
+\source{IEC 62443-4-1:2018 \textbar{} IEC 62443-2-3:2015 \textbar{} IEC 62443-3-2:2020 \textbar{} IEC 62443-4-2:2019.}
+\note{
+  4-1 is vendor's homework: documented SDL, accept vulnerability reports, signed patches, certified process (Siemens, Rockwell, Schneider, ABB, Honeywell all hold 4-1 certs from TUV/exida). 2-3 is asset owner's homework: subscribe to PSIRT, test in staging cell, schedule maintenance window, document result. The split is load-bearing: a vendor cannot patch your plant for you. IT analogue: 4-1 = ``upstream maintainer publishes CVE fix,'' 2-3 = ``downstream distro packages, tests, rolls out.'' 3-2 tells you whether a CVE is urgent in \emph{your} zone; 4-2 tells you whether the device can even accept a signed update.
+}
+\end{frame}
+
+%% Frame 2: Anatomy of a CISA ICS Advisory
+\begin{frame}{Anatomy of a CISA ICS Advisory --- ICSA-23-103-10}
+\centering
+\begin{tikzpicture}[node distance=1.5mm, scale=0.85, transform shape]
+  \node[isbox, fill=slidePanel, draw=isOT, minimum width=120mm, align=left, font=\scriptsize] (a)
+    {\textbf{ICSA-ID:} ICSA-23-103-10 \quad\textbar\quad \textbf{Published:} 13 Apr 2023 \quad\textbar\quad \textbf{Vendor:} Siemens};
+  \node[isbox, fill=slidePanel, draw=isOT, minimum width=120mm, align=left, font=\scriptsize, below=of a] (b)
+    {\textbf{Affected:} SIMATIC CP 1242-7, CP 1243-1/-7/-8 (firmware $<$ V3.4.36)};
+  \node[isbox, fill=slidePanel, draw=isOT, minimum width=120mm, align=left, font=\scriptsize, below=of b] (c)
+    {\textbf{CVEs:} CVE-2022-46140 (hard-coded credential, CWE-798)};
+  \node[isbox, fill=slidePanel, draw=isOT, minimum width=120mm, align=left, font=\scriptsize, below=of c] (d)
+    {\textbf{CVSS v3.1:} 7.5 \ \texttt{AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N} (network, no auth, confid.\ only)};
+  \node[isbox, fill=slidePanel, draw=isOT, minimum width=120mm, align=left, font=\scriptsize, below=of d] (e)
+    {\textbf{Impact:} Remote attacker can extract sensitive configuration data over the network};
+  \node[isbox, fill=slidePanel, draw=isOT, minimum width=120mm, align=left, font=\scriptsize, below=of e] (f)
+    {\textbf{Mitigation:} Upgrade firmware to V3.4.36; restrict network access to port 102 (S7)};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=120mm, align=left, font=\scriptsize, below=of f] (g)
+    {\textbf{Cross-ref:} Siemens SSA-479249 --- vendor PSIRT, same content, often first};
+\end{tikzpicture}
+\source{CISA, \emph{ICSA-23-103-10 Siemens SIMATIC CP}, 13 Apr 2023 \textbar{} Siemens SSA-479249, 2023.}
+\note{
+  ICSA-ID encodes year (23), day-of-year (103 = 13 Apr), sequence number (10). Affected band is load-bearing: without firmware version in CMDB you cannot answer ``are we vulnerable?'' CVSS vector: AV:N = network-reachable, AC:L = no special conditions, PR:N = no auth, C:H/I:N/A:N = leaks data but does not corrupt or DoS. Every CISA advisory has a vendor PSIRT twin, usually published first by days/weeks. IT analogue: OT equivalent of Ubuntu USN that bundles upstream CVEs. Question: ``why only 7.5 not 9.8?'' --- only leaks data, no RCE or DoS.
+}
+\end{frame}
+
+%% Frame 3: PLC Firmware Update Path
+\begin{frame}{PLC Firmware Update Path}
+\centering
+\begin{tikzpicture}[node distance=3mm, scale=0.86, transform shape]
+  \node[server, fill=isOT!15, draw=isOT, minimum width=20mm, font=\scriptsize, align=center] (dev) {Vendor\\dev};
+  \node[server, fill=isOT!15, draw=isOT, minimum width=20mm, font=\scriptsize, align=center, right=of dev] (sign) {Sign\\(HSM)};
+  \node[server, fill=isAccent!15, draw=isAccent, minimum width=20mm, font=\scriptsize, align=center, right=of sign] (psirt) {PSIRT\\release};
+  \node[server, fill=isPLC!15, draw=isPLC, minimum width=22mm, font=\scriptsize, align=center, right=of psirt] (bench) {Asset-owner\\bench test};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=22mm, font=\scriptsize, align=center, right=of bench] (cab) {Change\\board};
+  \node[plc, fill=isPLC!20, draw=isPLC, minimum width=20mm, font=\scriptsize, align=center, right=of cab] (plc) {PLC\\(prod)};
+  \foreach \x/\y in {dev/sign, sign/psirt, psirt/bench, bench/cab, cab/plc}{\draw[flow] (\x) -- (\y);}
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{tikzpicture}[node distance=2mm]
+  \node[isbox, fill=isIT!15, draw=isIT, minimum width=54mm, minimum height=18mm, align=left, font=\scriptsize] (it)
+    {\textbf{IT analogue: \texttt{apt-get upgrade}}\\
+     CVE $\to$ patch $\to$ reboot.\\
+     Lead time: hours.};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=54mm, minimum height=18mm, align=left, font=\scriptsize, right=of it] (ot)
+    {\textbf{OT reality}\\
+     SIL re-cert, plant downtime,\\
+     rollback firmware staged.\\
+     Lead time: 30--180 days.};
+\end{tikzpicture}
+\source{IEC 62443-2-3:2015 \textbar{} INL, \emph{Recommended Practice: Patch Management for Control Systems}, 2008.}
+\note{
+  Top chain is the happy path: vendor signs with HSM-backed key (Siemens, Rockwell, Schneider all do this --- bootloader verifies signature, refuses unsigned), publishes via PSIRT, asset owner downloads, bench-tests on replica, takes to change-advisory board, pushes during maintenance window. Bottom row is the message: \texttt{apt-get upgrade} is one command at 02:00; OT firmware update is a 30--180-day project. Cost driver is IEC 61508/61511 functional-safety re-certification after the change, plus lost-production dollars during the window. Pre-empt ``why not just push it?'' --- an unverified firmware update bricking a controller during continuous process can cost more than the IT department's annual budget.
+}
+\end{frame}
+
+%% Frame 4: Notable ICS CVEs Walk-Through
+\begin{frame}{Notable ICS CVEs --- A Walk-Through}
+\centering
+\renewcommand{\arraystretch}{1.15}
+\scriptsize
+\begin{tabular}{|p{22mm}|p{30mm}|p{28mm}|p{34mm}|}
+\hline
+\rowcolor{slidePanel}
+\textbf{CVE / year} & \textbf{Product} & \textbf{Vector} & \textbf{Lesson} \\
+\hline
+CVE-2010-2568 (2010) & Windows .LNK (Stuxnet vehicle) & USB autoload via crafted shortcut & Air-gaps leak through removable media \\
+\hline
+CVE-2012-6068 (2012) & Modicon Quantum (Schneider) & Unauth firmware upload over Modbus/138 & ``By design'' is not a defence \\
+\hline
+CVE-2018-7522 (2018) & Schneider TriStation (TRITON) & Unauth write to safety controller & Safety bus deserves its own zone \\
+\hline
+CVE-2021-22779 (2021) & Modicon M340/M580 (Modipwn) & UMAS auth bypass $\to$ RCE & Vendor protocols hide weak auth \\
+\hline
+CVE-2022-38465 (2022) & Siemens S7-1500 & Global hard-coded private key & Per-device keys, not per-product \\
+\hline
+\end{tabular}
+\par\vspace{2mm}
+\begin{notebox}{Pattern}
+Four out of five are protocol-level auth failures. Network segmentation buys time; firmware fixes close the door.
+\end{notebox}
+\source{MITRE CVE database, 2010--2022 \textbar{} Schneider SEVD-2021-130-07 (Modipwn) \textbar{} Claroty Team82, \emph{Race to Native Code Execution in PLCs}, 2022 \textbar{} Dragos, \emph{TRISIS}, 2017.}
+\note{
+  Stuxnet LNK (CVE-2010-2568): .LNK parser auto-loaded the malicious DLL when Windows Explorer rendered the icon --- no click required --- crossed onto Natanz engineering laptops. Modicon Quantum unauth firmware upload (CVE-2012-6068, Reid Wightman, Project Basecamp): the ``by design'' embarrassment that became the ICS-security rallying cry. TRITON / TRISIS targeted Triconex SIS in 2017 and accidentally tripped safety. Modipwn (Claroty Team82, 2021) chained UMAS auth-bypass into RCE. S7-1500 hardcoded-key (CVE-2022-38465): \emph{global} private key shared across every device shipped. Pattern: protocol auth is the recurring failure; segmentation buys you the months vendor takes to ship firmware.
+}
+\end{frame}
+
+%% Frame 5: CVSS for OT --- Its Limits
+\begin{frame}{CVSS for OT --- Its Limits}
+\centering
+\begin{tikzpicture}[node distance=3mm, scale=0.85, transform shape]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=120mm, font=\scriptsize, align=left] (a)
+    {\textbf{Base score} (vendor): CVE-2022-XXXX, CVSS 7.5 --- ``high''};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=120mm, font=\scriptsize, align=left, below=of a] (b)
+    {\textbf{Environmental} (you): zone behind data diode, no inbound TCP $\Rightarrow$ \texttt{MAV:P} $\Rightarrow$ \emph{score 4.6}};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=120mm, font=\scriptsize, align=left, below=of b] (c)
+    {\textbf{Consequence} (62443-3-2): worst case = ``recipe IP leak,'' no safety impact $\Rightarrow$ \emph{tolerable}};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=120mm, font=\scriptsize, align=left, below=of c] (d)
+    {\textbf{Decision:} defer to next maintenance window; add IDS rule as compensating control};
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{warnbox}{What CVSS does not encode}
+Plant shutdown cost, safety-instrumented trip, regulatory reporting, time-to-restart. A CVSS 9.8 on an air-gapped SIS console may be ``no action.'' A CVSS 5.0 on a perimeter HMI may be ``stop the line.''
+\end{warnbox}
+\source{FIRST, \emph{CVSS v3.1 Specification}, 2019 \textbar{} IEC 62443-3-2:2020 \textbar{} CISA, \emph{ICS-CERT environmental scoring guidance}.}
+\note{
+  Vendor base score is a \emph{starting point}, not a verdict. Environmental modifiers (MAV, MAC, MPR, CR/IR/AR) pull the score toward your reality. CVSS has no field for ``plant shutdown costs EUR 80k/h'' or ``trip safety + 12h restart.'' That gap is what IEC 62443-3-2 fills with formal consequence scoring per zone. Concrete: CVSS 9.8 RCE on HMI behind one-way data diode literally cannot be reached --- modified vector is \texttt{Physical}. Counter: CVSS 5.0 info disclosure on internet-exposed remote-access gateway may need immediate take-down. Score $\neq$ priority in OT. Always combine base, environmental, consequence.
+}
+\end{frame}
+
+%% Frame 6: Firmware Supply Chain
+\begin{frame}{Firmware Supply Chain --- Where Trust Breaks}
+\centering
+\begin{tikzpicture}[node distance=1mm, scale=0.72, transform shape]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=120mm, font=\scriptsize, align=left] (a)
+    {\textbf{Coordinated disclosure} --- researcher $\to$ PSIRT $\to$ patch $\to$ advisory (gold standard)};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=120mm, font=\scriptsize, align=left, below=of a] (b)
+    {\textbf{Silent fix} --- changelog reads ``stability improvements''; no CVE, no advisory};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=120mm, font=\scriptsize, align=left, below=of b] (c)
+    {\textbf{Compromised build pipeline} --- SolarWinds (2020), 3CX (2023): signed by the real vendor};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=120mm, font=\scriptsize, align=left, below=of c] (d)
+    {\textbf{Hardware implant} --- SYNful Knock router implant (2015, confirmed)};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=120mm, font=\scriptsize, align=left, below=of d] (e)
+    {\textbf{Component / library} --- Ripple20 (Treck, 2020), URGENT/11 (VxWorks, 2019) --- one bug, hundreds of vendors};
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{importantbox}{Why this matters for an asset owner}
+A signed firmware update is only as trustworthy as the vendor's signing key, build pipeline, and every third-party stack inside it. SBOM (CISA, 2021+) is the emerging answer.
+\end{importantbox}
+\source{Forescout/JSOF, \emph{Ripple20}, 2020 \textbar{} Armis, \emph{URGENT/11}, 2019 \textbar{} Mandiant, \emph{SolarWinds SUNBURST}, 2020 \textbar{} Mandiant, \emph{3CX Supply Chain}, 2023 \textbar{} CISA, \emph{SBOM Guidance}, 2021.}
+\note{
+  Row 1 is how it should work: Siemens ProductCERT, Rockwell PSIRT, Schneider CPCERT, ABB CSIRT run coordinated disclosure; advisory drops with patch. Row 2 reality: silent fixes happen; subscribe to third-party feeds like Claroty Team82 to catch them. Row 3 SolarWinds class: attacker compromised build server, malicious DLL signed by the real vendor key, verified cleanly on every customer; 3CX same pattern in 2023. Row 4 hardware: SYNful Knock (Mandiant 2015) confirmed Cisco router image implant. Row 5 component-supply-chain: Ripple20 was 19 bugs in Treck TCP/IP shipped inside hundreds of OT vendors' firmware, traceable via SBOM. Takeaway: a signed image proves provenance, not goodness. SBOM (CISA-mandated for federal procurement since 2021) is the practical lever.
+}
+\end{frame}
+
+
 \begin{frame}{Summary -- Section \sectionNumber}
 \begin{takeawaybox}{What to remember from this section}
 \begin{itemize}\setlength{\itemsep}{2pt}

@@ -2,9 +2,9 @@
 
 \def\courseTitle{Industrial Security (Bachelor)}
 \def\labNumber{07}
-\def\labTitle{Risk Matrix Workshop}
+\def\labTitle{Cyber-PHA on the Conveyor Plant}
 \def\labSection{07}
-\def\labTime{60 min, group of 3--4}
+\def\labTime{60--90 min}
 
 \input{../../../template/lab-preamble.tex}
 
@@ -12,30 +12,365 @@
 \labheader
 
 \begin{goalbox}
-Build a defensible cyber risk register for a fictional gas compressor station and use it to argue for three concrete investments.
+Walk the OpenPLC conveyor through a full Cyber-PHA methodology end-to-end: bow-tie, Cyber-HAZOP, LOPA, risk register, response decision, and a stretch FAIR estimate. The plant is a toy, but the procedure is exactly what you would run on a refinery or water utility -- only the asset list is shorter.
 \end{goalbox}
 
-\begin{stepbox}{1 -- Define your scales}
-Define a 5-point \textbf{Likelihood} scale and a 5-point \textbf{Consequence} scale tailored to a midstream gas operator. Consequence dimensions must include \emph{safety, environment, production loss, regulatory}.
+\section*{Why this lab exists}
+
+In labs~01--06 you ran tools against the conveyor. Here you do no scanning at all: you sit with the ladder source on screen and produce the paperwork an auditor actually asks for. Risk management is a \emph{writing} exercise -- the artefacts you produce here are what regulators (NIS2, NIST 800-82~R3, IEC 62443-3-2) demand.
+
+\medskip\noindent
+\textbf{IT analogy.} A Cyber-PHA is the OT cousin of an IT threat model. Where STRIDE asks ``what can go wrong with this data flow?'', a Cyber-PHA asks ``what can go wrong with this \emph{physical process}, and which of those failures can an attacker cause on purpose?'' The verbs (\emph{No}, \emph{More}, \emph{Less}, \emph{Reverse}, \emph{As Well As}) replace STRIDE's letters; the rhythm is the same.
+
+\section*{Part A -- Pre-flight: read the ladder logic}
+
+\begin{stepbox}{A1 -- Read \texttt{conveyor.st}}
+Open the ladder source that the OpenPLC container loads at boot:
+\begin{lstlisting}[language=bash]
+less bachelor/labs/_stack/scripts/ladder/conveyor.st
+\end{lstlisting}
+You should see a single seal-in latch:
+\begin{lstlisting}
+Motor := (Start OR Motor) AND Stop AND Guard1 AND Guard2;
+Lamp  := Motor;
+\end{lstlisting}
+This is the entire ``process'' you will analyse. Treat it as the smallest possible industrial plant.
 \end{stepbox}
 
-\begin{stepbox}{2 -- Brainstorm risks}
-List \textbf{ten} cyber risks affecting the station. Examples: ransomware on the Historian, vendor remote-access compromise, USB-borne malware on engineering laptops, SIS bypass via TriStation analogue, etc. Place each in your matrix.
+\begin{stepbox}{A2 -- Inventory the I/O}
+Fill in the table below (write directly on this sheet). Mark whether each item is a \textbf{sensor} (input), an \textbf{actuator} (output), or a \textbf{logic state} (internal). For each, write a one-line consequence of the item being \emph{stuck in the wrong state}.
+
+\medskip
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{|p{18mm}|p{20mm}|p{32mm}|p{75mm}|}
+\hline
+\textbf{Tag} & \textbf{Address} & \textbf{Role} & \textbf{Consequence if stuck wrong} \\
+\hline
+Start  & \%IX0.0 & momentary push-button & \\
+\hline
+Stop   & \%IX0.1 & normally-closed e-stop & \\
+\hline
+Guard1 & \%IX0.2 & light-curtain / photo-eye & \\
+\hline
+Guard2 & \%IX0.3 & light-curtain / photo-eye & \\
+\hline
+Motor  & \%QX0.0 & conveyor drive contactor & \\
+\hline
+Lamp   & \%QX0.1 & running indicator & \\
+\hline
+\end{tabular}
+
+\medskip\noindent
+\textbf{IT analogy.} A sensor is a read-only API endpoint; an actuator is a write endpoint with real-world side effects; the seal-in latch is one line of stateful business logic. Modbus exposes all three to anyone on the network without authentication.
 \end{stepbox}
 
-\begin{stepbox}{3 -- Pick top three}
-Sort by combined score. For the top three risks, write one Cyber-HAZOP-style row: \emph{guide word, deviation, cyber cause, existing safeguards, gap.}
+\begin{stepbox}{A3 -- Note the trust assumptions}
+Re-read line~12 of \texttt{conveyor.st} and write the answer in one sentence: \emph{what does the PLC implicitly trust about the four input bits?} Why is this trust dangerous over Modbus/TCP (recall lab~04)?
 \end{stepbox}
 
-\begin{stepbox}{4 -- Investment case}
-For each top-three risk, propose one mitigation with rough cost (low / medium / high) and time (this quarter / this year / multi-year).
+\section*{Part B -- Bow-tie: define the top event}
+
+\begin{stepbox}{B1 -- Pick a top event}
+A bow-tie analysis sits the \emph{top event} -- the moment things go from ``everything fine'' to ``incident'' -- at the centre of the diagram. For a conveyor, choose one:
+
+\medskip
+\begin{tabular}{p{8mm}p{145mm}}
+$\square$ & \textbf{TE-A:} Motor runs while a guard is open $\rightarrow$ pinch injury to a maintenance worker. \\
+$\square$ & \textbf{TE-B:} Conveyor jams under load, motor keeps energising $\rightarrow$ belt overheats, smoulders, ignites stored cardboard $\rightarrow$ warehouse fire. \\
+$\square$ & \textbf{TE-C:} Stop button presses ignored $\rightarrow$ unsafe run-on past shift end. \\
+\end{tabular}
+
+\medskip\noindent
+We will use \textbf{TE-B} for the rest of the exercise. It is the most consequence-rich and the most cyber-relevant.
+\end{stepbox}
+
+\begin{stepbox}{B2 -- List cyber initiating events}
+The left half of the bow-tie lists causes -- things that can independently lead to the top event. We restrict ourselves to \emph{cyber} causes (an attacker on the OT LAN with a copy of \texttt{pymodbus}). Complete the three rows below with one concrete attack action each.
+
+\medskip
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{|p{16mm}|p{40mm}|p{90mm}|}
+\hline
+\textbf{ID} & \textbf{Cyber initiating event} & \textbf{Concrete attack action (one line)} \\
+\hline
+IE-1 & Setpoint write via Modbus & \emph{example:} attacker writes \texttt{1} to coil \%QX0.0 forcing Motor on, ignoring guards \\
+\hline
+IE-2 & Spoofed sensor read & \\
+\hline
+IE-3 & Logic bypass via PLC reprogramming & \\
+\hline
+\end{tabular}
+
+\medskip\noindent
+Hint for IE-2: which of the four input bits, if forced \texttt{TRUE}, would defeat a safety interlock? Hint for IE-3: OpenPLC accepts a new \texttt{.st} upload over its web UI with default credentials -- recall lab~05.
+\end{stepbox}
+
+\begin{stepbox}{B3 -- List consequence categories}
+The right half of the bow-tie lists consequences -- the impact dimensions a manager has to defend in a board meeting. For TE-B, fill one concrete line per category:
+
+\medskip
+\begin{tabular}{|p{30mm}|p{120mm}|}
+\hline
+\textbf{Safety}        & \\
+\hline
+\textbf{Environment}   & \\
+\hline
+\textbf{Production}    & \\
+\hline
+\textbf{Regulatory}    & \\
+\hline
+\textbf{Reputation}    & \\
+\hline
+\end{tabular}
+
+\medskip\noindent
+\textbf{IT analogy.} An IT incident usually has one consequence axis: data confidentiality. An OT incident has five, and \emph{safety dominates everything else} -- once a human can be hurt, the cost-benefit math from FAIR no longer applies (we return to this in Part~G).
+\end{stepbox}
+
+\section*{Part C -- Cyber-HAZOP: walk the guide words}
+
+\begin{stepbox}{C1 -- Apply the IEC 61882 guide words}
+A HAZOP picks a \emph{parameter} (a signal, a flow, a setpoint) and walks five deviation verbs over it. The classic verbs are \textbf{No}, \textbf{More}, \textbf{Less}, \textbf{Reverse}, and \textbf{As Well As}. Cyber-HAZOP adds the qualifier ``\ldots caused by an attacker.''
+
+Pick \textbf{Motor} (\%QX0.0) as your parameter. Complete the table.
+
+\medskip
+\renewcommand{\arraystretch}{1.35}
+\footnotesize
+\begin{tabular}{|p{16mm}|p{32mm}|p{46mm}|p{46mm}|}
+\hline
+\textbf{Guide word} & \textbf{Deviation} & \textbf{Cyber cause} & \textbf{Consequence} \\
+\hline
+No          & Motor never runs                & e.g.\ Stop bit pinned \texttt{FALSE} & line halted, lost shift \\
+\hline
+More        & Motor runs harder / longer      & & \\
+\hline
+Less        & Motor under-runs / chatters     & & \\
+\hline
+Reverse     & Motor runs backwards            & & \\
+\hline
+As Well As  & Motor runs \emph{and} something else (lamp off, alarm muted) & & \\
+\hline
+\end{tabular}
+
+\medskip\noindent
+\textbf{Note.} The conveyor.st program does not expose a direction bit, so ``Reverse'' is \emph{not credible} for this plant -- write ``N/A: hardware-fixed single direction'' and move on. Documenting a verb as \emph{not applicable} is a HAZOP output, not a failure of the method.
+\end{stepbox}
+
+\begin{stepbox}{C2 -- Repeat for one input}
+Now repeat the same five-row table for \textbf{Guard1} (\%IX0.2). For each verb, ask the security-flavoured question: \emph{what if an attacker caused Guard1 to deviate that way?}
+
+\medskip
+\renewcommand{\arraystretch}{1.35}
+\footnotesize
+\begin{tabular}{|p{16mm}|p{32mm}|p{46mm}|p{46mm}|}
+\hline
+\textbf{Guide word} & \textbf{Deviation on Guard1} & \textbf{Cyber cause} & \textbf{Consequence} \\
+\hline
+No          & & & \\
+\hline
+More        & (degenerate -- it is a Boolean) & N/A & N/A \\
+\hline
+Less        & (degenerate -- it is a Boolean) & N/A & N/A \\
+\hline
+Reverse     & Guard reads as opposite state & & \\
+\hline
+As Well As  & Guard reads OK \emph{and} attacker writes Motor=1 & & \\
+\hline
+\end{tabular}
+
+\medskip\noindent
+\textbf{Lesson.} Most conveyor signals are Boolean, so three of the five guide words collapse. On a real plant with analogue signals (flow rate, pressure, temperature, level) all five verbs are live and each row yields one or two attacker scenarios. The full HAZOP grows quickly.
+\end{stepbox}
+
+\section*{Part D -- LOPA: count the layers}
+
+\begin{stepbox}{D1 -- Inventory the protection layers}
+LOPA (Layer Of Protection Analysis, CCPS~2001) lists every \emph{independent} barrier between an initiating event and the top event, and assigns each a probability of failure on demand (PFD). For each row below, decide whether the layer exists on the conveyor plant, then decide whether \emph{a single cyber attacker} can defeat it. Tick the boxes.
+
+\medskip
+\renewcommand{\arraystretch}{1.35}
+\footnotesize
+\begin{tabular}{|p{38mm}|p{42mm}|p{18mm}|p{42mm}|}
+\hline
+\textbf{Layer} & \textbf{Realisation on conveyor} & \textbf{Exists?} & \textbf{Cyber-defeatable?} \\
+\hline
+Process design (inherent) & Motor sized so it stalls without damage & $\square$ Y $\square$ N & \\
+\hline
+BPCS (main controller)    & The ladder seal-in latch itself & $\square$ Y $\square$ N & \\
+\hline
+Alarms + operator action  & Indicator lamp on the panel & $\square$ Y $\square$ N & \\
+\hline
+SIS (independent safety)  & Separate hard-wired e-stop \emph{not} via PLC & $\square$ Y $\square$ N & \\
+\hline
+Physical protection       & Mechanical guard around pinch points & $\square$ Y $\square$ N & \\
+\hline
+Emergency response        & Operator with fire extinguisher & $\square$ Y $\square$ N & \\
+\hline
+\end{tabular}
+
+\medskip\noindent
+\textbf{Independence is the value.} The whole LOPA argument relies on layers being independent: a single failure (or attack) must not collapse two layers at once. On the toy conveyor, the BPCS \emph{and} the lamp \emph{and} (if it existed) a software-only e-stop are all the same PLC -- one cyber compromise removes all three.
+\end{stepbox}
+
+\begin{stepbox}{D2 -- Score the residual}
+Multiply the PFD of every layer you ticked as ``Exists~AND~not cyber-defeatable'' to get the residual frequency of the top event. Use $10^{-1}$ for an alarm/operator layer, $10^{-2}$ for a SIL-2 SIS, $10^{-3}$ for an inherently-safer design, $1$ (no credit) for any layer that a cyber attacker can defeat.
+
+\medskip
+Initiating event frequency (cyber attempt against an Internet-exposed OpenPLC):
+$f_{\textit{IE}} \approx 1\ \text{per year}$ (this is generous; see Shodan).
+
+\medskip
+Residual frequency:
+\[
+f_{\textit{TE}} \;=\; f_{\textit{IE}} \times \prod_{\text{independent layers}} \text{PFD}_i
+\]
+
+Write your computed $f_{\textit{TE}}$ here: \underline{\hspace{60mm}} per year.
+
+\medskip\noindent
+\textbf{Sanity check.} If your number is $\geq 10^{-2}$ per year (i.e.\ once every century or more often) for a fire-class consequence, the plant is \emph{not} ALARP-compliant under UK HSE doctrine and a regulator would demand additional layers.
+\end{stepbox}
+
+\section*{Part E -- Risk register row}
+
+\begin{stepbox}{E1 -- Write one complete row}
+Pick whichever of IE-1, IE-2, IE-3 you find most credible and fill exactly one row of the six-column register. This is the artefact that lands in front of the auditor.
+
+\medskip
+\renewcommand{\arraystretch}{1.4}
+\footnotesize
+\begin{tabular}{|p{14mm}|p{22mm}|p{28mm}|p{18mm}|p{22mm}|p{18mm}|}
+\hline
+\textbf{Zone} & \textbf{Threat} & \textbf{Vulnerability} & \textbf{Likely.} & \textbf{Consequence} & \textbf{Residual} \\
+\hline
+& & & & & \\
+& & & & & \\
+& & & & & \\
+\hline
+\end{tabular}
+
+\medskip\noindent
+Guidance for each cell:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Zone}: name the IEC 62443 zone (e.g.\ \emph{Z-CONV-01: Conveyor cell PLC}).
+  \item \textbf{Threat}: name the actor (\emph{unauthenticated attacker on OT LAN}, \emph{disgruntled insider}, \emph{commodity ransomware}\,\ldots).
+  \item \textbf{Vulnerability}: cite the concrete weakness (\emph{Modbus accepts unauthenticated coil writes}, \emph{OpenPLC web UI default credentials}, \emph{no MFA on vendor VPN}).
+  \item \textbf{Likelihood}: 1--5 from your scale; justify in one phrase.
+  \item \textbf{Consequence}: 1--5 from your scale; cite the bow-tie consequence row.
+  \item \textbf{Residual}: combine $L \times C$ \emph{after} the LOPA credit from Part~D.
+\end{itemize}
+
+\medskip
+Then add the two follow-on lines that every defensible register row carries:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Controls in place:} \underline{\hspace{120mm}}
+  \item \textbf{Treatment:} \underline{\hspace{125mm}}
+  \item \textbf{Owner:} \underline{\hspace{30mm}} \quad \textbf{Review:} \underline{\hspace{20mm}} \quad \textbf{SL-T:} \underline{\hspace{10mm}}
+\end{itemize}
+\end{stepbox}
+
+\section*{Part F -- Risk response decision}
+
+\begin{stepbox}{F1 -- Pick one of the four canonical responses}
+ISO 31000:2018 names four options. Tick exactly one for the risk you registered in E1 and write a one-sentence justification.
+
+\medskip
+\begin{tabular}{|p{22mm}|p{42mm}|p{82mm}|}
+\hline
+\textbf{Response} & \textbf{Meaning} & \textbf{Your justification} \\
+\hline
+$\square$ Avoid    & Remove the function entirely & \\
+\hline
+$\square$ Mitigate & Reduce $L$ or $C$            & \\
+\hline
+$\square$ Transfer & Insure / contract out        & \\
+\hline
+$\square$ Accept   & Sign off, time-bound review  & \\
+\hline
+\end{tabular}
+
+\medskip\noindent
+\textbf{Hint -- avoidance is underused in OT.} If the conveyor genuinely does not need network access, the cleanest answer is \emph{Avoid}: unplug the Ethernet cable from the PLC. A CISO does not always have the authority to do this; that is what makes the decision honest.
+\end{stepbox}
+
+\section*{Part G -- (Stretch) FAIR quantification}
+
+\begin{stepbox}{G1 -- Estimate Loss Event Frequency}
+FAIR (\emph{Factor Analysis of Information Risk}, O-RA C20A:2021) decomposes annual loss into Loss Event Frequency (LEF) times Loss Magnitude (LM). Pick numbers you can defend in one sentence each.
+
+\medskip
+\begin{tabular}{|p{60mm}|p{30mm}|p{55mm}|}
+\hline
+\textbf{Factor} & \textbf{Estimate} & \textbf{Basis (one sentence)} \\
+\hline
+Threat Event Frequency (attempts/yr) &  & e.g.\ Shodan-exposed OpenPLC \\
+\hline
+Vulnerability (P[success $\mid$ attempt]) &  & default creds, no patching \\
+\hline
+\textbf{LEF = TEF $\times$ Vuln} &  & \\
+\hline
+\end{tabular}
+\end{stepbox}
+
+\begin{stepbox}{G2 -- Estimate Loss Magnitude}
+Build LM bottom-up. Use \textbf{EUR}, not other currencies, and keep figures one significant digit. Do \emph{not} include human-life numbers -- see warnbox below.
+
+\medskip
+\begin{tabular}{|p{55mm}|p{30mm}|p{55mm}|}
+\hline
+\textbf{Loss component} & \textbf{Estimate (EUR)} & \textbf{Basis} \\
+\hline
+Production loss (line down)        & & e.g.\ EUR 5\,000 / h $\times$ hours \\
+\hline
+Recovery + forensics               & & rebuild PLC, IR retainer day-rate \\
+\hline
+Regulatory (NIS2 fine ceiling)     & & up to 2\,\% group turnover \\
+\hline
+Customer penalties                 & & late-delivery clauses, if any \\
+\hline
+\textbf{LM total}                  & & \\
+\hline
+\end{tabular}
+\end{stepbox}
+
+\begin{stepbox}{G3 -- Annualised Loss Expectancy}
+\[
+\text{ALE} \;=\; \text{LEF} \times \text{LM} \;=\; \underline{\hspace{20mm}} \; \times \; \underline{\hspace{20mm}} \; = \; \underline{\hspace{25mm}}\ \text{EUR/yr}
+\]
+Compare this number against the cost of the mitigation you proposed in F1. If the mitigation costs more than three years of ALE, your CFO will push back; if it costs less than one year of ALE, you have an easy win.
+\end{stepbox}
+
+\begin{warnbox}
+\textbf{Do not put a price tag on a person.} FAIR is the right tool for production loss, IP loss, and regulatory loss. It is the \emph{wrong} tool for safety risk -- regulators (Seveso~III, IEC~61511, UK HSE) explicitly refuse the framing ``a fatality costs EUR\,X.'' For safety-bearing top events use ALARP / LOPA, document the layers, and keep reducing risk until the next euro buys disproportionately little safety.
+\end{warnbox}
+
+\section*{Wrap-up}
+
+\begin{stepbox}{H -- Reflection (two minutes, write directly)}
+Answer in one or two lines each:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item Which LOPA layer offered the most cyber-resilient protection? Why?
+  \item Which guide word in the HAZOP produced the most credible attacker scenario?
+  \item If you could change one line of \texttt{conveyor.st} to make the plant safer, what would it be?
+  \item What does this exercise tell you about the limits of qualitative methods?
+\end{itemize}
 \end{stepbox}
 
 \begin{deliverbox}
-Hand in: the matrix with all ten risks plotted, three Cyber-HAZOP rows, and a 5-line ``CFO summary'' arguing for the three investments.
+Hand in this sheet completed, plus a single A4 page containing:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item the chosen top event and its bow-tie (causes on the left, consequences on the right);
+  \item the two HAZOP worksheets (Motor, Guard1);
+  \item the LOPA table with your residual frequency;
+  \item one risk register row, fully populated, with controls / treatment / owner / review / SL-T;
+  \item one risk-response decision with justification;
+  \item (optional) the FAIR LEF $\times$ LM = ALE figure in EUR.
+\end{itemize}
 \end{deliverbox}
 
 \begin{warnbox}
-This lab is intentionally fictional. Do not use real plant data, even from public sources -- some incidents are still active.
+The conveyor plant is fictional and the numbers you invent in Part~G are pedagogical. Do not reuse them in any real risk assessment. Real plants need real frequency data (Verizon DBIR manufacturing vertical, Dragos year-in-review, your own incident log) and real loss data from finance.
 \end{warnbox}
+
 \end{document}

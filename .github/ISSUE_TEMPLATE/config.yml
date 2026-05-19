@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Discussion / question
+    url: https://github.com/mniedermaier/industrialSecurityLecture/discussions
+    about: For open-ended questions about the course, request for new labs, or general feedback.

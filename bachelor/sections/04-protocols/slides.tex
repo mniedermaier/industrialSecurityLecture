@@ -57,7 +57,8 @@ Most industrial protocols in production today were \textbf{designed before the I
   \draw[-{Stealth[length=2.5mm]}, thick] (m) -- (s3);
   \node[font=\scriptsize, below=18mm of m, align=left]
     {Variants: \texttt{Modbus RTU} (serial), \texttt{Modbus TCP} (port 502)\\
-     Address space: coils, discrete inputs, input regs, holding regs\\
+     Address space ($\approx$ tiny KV store at 16-bit offsets):\\
+     \quad coils, discrete inputs, input regs, holding regs\\
      No auth, no encryption -- by design (1979)};
 \end{tikzpicture}
 \source{Modbus Organization, \emph{Modbus Application Protocol Specification} v1.1b3, 2012.}
@@ -173,7 +174,7 @@ Most industrial protocols in production today were \textbf{designed before the I
   \node[hmi, above left=14mm and 10mm of srv] (c1) {Client (HMI)};
   \node[hmi, above right=14mm and 10mm of srv] (c2) {Client (MES)};
   \node[isbox, fill=isAccent!10, draw=isAccent, below=of srv, font=\scriptsize, minimum width=70mm, align=left]
-    {X.509 mutual auth $\bullet$ message signing $\bullet$ encryption\\Rich information model $\bullet$ pub/sub since v1.04};
+    {X.509 mutual auth (like TLS client certs) $\bullet$ message signing $\bullet$ encryption\\Rich information model ($\approx$ REST resource tree) $\bullet$ pub/sub since v1.04};
   \draw[-{Stealth[length=2mm]}, thick] (c1) -- node[midway, sloped, above=2pt, font=\tiny, fill=white, inner sep=1pt]{TLS} (srv);
   \draw[-{Stealth[length=2mm]}, thick] (c2) -- node[midway, sloped, above=2pt, font=\tiny, fill=white, inner sep=1pt]{TLS} (srv);
 \end{tikzpicture}
@@ -195,7 +196,7 @@ Most industrial protocols in production today were \textbf{designed before the I
   \node[hmi, below right=10mm and 16mm of br] (sub3) {Cloud};
   \foreach \n in {s1,s2,s3}{\draw[flow] (\n) -- node[midway, sloped, above=2pt, font=\tiny, fill=white, inner sep=1pt]{pub} (br);}
   \foreach \n in {sub1,sub2,sub3}{\draw[flow] (br) -- node[midway, sloped, above=2pt, font=\tiny, fill=white, inner sep=1pt]{sub} (\n);}
-  \node[font=\scriptsize, below=22mm of br] {Default 1883 plaintext / 8883 with TLS. Sparkplug B adds OT semantics.};
+  \node[font=\scriptsize, below=22mm of br, align=center] {Pub/sub broker ($\approx$ Kafka / Redis pub/sub). Default 1883 plaintext / 8883 with TLS.\\Sparkplug B adds OT semantics (birth/death, structured payloads).};
 \end{tikzpicture}
 \note{
   Frame MQTT as the publish/subscribe answer for IIoT: the broker is the choke point, sensors publish topics, anything authorised subscribes. Note the two ports --- 1883 plaintext and 8883 with TLS --- and remind students that Shodan finds hundreds of thousands of brokers on 1883 with no authentication and \texttt{\#} wildcard subscriptions open. War story: in 2018 Avast scanned the open MQTT space and found brokers leaking smart-home, prison, and industrial telemetry; the situation has improved but not vanished. Sparkplug B (Eclipse Foundation) is worth mentioning because it adds the OT semantics MQTT lacks --- state, birth/death certificates, structured payloads --- and it is what most modern Unified Namespace deployments use. Misconception: ``MQTT 5 is encrypted by default.'' No --- MQTT 5 added user properties and better error codes, not transport security; you still need TLS underneath. Transition cue: ``let us put everything side by side.''
@@ -247,6 +248,169 @@ MQTT         & \cellcolor{isAccent!20}+TLS     & \cellcolor{isNet!25}TLS        
   Walk through the three services in order of latency budget: MMS for slow client/server, GOOSE for fast trip and interlock signals (layer 2 multicast, target end-to-end under 4\,ms), and Sampled Values streaming raw current and voltage at the sampling rate of the merging unit. War story: a spoofed GOOSE frame can trip a breaker because the receiver only checks the state number and sequence; this exact attack family was demonstrated by Hoyos \emph{et al.}\ and later operationalised by the CRASHOVERRIDE/Industroyer malware against the Ukrainian grid in 2016. IEC 62351-6 specifies authentication for GOOSE and SV, but few merging units actually implement it and switching it on adds latency the protection engineer may not tolerate. Misconception: ``GOOSE is just multicast Ethernet, not a security concern.'' It is exactly the lack of crypto on a high-trust safety bus that makes it interesting. Transition cue: ``let us pull the section together.''
 }
 \end{frame}
+
+%% Frame 1: IEC 62443 anchor for §04
+\begin{frame}{IEC 62443 anchor for this section}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.82, transform shape]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, align=left] (a)
+    {\textbf{62443-3-3} \ System security requirements --- the seven \emph{Foundational Requirements} (FR\,1--7)};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=110mm, font=\small, align=left, below=of a] (b)
+    {\textbf{FR\,1} IAC \textbar{} \textbf{FR\,2} Use ctrl \textbar{} \textbf{FR\,3} Integ. \textbar{} \textbf{FR\,4} Conf. \textbar{} \textbf{FR\,5} Data flow \textbar{} \textbf{FR\,6} Timely \textbar{} \textbf{FR\,7} Avail.};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=110mm, font=\small, align=left, below=of b] (c)
+    {\textbf{62443-4-2} \ Component requirements --- CRs per device class (PLC, gateway, app)};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small, align=left, below=of c] (d)
+    {\textbf{SL-C\,1--4} \ 1\,=\,casual, 2\,=\,intentional, 3\,=\,skilled, 4\,=\,nation-state};
+\end{tikzpicture}
+\par\vspace{2mm}
+{\footnotesize Each protocol on the next slides is candidate evidence for an FR/CR pair --- e.g.\ \emph{Modbus alone cannot satisfy CR\,1.5 (authenticator strength)}.}
+\source{IEC 62443-3-3:2013 \textbar{} IEC 62443-4-2:2019 \textbar{} ISA/IEC 62443 Quick Start Guide, ISA Global Cybersecurity Alliance, 2020.}
+\note{
+  Anchor every protocol slide in §04 to two numbers: the 62443-3-3 FR it touches and the 62443-4-2 CR it must let a device meet. FR\,1--7 are like the OWASP Top-10 of OT --- a checklist of what \emph{must} be possible. Each CR carries an SL-C 1--4 capability rating: SL-C 1 deters casual misuse, SL-C 4 deters a nation-state. Pre-empt: ``Modbus is 62443-compliant behind a firewall'' --- no, the firewall is a compensating control; the protocol itself still fails CR\,1.5, 3.1 and 4.1. Class question: ``which FR does TLS satisfy and which not?'' (3 and 4 yes; 6 and 7 no.)
+}
+\end{frame}
+
+%% Frame 2: HART Protocol
+\begin{frame}{HART --- Digital on Top of 4--20\,mA}
+\centering
+\begin{tikzpicture}[x=7mm, y=7mm, font=\scriptsize]
+  \draw[thick, isMute] (0,0) -- (12.5,0) node[right, font=\tiny]{time};
+  \draw[thick, isMute] (0,-1.2) -- (0,2.4) node[above, font=\tiny]{mA};
+  \node[font=\tiny, left] at (0,2.0) {20};
+  \node[font=\tiny, left] at (0,0.4) {4};
+  \draw[very thick, isOT] (0.2,1.2) -- (12.3,1.2) node[right, font=\tiny, isOT]{DC = process value};
+  \draw[thick, isAccent, decorate, decoration={snake, amplitude=2mm, segment length=3mm}]
+    (2,1.2) -- (10,1.2);
+  \node[font=\tiny, isAccent, above] at (6,1.7) {1200/2200\,Hz FSK overlay = digital};
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{notebox}{IT analogue}
+Out-of-band signalling on a current loop --- like running SSH over the audio channel of a phone call. The DC level carries the value, an FSK tone carries config/diagnostics, neither disturbs the other.
+\end{notebox}
+\par\vspace{1mm}
+{\footnotesize \textbf{HART-IP} (since 2012) tunnels the same PDU over TCP/UDP port 5094; still no authentication. \textbf{WirelessHART} (IEC 62591) adds AES-128 per hop.}
+\source{FieldComm Group, \emph{HART 7.7 Specification}, 2020 \textbar{} IEC 62591:2016 (WirelessHART) \textbar{} CISA ICSA-22-263-02 (Emerson Rosemount HART advisory).}
+\note{
+  HART runs on $\sim$40 million field devices --- every modern smart transmitter speaks it. DC level (4--20\,mA) carries the analog value; HART adds an FSK modulation (1200\,Hz = 1, 2200\,Hz = 0) that an averaging input ignores. Out-of-band signalling on the same wire. War story: for 20 years plant cybersecurity ignored HART because ``it's just analog'' --- a handheld HART communicator at the marshalling cabinet can re-range a transmitter, exactly what a sensor-layer attack looks like. HART-IP carries the same untrusted PDU over Ethernet; UDP/5094 on Shodan = HART-IP gateway. Pre-empt: ``WirelessHART = HART over WiFi'' --- no, IEEE 802.15.4 mesh at 2.4\,GHz with AES-128 and per-network join key.
+}
+\end{frame}
+
+%% Frame 3: BACnet for Building Automation
+\begin{frame}{BACnet --- the Modbus of Building Automation}
+\centering
+\begin{tikzpicture}[node distance=3mm, scale=0.58, transform shape]
+  \node[server, fill=isHMI!15, draw=isHMI, minimum width=24mm] (bms) {BMS Server};
+  \node[plc, above left=8mm and 12mm of bms, minimum width=20mm, font=\scriptsize] (vav) {VAV box};
+  \node[plc, left=18mm of bms, minimum width=20mm, font=\scriptsize] (ahu) {AHU};
+  \node[plc, below left=8mm and 12mm of bms, minimum width=20mm, font=\scriptsize] (chl) {Chiller};
+  \node[plc, above right=8mm and 12mm of bms, minimum width=20mm, font=\scriptsize] (lit) {Lighting};
+  \node[plc, right=18mm of bms, minimum width=20mm, font=\scriptsize] (acc) {Access ctrl};
+  \node[plc, below right=8mm and 12mm of bms, minimum width=20mm, font=\scriptsize] (mtr) {Sub-meter};
+  \foreach \n in {vav,ahu,chl,lit,acc,mtr}{\draw[netline] (\n) -- (bms);}
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{notebox}{IT framing}
+Same gap as Modbus, different building: \,\texttt{BACnet/IP} on UDP/47808 is unauthenticated by default. Objects are the OT REST resources (\texttt{analogValue}, \texttt{binaryOutput}, \texttt{schedule}); services are the verbs (\texttt{ReadProperty}, \texttt{WriteProperty}).
+\end{notebox}
+\par\vspace{1mm}
+{\footnotesize \textbf{Security:} \,\texttt{BACnet/SC} (Secure Connect, addendum 135-2020bj) wraps the data link in TLS over WebSockets --- adoption still single-digit percent. Shodan typically lists 30k+ open BACnet/IP devices.}
+\source{ASHRAE Standard 135-2020 (BACnet) \textbar{} ASHRAE 135-2020 Addendum bj (BACnet/SC) \textbar{} CISA ICSA-19-346-02 (Delta Controls enteliBUS BACnet RCE).}
+\note{
+  BACnet runs the building the data centre sits inside. ``Modbus for buildings'' with one big addition: an object model. Anonymous 16-bit registers in Modbus; typed objects (\texttt{analogInput}, \texttt{schedule}, \texttt{trendLog}) in BACnet --- close to a REST resource tree over UDP/47808. The 1995 spec assumed a trusted LAN; the 2008 BACnet Security addendum was almost never implemented; the 2020 BACnet/SC addendum that wraps in TLS over WebSockets is just shipping. War story: Delta Controls enteliBUS RCE (CISA ICSA-19-346-02) found in internet-reachable controllers because integrator port-forwarded UDP/47808 ``for remote support.'' Class: ``BACnet equivalent of a Modbus holding register write?'' (WriteProperty on present-value of an analogOutput.)
+}
+\end{frame}
+
+%% Frame 4: TLS in OT --- Why It's Hard
+\begin{frame}{TLS in OT --- Why It Is Genuinely Hard}
+\centering
+\begin{tikzpicture}[node distance=2mm]
+  \node[isbox, fill=isIT!15, draw=isIT, minimum width=54mm, minimum height=36mm, align=left, font=\scriptsize] (web)
+    {\textbf{Web TLS}\\
+     \,$\bullet$ \,cert lifetime: 90 days (Let's Encrypt)\\
+     \,$\bullet$ \,renewed by cron + ACME\\
+     \,$\bullet$ \,trust = WebPKI (browser roots)\\
+     \,$\bullet$ \,server CPU: 16 vCPU, AES-NI\\
+     \,$\bullet$ \,downtime to reload: $\approx$0\\
+     \,$\bullet$ \,revocation: OCSP / CRL daily};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=54mm, minimum height=36mm, align=left, font=\scriptsize, right=4mm of web] (ot)
+    {\textbf{OT TLS} (PLC / RTU / IED)\\
+     \,$\bullet$ \,cert lifetime: 5--20 years\\
+     \,$\bullet$ \,no internet $\to$ manual roll\\
+     \,$\bullet$ \,trust = private PKI per plant\\
+     \,$\bullet$ \,CPU: 200\,MHz ARM, no AES-NI\\
+     \,$\bullet$ \,reload = scan-cycle jitter = trip\\
+     \,$\bullet$ \,handshake $\approx$ 10\% of cycle budget};
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{warnbox}{Net effect}
+Many OT TLS deployments ship with 20-year self-signed certs, no revocation path, and a private CA whose root key sits on the integrator's laptop. The crypto is fine; the lifecycle is not.
+\end{warnbox}
+\source{IEC 62351-9:2017 (Key management for TC 57) \textbar{} NIST IR 8183 Rev.\,1, 2020 \textbar{} Claroty Team82, \emph{Race Conditions in OT PKI}, 2023.}
+\note{
+  Web: a 90-day Let's Encrypt cert is renewed by cron before anyone notices. OT IED has to outlast a 20-year regulatory amortisation; ACME impossible (no internet, no DNS). Trust: WebPKI is shared root store; OT every plant runs its own CA, often a single Windows machine in a locked cabinet or worse, an OpenSSL invocation on the integrator's laptop. Compute: web has AES-NI and 16 cores; PLC has 200\,MHz ARM Cortex-A with no crypto accel and a hard scan-cycle budget --- a single RSA-2048 handshake can eat 10\% of cycle time, enough to trip a watchdog. Pre-empt: ``so we should not bother with TLS in OT?'' --- wrong. The point is design the lifecycle (issuance, rotation, revocation, recovery) before choosing the cipher suite. IEC 62351-9 is the standard for exactly this.
+}
+\end{frame}
+
+%% Frame 5: Sparkplug B and the Unified Namespace
+\begin{frame}{Sparkplug B and the Unified Namespace}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.62, transform shape]
+  \node[server, fill=isSCADA!15, draw=isSCADA, minimum width=30mm, minimum height=14mm, font=\small] (br) {MQTT Broker\\\scriptsize (HiveMQ / EMQX)};
+  \node[plc, above left=10mm and 18mm of br, minimum width=18mm, font=\scriptsize] (e1) {Edge node\\Plant\,A};
+  \node[plc, left=22mm of br, minimum width=18mm, font=\scriptsize] (e2) {Edge node\\Plant\,B};
+  \node[plc, below left=10mm and 18mm of br, minimum width=18mm, font=\scriptsize] (e3) {Edge node\\Plant\,C};
+  \node[hmi, above right=10mm and 18mm of br, minimum width=18mm, font=\scriptsize] (c1) {Ignition\\SCADA};
+  \node[hmi, right=22mm of br, minimum width=18mm, font=\scriptsize] (c2) {MES /\\ERP};
+  \node[hmi, below right=10mm and 18mm of br, minimum width=18mm, font=\scriptsize] (c3) {Cloud\\analytics};
+  \foreach \n in {e1,e2,e3}{\draw[flow] (\n) -- node[midway, sloped, above=1pt, font=\tiny, fill=white, inner sep=1pt]{pub} (br);}
+  \foreach \n in {c1,c2,c3}{\draw[flow] (br) -- node[midway, sloped, above=1pt, font=\tiny, fill=white, inner sep=1pt]{sub} (\n);}
+  \node[font=\tiny, below=4mm of br, align=center]
+    {Topic: \,\texttt{spBv1.0/PlantA/DDATA/Line3/Pump21}\\NBIRTH / DBIRTH / NDATA / DDATA / NDEATH / DDEATH};
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{notebox}{IT framing --- and the catch}
+Sparkplug\,B = MQTT + OT semantics (birth/death certificates, structured payloads, sequence numbers). The \emph{Unified Namespace} (UNS) says \emph{every} system reads/writes through this one tree. \textbf{The broker becomes the choke point}: own it and you own the plant's data plane.
+\end{notebox}
+\source{Eclipse Sparkplug Specification 3.0, Eclipse Foundation, 2023 \textbar{} Inductive Automation, \emph{Unified Namespace} whitepaper, 2022 \textbar{} HiveMQ, \emph{Sparkplug\,B for IIoT}, 2023.}
+\note{
+  Sparkplug B fixes four MQTT problems: (1) NBIRTH/NDEATH last-will certs so subscribers know if a publisher died vs went quiet; (2) Google Protobuf schema for typed payloads; (3) sequence numbers detect drops; (4) topic structure \texttt{spBv1.0/group/msgtype/edge/device}. The Unified Namespace pattern (Walker Reynolds, Inductive Automation): every system --- PLC, SCADA, MES, ERP, ML --- publishes to and subscribes from the same broker tree. IT analogue: Kafka topic spine for microservices. Security punchline: the broker is the choke point. Compromise it and you inject writes the HMI will display as truth. Defence: mTLS between every edge and broker, ACLs per topic prefix. Pre-empt: ``MQTT over TLS solves it'' --- TLS gives connection security; it does not stop an authenticated client from publishing where it should not.
+}
+\end{frame}
+
+%% Frame 6: Protocol Fingerprinting on the Wire
+\begin{frame}{Protocol Fingerprinting on the Wire}
+\centering
+\renewcommand{\arraystretch}{1.0}
+\setlength{\tabcolsep}{3pt}
+\tiny
+\begin{tabular}{|p{20mm}|p{14mm}|p{30mm}|p{38mm}|}
+\hline
+\rowcolor{isMute!20}
+\textbf{Protocol} & \textbf{Port} & \textbf{Passive fingerprint} & \textbf{Shodan / tooling} \\
+\hline
+Modbus TCP     & 502/tcp  & MBAP: \texttt{00 00} at offset 2--3 & \texttt{port:502 "Unit ID"} \\
+\hline
+S7comm         & 102/tcp  & TPKT \texttt{03 00}, COTP \texttt{02 f0} & \texttt{port:102 "Siemens"} \\
+\hline
+DNP3           & 20000/tcp & sync bytes \texttt{05 64}            & \texttt{port:20000 "DNP3"} \\
+\hline
+EtherNet/IP    & 44818/tcp & ListIdentity ``1756-\dots''   & \texttt{port:44818 product\_name} \\
+\hline
+BACnet/IP      & 47808/udp & APDU type 0x10 (Who-Is)              & \texttt{port:47808 "instance"} \\
+\hline
+MQTT/Sparkplug & 1883/tcp & CONNECT topic \texttt{spBv1.0/\dots} & \texttt{port:1883 "MQTT"} \\
+\hline
+\end{tabular}
+\par\vspace{2mm}
+\begin{tipbox}{Toolchain}
+Passive: \textbf{Zeek} + \textbf{ICSNPP} dissectors (CISA / INL, 12+ ICS protocols). Active (lab only): nmap NSE \texttt{modbus-discover}, \texttt{s7-info}, etc. Cookbook: \textbf{Malcolm} (CISA Zeek+Arkime).
+\end{tipbox}
+\source{Zeek Project Documentation, 2024 \textbar{} CISA / INL, \emph{ICSNPP Protocol Parsers}, 2023 \textbar{} D.\ Bodenheim, \emph{Internet-Accessible ICS}, SANS, 2020.}
+\note{
+  Operational payoff of the section: given a packet capture, how do you tell what's on the wire without breaking it? Port is necessary but not sufficient (attackers and integrators move services). Combine port with passive byte fingerprint: Modbus MBAP always has \texttt{00 00} for protocol-ID; S7comm rides TPKT/COTP so first 4 bytes are \texttt{03 00 02 f0}; DNP3 has sync \texttt{05 64}; BACnet APDU 0x10 = Who-Is. IT analogue: OT equivalent of nmap service-detection signatures. For passive analysis in production --- the only safe mode in OT --- Zeek + ICSNPP (open-source, CISA/INL, Modbus, DNP3, S7comm, EtherNet/IP, BACnet, OPC UA, BSAP, Genisys). Active nmap NSE on test rig only --- malformed Modbus packets have crashed first-gen Schneider PLCs. Rule: ``measure first, segment second, encrypt third.''
+}
+\end{frame}
+
 
 \begin{frame}{Summary -- Section \sectionNumber}
 \begin{takeawaybox}{What to remember from this section}

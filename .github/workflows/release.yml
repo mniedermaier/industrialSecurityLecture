@@ -1,0 +1,100 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release from (default: current commit)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write   # required by softprops/action-gh-release
+
+jobs:
+  release:
+    name: Build PDFs and publish GitHub Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    container:
+      image: texlive/texlive:latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # so changelog generation can see the previous tag
+
+      - name: Show toolchain versions
+        run: |
+          pdflatex --version | head -1
+          latexmk --version | head -1
+          make --version | head -1
+
+      - name: Build everything and verify
+        run: make verify
+
+      - name: Stage release assets
+        id: stage
+        run: |
+          set -eu
+          TAG="${GITHUB_REF_NAME:-${{ github.event.inputs.tag }}}"
+          if [ -z "$TAG" ]; then TAG="$(git describe --tags --always)"; fi
+          STAGE="release-$TAG"
+          mkdir -p "$STAGE"
+
+          # Bachelor section PDFs (slides + notes)
+          find bachelor/sections \( -name "*-slides.pdf" -o -name "*-notes.pdf" \) -exec cp -v {} "$STAGE/" \; || true
+          # Exercises + solutions
+          find bachelor/exercises \( -name "*-exercises.pdf" -o -name "*-solutions.pdf" \) -exec cp -v {} "$STAGE/" \; || true
+          # Labs
+          find bachelor/labs -maxdepth 2 -name "*-lab.pdf" -exec cp -v {} "$STAGE/" \; || true
+          # Handouts
+          find bachelor/handouts -maxdepth 1 -name "*.pdf" -exec cp -v {} "$STAGE/" \; || true
+          # Master (best effort)
+          find master -maxdepth 4 -name "*.pdf" -exec cp -v {} "$STAGE/" \; 2>/dev/null || true
+
+          # Bundle everything into a single zip for one-click download
+          (cd "$STAGE" && zip -q -r "../industrialSecurityLecture-$TAG.zip" .)
+
+          echo "tag=$TAG"           >> "$GITHUB_OUTPUT"
+          echo "stage=$STAGE"       >> "$GITHUB_OUTPUT"
+          echo "zip=industrialSecurityLecture-$TAG.zip" >> "$GITHUB_OUTPUT"
+          ls -la "$STAGE/" | head -40
+
+      - name: Generate changelog from commits
+        id: changelog
+        run: |
+          set -eu
+          PREV="$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo '')"
+          {
+            echo "## Industrial Security Lecture Series — ${{ steps.stage.outputs.tag }}"
+            echo ""
+            echo "Built with $(pdflatex --version | head -1)."
+            echo ""
+            if [ -n "$PREV" ]; then
+              echo "### Changes since \`$PREV\`"
+              git log --pretty=format:"- %s (%h)" "$PREV"..HEAD --no-merges
+            else
+              echo "### Initial release"
+              git log --pretty=format:"- %s (%h)" --no-merges | head -50
+            fi
+          } > release-notes.md
+          cat release-notes.md
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.stage.outputs.tag }}
+          name: "Industrial Security Lecture — ${{ steps.stage.outputs.tag }}"
+          body_path: release-notes.md
+          draft: false
+          prerelease: ${{ contains(steps.stage.outputs.tag, 'rc') || contains(steps.stage.outputs.tag, 'beta') || contains(steps.stage.outputs.tag, 'alpha') }}
+          files: |
+            ${{ steps.stage.outputs.zip }}
+            ${{ steps.stage.outputs.stage }}/*.pdf
+          fail_on_unmatched_files: false

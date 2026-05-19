@@ -19,6 +19,8 @@
 \usepackage{xcolor}
 \usepackage{colortbl}
 \usepackage{tikz}
+\usepackage{amsmath}
+\usepackage{amssymb}
 \usepackage{booktabs}
 \usepackage{enumitem}
 \usepackage{titlesec}
@@ -34,8 +36,8 @@
 \providecommand{\courseInstitute}{Department of Computer Science}
 \providecommand{\companyLogo}{logo}
 
-\definecolor{slideAccent}{HTML}{1F4E79}
-\definecolor{slideSecondary}{HTML}{E08E0B}
+\definecolor{slideAccent}{HTML}{00205B}
+\definecolor{slideSecondary}{HTML}{00A0DC}
 
 % --- Corporate branding overrides ------------------------------------
 \IfFileExists{../../../branding.tex}{\input{../../../branding.tex}}{}
@@ -58,6 +60,8 @@
   tabsize=2
 }
 
+\setlength{\tabcolsep}{4pt}
+
 \pagestyle{fancy}
 \fancyhf{}
 \renewcommand{\headrulewidth}{0.4pt}
@@ -78,6 +82,13 @@
   colback=labWarn!7, colframe=labWarn, leftrule=4pt,
   fonttitle=\bfseries\small, coltitle=white, colbacktitle=labWarn,
   title={\faExclamationTriangle\ Caution}
+}
+
+\newtcolorbox{notebox}{
+  enhanced, breakable, arc=2pt, boxrule=0pt,
+  colback=labAccent!4, colframe=labAccent, leftrule=2pt,
+  fonttitle=\bfseries\small, coltitle=white, colbacktitle=labAccent,
+  title={\faInfoCircle\ Note}
 }
 
 \newtcolorbox{goalbox}{

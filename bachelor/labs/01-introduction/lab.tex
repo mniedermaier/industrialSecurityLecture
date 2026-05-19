@@ -4,7 +4,7 @@
 \def\labNumber{01}
 \def\labTitle{Where Is the Industrial Security?}
 \def\labSection{01}
-\def\labTime{30--45 min}
+\def\labTime{60--90 min}
 
 \input{../../../template/lab-preamble.tex}
 
@@ -12,36 +12,305 @@
 \labheader
 
 \begin{goalbox}
-Build your first map of the IT/OT spectrum and the cyber-physical interfaces around you. No tools required -- pen and paper or any diagramming software.
+Get your bearings in the OT world. By the end of this lab you will have
+the lab stack running on your machine, watched a real soft-PLC react to
+a wire-level Modbus read, and mapped the human stakeholders around one
+industrial system you can physically see. No EE or PLC background is
+assumed: every OT term in this sheet is anchored to an IT analogue you
+already know.
 \end{goalbox}
 
-\begin{stepbox}{1 -- Spot the systems}
-List eight systems within walking distance of your classroom (or building):
-elevators, HVAC, badge readers, vending machines, lab equipment, fire panel,
-projectors, parking barriers, electricity meter, etc. For each, decide:
+\subsection*{Mental model before you start}
+A PLC (\emph{Programmable Logic Controller}) is the OT analogue of a
+small, single-purpose server: it boots, runs one program in a tight
+loop forever, and exposes that program's state on the network.
+\emph{Modbus} is its HTTP -- a brutally simple TCP protocol from 1979
+that just reads and writes integers (\emph{registers}) and bits
+(\emph{coils}). An \emph{HMI} (Human-Machine Interface) is the OT
+analogue of a Grafana dashboard: a screen that polls the PLC and shows
+live values to a human operator. Keep these three mappings in mind --
+the lab will refer to all of them.
+
+\subsection*{Pre-flight}
+Open a terminal in the lab stack directory and bring everything up.
+The first \texttt{up} pulls images, so allow a couple of minutes on a
+fresh machine.
+
+\begin{lstlisting}[language=bash]
+cd bachelor/labs/_stack
+docker compose up -d
+docker compose ps
+\end{lstlisting}
+
+You should see six services running: \texttt{is-landing},
+\texttt{is-openplc}, \texttt{is-openplc-init} (one-shot, may show
+\texttt{Exited 0}), \texttt{is-opcua}, \texttt{is-mqtt},
+\texttt{is-student}, and \texttt{is-zeek}. Every long-running container
+must show \texttt{Up} or \texttt{Up (healthy)}. If any is restarting,
+jump to the Troubleshooting section before continuing.
+
+\begin{lstlisting}[language=bash]
+docker compose exec student bash
+# inside the student container:
+ip -4 addr show eth0 | grep inet
+# expect:  inet 172.28.0.20/16 ...
+\end{lstlisting}
+
+The \texttt{student} container at \texttt{172.28.0.20} is your
+attacker/operator workstation throughout the course. It already has
+\texttt{python3}, \texttt{pymodbus}, \texttt{nmap}, \texttt{tshark},
+\texttt{curl}, and \texttt{mosquitto-clients} installed.
+
+\begin{stepbox}{1 -- Confirm the services are reachable}
+Still inside the \texttt{student} container, ping the three OT
+endpoints by name -- Docker's embedded DNS resolves the service names
+to their fixed addresses on the \texttt{is-lab} bridge.
+
+\begin{lstlisting}[language=bash]
+getent hosts openplc opcua mqtt landing
+# expect four lines, one per service, on 172.28.0.{10,11,12,5}
+nc -zv openplc 502        # Modbus TCP
+nc -zv opcua   4840       # OPC UA binary
+nc -zv mqtt    1883       # MQTT
+\end{lstlisting}
+
+\emph{IT analogue:} this is the OT equivalent of probing a web stack
+with \texttt{curl -I https://service/}. We are just asking ``is the
+port open?'' before talking the protocol on top of it.
+\end{stepbox}
+
+\begin{stepbox}{2 -- Browse the landing page and the OpenPLC web UI}
+On your \emph{host} (not inside the container), open two browser tabs:
+
 \begin{itemize}\setlength{\itemsep}{1pt}
-  \item IT, OT, or hybrid (IIoT)?
-  \item Worst-case consequence of compromise?
-  \item Who owns / maintains it?
+  \item \url{http://127.0.0.1:8000} -- the lab landing page. It links
+        to every lab PDF and gives a one-page picture of the stack.
+  \item \url{http://127.0.0.1:8080} -- the OpenPLC web UI. Log in
+        with \texttt{openplc} / \texttt{openplc}.
+\end{itemize}
+
+In the OpenPLC UI, open \textbf{Monitoring}. You are looking at the
+HMI side of a PLC: a table of named variables (\texttt{Start},
+\texttt{Stop}, \texttt{Motor}, \ldots) with their current values, plus
+the cycle time in milliseconds at the bottom. Identify, in writing:
+
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item which variables are \emph{inputs} (the PLC reads them from the
+        plant -- switches, sensors),
+  \item which are \emph{outputs} (the PLC drives them -- motors,
+        valves, lamps),
+  \item which are \emph{internal state} (counters, flags).
+\end{itemize}
+
+\emph{IT analogue:} the Monitoring page is a Grafana dashboard pinned
+on top of a single backend. The cycle time is the backend's request
+latency -- except here it is a hard real-time deadline.
+\end{stepbox}
+
+\begin{stepbox}{3 -- First Modbus read from outside}
+From inside the \texttt{student} container, talk Modbus to the PLC.
+The script \texttt{modbus\_read.py} opens a TCP connection to
+\texttt{172.28.0.10:502}, reads ten consecutive holding registers
+starting at address \texttt{0}, and prints them.
+
+\begin{lstlisting}[language=bash]
+docker compose exec student python3 /labs/scripts/modbus_read.py
+\end{lstlisting}
+
+Expected output (values will depend on the running program):
+
+\begin{lstlisting}
+Registers 0..9: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+\end{lstlisting}
+
+Now break the script down. Open
+\texttt{bachelor/labs/\_stack/scripts/modbus\_read.py} on your host:
+
+\begin{lstlisting}[language=Python]
+from pymodbus.client import ModbusTcpClient
+c = ModbusTcpClient("172.28.0.10", port=502)
+c.connect()
+rr = c.read_holding_registers(address=0, count=10, slave=1)
+print("Registers 0..9:", rr.registers)
+c.close()
+\end{lstlisting}
+
+Four observations to write down:
+
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item There is no authentication. No username, no password, no
+        token, no TLS. The PLC answered because we asked.
+  \item \texttt{slave=1} is the Modbus \emph{unit ID} -- a 1-byte
+        sub-addressing field. On a single PLC it is almost always 1.
+  \item The values are \emph{unsigned 16-bit integers}. Two consecutive
+        registers can encode a 32-bit value; four can encode a float.
+        The PLC and the client must agree out-of-band on the layout.
+  \item This is exactly the protocol used in production plants today.
+        It is not a teaching toy.
+\end{itemize}
+
+\emph{IT analogue:} imagine an HTTP API that exposes
+\texttt{GET /array?from=0\&len=10} with no auth and no schema. That is
+Modbus -- and it is the dominant fieldbus protocol on the planet.
+\end{stepbox}
+
+\begin{stepbox}{4 -- Spot eight industrial systems near the classroom}
+Close the laptop for a moment. Walk a loop of your building -- foyer,
+basement, plant room, parking, lecture hall -- and list \textbf{eight}
+systems you can physically see or hear. Examples to seed your search:
+elevator controller, HVAC / chiller, fire panel, badge reader, vending
+machine, projector with networked control, electricity sub-meter,
+parking barrier, automatic door, beverage cooler, building management
+panel, classroom lectern PC, networked printer, lecture-capture
+camera.
+
+For each, fill one row of a table with these columns:
+
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{System} -- short name.
+  \item \textbf{Class} -- \texttt{IT}, \texttt{OT}, or \texttt{IIoT}
+        (cloud-connected OT). Use the rule of thumb: if a power
+        outage on it would be a safety event, it is OT.
+  \item \textbf{Worst case} -- one sentence on what bad looks like
+        (``elevator stuck between floors with occupants inside'').
+  \item \textbf{Owner / maintainer} -- facilities, IT, a vendor, a
+        landlord, unknown.
 \end{itemize}
 \end{stepbox}
 
-\begin{stepbox}{2 -- Draw a stakeholder map}
-Pick one of the eight systems and draw the stakeholder map (operator, owner,
-integrator, vendor, regulator). Mark which stakeholder cares about
-\emph{availability}, \emph{integrity}, \emph{confidentiality} respectively.
+\begin{stepbox}{5 -- Stakeholder map for one system}
+Pick one row from Step 4 -- ideally a system you walked past, not the
+PLC in the container. Draw a stakeholder diagram with at least these
+five roles: \textbf{operator} (the human who pushes the buttons day to
+day), \textbf{owner} (the entity carrying the bill and the legal
+risk), \textbf{integrator} (the company that installed it),
+\textbf{vendor} (whoever ships firmware updates), and
+\textbf{regulator} (the authority that can shut it down).
+
+Next to each role, tag which leg of the C-I-A triad they care about
+\emph{most}:
+
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{A}vailability -- does it keep running?
+  \item \textbf{I}ntegrity -- does it do what it is supposed to do?
+  \item \textbf{C}onfidentiality -- are its secrets kept?
+\end{itemize}
+
+You will almost certainly find Availability dominates in OT -- the
+inverse of the IT default, where Confidentiality usually leads.
+That inversion is the single most important cultural fact in this
+course.
 \end{stepbox}
 
-\begin{stepbox}{3 -- Reflection}
-Write 5--7 lines: which stakeholder would push back against a security
-control that interrupted normal operation, and why is that legitimate?
+\begin{stepbox}{6 -- Reflection: who pushes back?}
+Write 5--7 sentences answering: of the stakeholders you mapped, which
+one would most strongly push back against a security control that
+interrupted normal operation (say: a mandatory monthly reboot for
+patches)? Why is that pushback \emph{legitimate}? Address at least:
+
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item the cost of downtime (lost output, missed SLA, safety risk
+        during restart),
+  \item the maturity of the patch (does the vendor actually test
+        firmware on the integrator's exact configuration?),
+  \item the recourse if the patch breaks production (who pays the
+        engineer's 3 a.m.\ call-out fee?).
+\end{itemize}
+
+Avoid the easy answer ``they're just lazy''. They aren't.
 \end{stepbox}
+
+\subsection*{Stretch goal -- wire-level meets HMI}
+Open the OpenPLC \textbf{Monitoring} page in one window. In another,
+run a short loop that reads the same registers ten times a second:
+
+\begin{lstlisting}[language=bash]
+docker compose exec student bash -c \
+  'for i in $(seq 1 30); do python3 /labs/scripts/modbus_read.py; sleep 0.1; done'
+\end{lstlisting}
+
+Toggle the \texttt{Start} variable from the Monitoring page while the
+loop is running. The variable you click in the browser and the
+register value you see on the terminal are the \emph{same byte}
+travelling on the same TCP connection from two angles -- HMI on top,
+wire on the side. That is the entire idea of this course in one
+exercise.
+
+\subsection*{Troubleshooting}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{\texttt{docker compose ps} shows \texttt{is-openplc}
+        restarting.} Check \texttt{docker compose logs openplc}. On
+        Apple Silicon, the \texttt{platform: linux/amd64} line in
+        \texttt{docker-compose.yml} is mandatory; without Rosetta 2
+        the image will not start.
+  \item \textbf{Port 502 reports ``connection refused''.} The PLC web
+        UI is up but no program is loaded. Confirm
+        \texttt{is-openplc-init} exited \texttt{0}; if it failed,
+        \texttt{docker compose up -d openplc-init} re-runs the
+        bootstrap. As a last resort, log into the OpenPLC UI and click
+        \textbf{Start PLC} manually.
+  \item \textbf{\texttt{modbus\_read.py} hangs.} The PLC is reachable
+        on TCP but the Modbus service is not yet answering. Wait 10
+        seconds and retry; the runtime takes a moment after
+        \texttt{Start PLC}.
+  \item \textbf{Host port 502 conflicts with another process.} On
+        Linux, ports below 1024 need root or a one-off
+        \texttt{sysctl net.ipv4.ip\_unprivileged\_port\_start=502}.
+        The lab works perfectly without the host port-forward as long
+        as you exec into \texttt{student}.
+  \item \textbf{\url{http://127.0.0.1:8000} shows ``connection
+        refused''.} The \texttt{landing} container is down or its bind
+        mount could not be created; \texttt{docker compose up -d
+        landing} usually clears it.
+\end{itemize}
 
 \begin{deliverbox}
-Hand in: the table from Step 1, the stakeholder diagram from Step 2, and the reflection.
+Hand in a single PDF containing:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Step 1:} terminal output of \texttt{docker compose ps}
+        and the three \texttt{nc -zv} probes.
+  \item \textbf{Step 2:} a screenshot of the OpenPLC Monitoring page
+        and your input/output/state classification of its variables.
+  \item \textbf{Step 3:} the terminal output of \texttt{modbus\_read.py}
+        plus your four-bullet write-up.
+  \item \textbf{Step 4:} an 8-row table (System / Class / Worst case
+        / Owner).
+  \item \textbf{Step 5:} the stakeholder diagram with C-I-A tags.
+  \item \textbf{Step 6:} the 5--7 sentence reflection.
+\end{itemize}
+The stretch goal is optional and earns bonus credit.
 \end{deliverbox}
 
+\subsection*{Further reading}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item E.\ Knapp and J.\ Langill, \emph{Industrial Network Security},
+        2nd ed., Syngress, 2014 -- the canonical primer; Chapters 1--3
+        cover exactly the OT/IT framing of this lab.
+  \item CISA, \emph{Recommended Practice: Improving Industrial Control
+        Systems Cybersecurity with Defense-in-Depth Strategies},
+        Sept.\ 2016, \url{https://www.cisa.gov/resources-tools/resources}.
+  \item Dragos, \emph{ICS/OT Cybersecurity Year in Review} (latest
+        annual edition), \url{https://www.dragos.com/ot-cybersecurity-year-in-review/}
+        -- read the executive summary for current threat groups.
+  \item OpenPLC Project, \emph{OpenPLC Runtime Documentation},
+        \url{https://openplcproject.com/docs/} -- skim the
+        ``Modbus Addressing'' page; you will see exactly the registers
+        you read in Step 3.
+  \item Modbus Organization, \emph{Modbus Application Protocol
+        Specification V1.1b3}, 2012,
+        \url{modbus.org/specs.php} -- 50 short pages; the
+        function-code table is the only reference you will ever
+        need for a Modbus packet.
+\end{itemize}
+
 \begin{warnbox}
-Do not photograph, scan, or attempt to access any device discovered. This lab is observational only.
+Everything in this lab happens on the lab stack on your own machine.
+Do \textbf{not} run \texttt{nmap}, \texttt{modbus\_read.py}, or any
+other probe against a device you walked past in Step 4, against
+campus infrastructure, or against any IP outside
+\texttt{172.28.0.0/16}. Touching a real PLC without written
+authorisation is a criminal offence in most jurisdictions (in Germany:
+\S 202a, 202c, 303b StGB) and can trigger a safety event in the
+physical world. Observe with your eyes, attack only the containers.
 \end{warnbox}
 \end{document}

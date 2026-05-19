@@ -1,0 +1,14 @@
+# Default owner — everything not matched below.
+*                                       @mniedermaier
+
+# CI / build infrastructure
+/.github/                               @mniedermaier
+/Makefile                               @mniedermaier
+/template/                              @mniedermaier
+
+# Course material
+/bachelor/                              @mniedermaier
+/master/                                @mniedermaier
+
+# Lab Docker stack
+/bachelor/labs/_stack/                  @mniedermaier

@@ -1,30 +1,45 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="auto">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Industrial Security Labs</title>
 
 <meta name="description" content="Industrial Security (Bachelor) lab environment: 10 hands-on labs on one Docker stack -- OpenPLC, OPC UA, MQTT, Zeek.">
-<meta name="theme-color" content="#1F4E79">
-<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#00205B" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0B0F19" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
 
-<!-- Open Graph for nice link previews when sharing on Slack/Teams/etc. -->
 <meta property="og:title" content="Industrial Security Labs">
 <meta property="og:description" content="10 hands-on industrial control system labs on one self-contained Docker stack.">
 <meta property="og:type" content="website">
 
-<!-- Favicon (SVG works in all modern browsers; scales to every size). -->
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="apple-touch-icon" href="favicon.svg">
-<link rel="mask-icon" href="favicon.svg" color="#1F4E79">
+<link rel="mask-icon" href="favicon.svg" color="#00205B">
 
-<link rel="stylesheet" href="style.css">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Set the theme BEFORE the page paints so dark-mode users never see a white flash. -->
+<script>
+  (function () {
+    var stored = null;
+    try { stored = localStorage.getItem("isl-theme"); } catch (e) {}
+    var theme = stored || "auto";
+    var media = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)");
+    var resolved = theme === "auto" ? (media && media.matches ? "dark" : "light") : theme;
+    document.documentElement.setAttribute("data-theme", theme);
+    document.documentElement.setAttribute("data-resolved", resolved);
+  })();
+</script>
+
+<link rel="stylesheet" href="style.css?v=5">
+<!-- Fonts are bundled locally (see fonts/). No internet required. -->
 </head>
 <body>
+
+<a class="skip-link" href="#labs">Skip to labs</a>
+
+<!-- ============================ SCROLL PROGRESS ============================ -->
+<div class="scroll-progress" aria-hidden="true"><div class="scroll-progress-bar"></div></div>
 
 <!-- ============================ HEADER ============================ -->
 <header class="topbar">
@@ -36,13 +51,42 @@
       </svg>
       <span class="brand-name">Industrial Security <span class="brand-sub">Bachelor Labs</span></span>
     </a>
-    <nav class="topnav">
+
+    <nav class="topnav" aria-label="Primary">
       <a href="#labs">Labs</a>
       <a href="#stack">Stack</a>
       <a href="#scripts">Scripts</a>
-      <a href="#quickref">Quick&nbsp;Reference</a>
-      <a href="#help">Troubleshoot</a>
+      <a href="#quickref">Quick&nbsp;ref</a>
+      <a href="#help">Help</a>
     </nav>
+
+    <div class="topbar-tools">
+      <!-- Stack health dot -->
+      <button class="health-pill" id="health-pill" aria-live="polite" aria-label="Lab stack health" title="Lab stack health (refreshes every 10s)">
+        <span class="health-dot" data-state="unknown"></span>
+        <span class="health-text">checking</span>
+      </button>
+
+      <!-- Progress counter -->
+      <span class="progress-pill" id="progress-pill" aria-live="polite" title="Labs completed (click a card to mark done)">
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M6.5 11.5 3 8l1.4-1.4 2.1 2.1 5.1-5.1L13 5l-6.5 6.5z"/></svg>
+        <span id="progress-count">0</span>&nbsp;/&nbsp;10
+      </span>
+
+      <!-- Search -->
+      <label class="search" aria-label="Filter labs, scripts, and quick reference">
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M11.7 10.3a5 5 0 1 0-1.4 1.4l3 3 1.4-1.4-3-3zM7 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8z"/></svg>
+        <input type="search" id="search" placeholder="Filter…  (press /)" autocomplete="off" spellcheck="false">
+        <kbd class="kbd-hint">/</kbd>
+      </label>
+
+      <!-- Theme toggle -->
+      <button class="theme-toggle" id="theme-toggle" aria-label="Switch colour theme" title="Theme: cycles auto → light → dark (shortcut: T)">
+        <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 6.5A5.5 5.5 0 1 0 17.5 12 5.5 5.5 0 0 0 12 6.5zm0-5a1 1 0 0 1 1 1V4a1 1 0 0 1-2 0V2.5a1 1 0 0 1 1-1zm0 18a1 1 0 0 1 1 1V22a1 1 0 0 1-2 0v-1.5a1 1 0 0 1 1-1zm9.5-9a1 1 0 0 1-1 1H19a1 1 0 0 1 0-2h1.5a1 1 0 0 1 1 1zM5 12a1 1 0 0 1-1 1H2.5a1 1 0 0 1 0-2H4a1 1 0 0 1 1 1zm13.4-6.4a1 1 0 0 1 0 1.4l-1.1 1.1a1 1 0 0 1-1.4-1.4l1.1-1.1a1 1 0 0 1 1.4 0zM7.1 17a1 1 0 0 1 0 1.4L6 19.4a1 1 0 0 1-1.4-1.4L5.7 17a1 1 0 0 1 1.4 0zm11.3 1.4a1 1 0 0 1-1.4 0L15.9 17a1 1 0 0 1 1.4-1.4l1.1 1.1a1 1 0 0 1 0 1.4zM7.1 7a1 1 0 0 1-1.4 0L4.6 5.9A1 1 0 0 1 6 4.5L7.1 5.6a1 1 0 0 1 0 1.4z"/></svg>
+        <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21 13.4A9 9 0 0 1 10.6 3a1 1 0 0 0-1.3-1.2A9.5 9.5 0 1 0 22.2 14.7a1 1 0 0 0-1.2-1.3z"/></svg>
+        <svg class="theme-icon theme-icon-auto" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm0 16V5a7 7 0 0 1 0 14z"/></svg>
+      </button>
+    </div>
   </div>
 </header>
 
@@ -50,10 +94,11 @@
 <section class="hero" id="top">
   <div class="hero-inner">
     <span class="eyebrow">Lab environment</span>
-    <h1>10 hands-on labs, one Docker stack.</h1>
+    <h1>10 hands-on labs, one&nbsp;Docker&nbsp;stack.</h1>
     <p class="lede">
       OpenPLC, OPC&nbsp;UA, MQTT, and Zeek on a self-contained
       <code>172.28.0.0/16</code> network. Bring it up once, run every lab.
+      PDFs open inline — no tab juggling.
     </p>
     <div class="hero-cta">
       <a class="btn btn-primary" href="#labs">Start at Lab 02 &rarr;</a>
@@ -61,13 +106,19 @@
     </div>
     <div class="hero-meta">
       <span><strong>10</strong> labs</span>
-      <span><strong>5</strong> services</span>
-      <span><strong>45&ndash;60&nbsp;min</strong> per lab</span>
+      <span><strong>6</strong> services</span>
+      <span><strong>60&ndash;135&nbsp;min</strong> per lab</span>
     </div>
   </div>
   <div class="hero-decor" aria-hidden="true">
     <svg viewBox="0 0 200 200">
-      <g fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1.5">
+      <defs>
+        <linearGradient id="hex-grad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="currentColor" stop-opacity="0.25"/>
+          <stop offset="100%" stop-color="currentColor" stop-opacity="0.05"/>
+        </linearGradient>
+      </defs>
+      <g fill="none" stroke="url(#hex-grad)" stroke-width="1.5">
         <polygon points="100,10 178,55 178,145 100,190 22,145 22,55"/>
         <polygon points="100,40 152,70 152,130 100,160 48,130 48,70"/>
         <polygon points="100,70 126,85 126,115 100,130 74,115 74,85"/>
@@ -77,104 +128,176 @@
 </section>
 
 <!-- ============================ LABS ============================ -->
+<main>
 <section class="section" id="labs">
   <div class="section-head">
-    <h2>The 10 labs</h2>
-    <p>Each lab compiles to a PDF in <code>bachelor/labs/NN-topic/</code>. Sections marked <span class="pill pill-docker">docker</span> need the stack running. The
-      <a class="solution-link" href="/labs/01-introduction/01-introduction-lab-solutions.pdf"><span class="pill pill-sol">solutions</span></a>
-      links are lecturer / TA references with model answers and a grading rubric &ndash; students don't need them during the lab.</p>
+    <div class="section-head-row">
+      <h2>The 10 labs</h2>
+      <span class="filter-status" id="filter-status" aria-live="polite" hidden></span>
+    </div>
+    <p>Click a card to open the lab PDF inline. Sections marked <span class="pill pill-docker">docker</span> need the stack running. The <span class="pill pill-sol">solutions</span> links are lecturer references with model answers — students don't need them during the lab.</p>
   </div>
 
-  <div class="lab-grid">
+  <div class="lab-grid" id="lab-grid">
 
-    <article class="lab-card">
-      <div class="lab-num">01</div>
-      <h3><a class="lab-title-link" href="/labs/01-introduction/01-introduction-lab.pdf">Where Is the Industrial Security?</a></h3>
+    <article class="lab-card" data-lab="01" data-keywords="paper inventory IT OT introduction">
+      <header class="lab-card-head">
+        <div class="lab-num">01</div>
+        <button class="lab-done" data-lab="01" aria-label="Mark Lab 01 as completed" title="Mark as completed">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 11.5 2.5 8l1.4-1.4 2.1 2.1 5.6-5.6L13 4.5l-7 7z" fill="currentColor"/></svg>
+        </button>
+      </header>
+      <h3><button class="lab-title-link" data-pdf="/labs/01-introduction/01-introduction-lab.pdf" data-title="Lab 01 — Where Is the Industrial Security?">Where Is the Industrial Security?</button></h3>
       <p>Pen-and-paper walkthrough of an IT/OT system inventory.</p>
-      <div class="lab-tags"><span class="pill pill-paper">paper</span><span>30&nbsp;min</span></div>
-      <div class="lab-actions"><a class="lab-action" href="/labs/01-introduction/01-introduction-lab.pdf">Lab PDF</a>
-          <a class="solution-link" href="/labs/01-introduction/01-introduction-lab-solutions.pdf"><span class="pill pill-sol">solutions</span></a></div>
+      <div class="lab-tags"><span class="pill pill-paper">paper</span><span>60&ndash;90&nbsp;min</span></div>
+      <div class="lab-actions">
+        <button class="lab-action" data-pdf="/labs/01-introduction/01-introduction-lab.pdf" data-title="Lab 01 — Where Is the Industrial Security?">Open lab</button>
+        <button class="lab-action lab-action-ghost" data-pdf="/labs/01-introduction/01-introduction-lab-solutions.pdf" data-title="Lab 01 — Solutions"><span class="pill pill-sol">solutions</span></button>
+      </div>
     </article>
 
-    <article class="lab-card">
-      <div class="lab-num">02</div>
-      <h3><a class="lab-title-link" href="/labs/02-ics-fundamentals/02-ics-fundamentals-lab.pdf">First Contact with OpenPLC</a></h3>
+    <article class="lab-card" data-lab="02" data-keywords="openplc modbus docker ladder logic conveyor">
+      <header class="lab-card-head">
+        <div class="lab-num">02</div>
+        <button class="lab-done" data-lab="02" aria-label="Mark Lab 02 as completed" title="Mark as completed">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 11.5 2.5 8l1.4-1.4 2.1 2.1 5.6-5.6L13 4.5l-7 7z" fill="currentColor"/></svg>
+        </button>
+      </header>
+      <h3><button class="lab-title-link" data-pdf="/labs/02-ics-fundamentals/02-ics-fundamentals-lab.pdf" data-title="Lab 02 — ICS Fundamentals">First Contact with OpenPLC</button></h3>
       <p>Stand up the stack, upload a ladder program, read holding registers over Modbus.</p>
-      <div class="lab-tags"><span class="pill pill-docker">docker</span><span>30&ndash;45&nbsp;min</span></div>
-      <div class="lab-actions"><a class="lab-action" href="/labs/02-ics-fundamentals/02-ics-fundamentals-lab.pdf">Lab PDF</a>
-          <a class="solution-link" href="/labs/02-ics-fundamentals/02-ics-fundamentals-lab-solutions.pdf"><span class="pill pill-sol">solutions</span></a></div>
+      <div class="lab-tags"><span class="pill pill-docker">docker</span><span>60&ndash;90&nbsp;min</span></div>
+      <div class="lab-actions">
+        <button class="lab-action" data-pdf="/labs/02-ics-fundamentals/02-ics-fundamentals-lab.pdf" data-title="Lab 02 — ICS Fundamentals">Open lab</button>
+        <button class="lab-action lab-action-ghost" data-pdf="/labs/02-ics-fundamentals/02-ics-fundamentals-lab-solutions.pdf" data-title="Lab 02 — Solutions"><span class="pill pill-sol">solutions</span></button>
+      </div>
     </article>
 
-    <article class="lab-card">
-      <div class="lab-num">03</div>
-      <h3><a class="lab-title-link" href="/labs/03-network-architecture/03-network-architecture-lab.pdf">Network Segmentation Design</a></h3>
-      <p>Design a Purdue-layered network for a small water utility on paper.</p>
-      <div class="lab-tags"><span class="pill pill-paper">paper</span><span>45&nbsp;min</span></div>
-      <div class="lab-actions"><a class="lab-action" href="/labs/03-network-architecture/03-network-architecture-lab.pdf">Lab PDF</a>
-          <a class="solution-link" href="/labs/03-network-architecture/03-network-architecture-lab-solutions.pdf"><span class="pill pill-sol">solutions</span></a></div>
+    <article class="lab-card" data-lab="03" data-keywords="network purdue zones conduits firewall segmentation nmap">
+      <header class="lab-card-head">
+        <div class="lab-num">03</div>
+        <button class="lab-done" data-lab="03" aria-label="Mark Lab 03 as completed" title="Mark as completed">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 11.5 2.5 8l1.4-1.4 2.1 2.1 5.6-5.6L13 4.5l-7 7z" fill="currentColor"/></svg>
+        </button>
+      </header>
+      <h3><button class="lab-title-link" data-pdf="/labs/03-network-architecture/03-network-architecture-lab.pdf" data-title="Lab 03 — Network Architecture">Network Segmentation Design</button></h3>
+      <p>Map the lab stack onto Purdue levels; draw zones, conduits, firewall rules.</p>
+      <div class="lab-tags"><span class="pill pill-docker">docker</span><span>75&ndash;90&nbsp;min</span></div>
+      <div class="lab-actions">
+        <button class="lab-action" data-pdf="/labs/03-network-architecture/03-network-architecture-lab.pdf" data-title="Lab 03 — Network Architecture">Open lab</button>
+        <button class="lab-action lab-action-ghost" data-pdf="/labs/03-network-architecture/03-network-architecture-lab-solutions.pdf" data-title="Lab 03 — Solutions"><span class="pill pill-sol">solutions</span></button>
+      </div>
     </article>
 
-    <article class="lab-card">
-      <div class="lab-num">04</div>
-      <h3><a class="lab-title-link" href="/labs/04-protocols/04-protocols-lab.pdf">Modbus and OPC UA &ndash; See the Difference</a></h3>
-      <p>Read &amp; inject without authentication on Modbus; capture and compare with OPC&nbsp;UA.</p>
-      <div class="lab-tags"><span class="pill pill-docker">docker</span><span>45&ndash;60&nbsp;min</span></div>
-      <div class="lab-actions"><a class="lab-action" href="/labs/04-protocols/04-protocols-lab.pdf">Lab PDF</a>
-          <a class="solution-link" href="/labs/04-protocols/04-protocols-lab-solutions.pdf"><span class="pill pill-sol">solutions</span></a></div>
+    <article class="lab-card" data-lab="04" data-keywords="modbus opcua mqtt protocol tls injection sparkplug">
+      <header class="lab-card-head">
+        <div class="lab-num">04</div>
+        <button class="lab-done" data-lab="04" aria-label="Mark Lab 04 as completed" title="Mark as completed">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 11.5 2.5 8l1.4-1.4 2.1 2.1 5.6-5.6L13 4.5l-7 7z" fill="currentColor"/></svg>
+        </button>
+      </header>
+      <h3><button class="lab-title-link" data-pdf="/labs/04-protocols/04-protocols-lab.pdf" data-title="Lab 04 — Protocols">Modbus, OPC UA, MQTT — Side by Side</button></h3>
+      <p>Read & inject Modbus unauthenticated; capture and compare with OPC&nbsp;UA + MQTT.</p>
+      <div class="lab-tags"><span class="pill pill-docker">docker</span><span>90&ndash;120&nbsp;min</span></div>
+      <div class="lab-actions">
+        <button class="lab-action" data-pdf="/labs/04-protocols/04-protocols-lab.pdf" data-title="Lab 04 — Protocols">Open lab</button>
+        <button class="lab-action lab-action-ghost" data-pdf="/labs/04-protocols/04-protocols-lab-solutions.pdf" data-title="Lab 04 — Solutions"><span class="pill pill-sol">solutions</span></button>
+      </div>
     </article>
 
-    <article class="lab-card">
-      <div class="lab-num">05</div>
-      <h3><a class="lab-title-link" href="/labs/05-threats/05-threats-lab.pdf">Shodan Reconnaissance</a></h3>
-      <p>Find real exposed ICS devices on the open Internet &ndash; read-only.</p>
-      <div class="lab-tags"><span class="pill pill-web">web</span><span>30&nbsp;min</span></div>
-      <div class="lab-actions"><a class="lab-action" href="/labs/05-threats/05-threats-lab.pdf">Lab PDF</a>
-          <a class="solution-link" href="/labs/05-threats/05-threats-lab-solutions.pdf"><span class="pill pill-sol">solutions</span></a></div>
+    <article class="lab-card" data-lab="05" data-keywords="threats shodan stuxnet replay attack reconnaissance">
+      <header class="lab-card-head">
+        <div class="lab-num">05</div>
+        <button class="lab-done" data-lab="05" aria-label="Mark Lab 05 as completed" title="Mark as completed">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 11.5 2.5 8l1.4-1.4 2.1 2.1 5.6-5.6L13 4.5l-7 7z" fill="currentColor"/></svg>
+        </button>
+      </header>
+      <h3><button class="lab-title-link" data-pdf="/labs/05-threats/05-threats-lab.pdf" data-title="Lab 05 — Threats">Reproduce a Stuxnet-shape</button></h3>
+      <p>Recon → baseline → replay → setpoint spoof → detect in Zeek.</p>
+      <div class="lab-tags"><span class="pill pill-docker">docker</span><span>90&ndash;120&nbsp;min</span></div>
+      <div class="lab-actions">
+        <button class="lab-action" data-pdf="/labs/05-threats/05-threats-lab.pdf" data-title="Lab 05 — Threats">Open lab</button>
+        <button class="lab-action lab-action-ghost" data-pdf="/labs/05-threats/05-threats-lab-solutions.pdf" data-title="Lab 05 — Solutions"><span class="pill pill-sol">solutions</span></button>
+      </div>
     </article>
 
-    <article class="lab-card">
-      <div class="lab-num">06</div>
-      <h3><a class="lab-title-link" href="/labs/06-vulnerabilities/06-vulnerabilities-lab.pdf">Real CVE Walk-Through</a></h3>
-      <p>Open a CISA ICSA advisory, then run a safe nmap against the lab PLC.</p>
-      <div class="lab-tags"><span class="pill pill-docker">docker</span><span>45&nbsp;min</span></div>
-      <div class="lab-actions"><a class="lab-action" href="/labs/06-vulnerabilities/06-vulnerabilities-lab.pdf">Lab PDF</a>
-          <a class="solution-link" href="/labs/06-vulnerabilities/06-vulnerabilities-lab-solutions.pdf"><span class="pill pill-sol">solutions</span></a></div>
+    <article class="lab-card" data-lab="06" data-keywords="vulnerabilities cve cisa advisory cvss sbom">
+      <header class="lab-card-head">
+        <div class="lab-num">06</div>
+        <button class="lab-done" data-lab="06" aria-label="Mark Lab 06 as completed" title="Mark as completed">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 11.5 2.5 8l1.4-1.4 2.1 2.1 5.6-5.6L13 4.5l-7 7z" fill="currentColor"/></svg>
+        </button>
+      </header>
+      <h3><button class="lab-title-link" data-pdf="/labs/06-vulnerabilities/06-vulnerabilities-lab.pdf" data-title="Lab 06 — Vulnerabilities">CISA Advisory Walk + CVSS for OT</button></h3>
+      <p>Annotate a real advisory, re-score CVSS for an air-gapped zone, nmap the lab PLC.</p>
+      <div class="lab-tags"><span class="pill pill-docker">docker</span><span>75&ndash;105&nbsp;min</span></div>
+      <div class="lab-actions">
+        <button class="lab-action" data-pdf="/labs/06-vulnerabilities/06-vulnerabilities-lab.pdf" data-title="Lab 06 — Vulnerabilities">Open lab</button>
+        <button class="lab-action lab-action-ghost" data-pdf="/labs/06-vulnerabilities/06-vulnerabilities-lab-solutions.pdf" data-title="Lab 06 — Solutions"><span class="pill pill-sol">solutions</span></button>
+      </div>
     </article>
 
-    <article class="lab-card">
-      <div class="lab-num">07</div>
-      <h3><a class="lab-title-link" href="/labs/07-risk-management/07-risk-management-lab.pdf">Risk Matrix Workshop</a></h3>
-      <p>Build a 5&times;5 risk matrix in groups for a small chemical plant.</p>
-      <div class="lab-tags"><span class="pill pill-paper">workshop</span><span>60&nbsp;min</span></div>
-      <div class="lab-actions"><a class="lab-action" href="/labs/07-risk-management/07-risk-management-lab.pdf">Lab PDF</a>
-          <a class="solution-link" href="/labs/07-risk-management/07-risk-management-lab-solutions.pdf"><span class="pill pill-sol">solutions</span></a></div>
+    <article class="lab-card" data-lab="07" data-keywords="risk hazop lopa bowtie cyber-pha fair alarp register">
+      <header class="lab-card-head">
+        <div class="lab-num">07</div>
+        <button class="lab-done" data-lab="07" aria-label="Mark Lab 07 as completed" title="Mark as completed">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 11.5 2.5 8l1.4-1.4 2.1 2.1 5.6-5.6L13 4.5l-7 7z" fill="currentColor"/></svg>
+        </button>
+      </header>
+      <h3><button class="lab-title-link" data-pdf="/labs/07-risk-management/07-risk-management-lab.pdf" data-title="Lab 07 — Risk Management">Cyber-PHA on the Lab Plant</button></h3>
+      <p>Bow-tie → Cyber-HAZOP → LOPA → register row → FAIR ALE on the conveyor.</p>
+      <div class="lab-tags"><span class="pill pill-paper">workshop</span><span>60&ndash;90&nbsp;min</span></div>
+      <div class="lab-actions">
+        <button class="lab-action" data-pdf="/labs/07-risk-management/07-risk-management-lab.pdf" data-title="Lab 07 — Risk Management">Open lab</button>
+        <button class="lab-action lab-action-ghost" data-pdf="/labs/07-risk-management/07-risk-management-lab-solutions.pdf" data-title="Lab 07 — Solutions"><span class="pill pill-sol">solutions</span></button>
+      </div>
     </article>
 
-    <article class="lab-card">
-      <div class="lab-num">08</div>
-      <h3><a class="lab-title-link" href="/labs/08-defense-in-depth/08-defense-in-depth-lab.pdf">Passive OT IDS with Zeek</a></h3>
-      <p>Detect the Modbus injection from Lab&nbsp;04 with a passive ICS-aware IDS.</p>
-      <div class="lab-tags"><span class="pill pill-docker">docker</span><span>45&ndash;60&nbsp;min</span></div>
-      <div class="lab-actions"><a class="lab-action" href="/labs/08-defense-in-depth/08-defense-in-depth-lab.pdf">Lab PDF</a>
-          <a class="solution-link" href="/labs/08-defense-in-depth/08-defense-in-depth-lab-solutions.pdf"><span class="pill pill-sol">solutions</span></a></div>
+    <article class="lab-card" data-lab="08" data-keywords="zeek ids defense detection alert tuning local.zeek">
+      <header class="lab-card-head">
+        <div class="lab-num">08</div>
+        <button class="lab-done" data-lab="08" aria-label="Mark Lab 08 as completed" title="Mark as completed">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 11.5 2.5 8l1.4-1.4 2.1 2.1 5.6-5.6L13 4.5l-7 7z" fill="currentColor"/></svg>
+        </button>
+      </header>
+      <h3><button class="lab-title-link" data-pdf="/labs/08-defense-in-depth/08-defense-in-depth-lab.pdf" data-title="Lab 08 — Defense in Depth">Zeek Tuning vs. Simulated Attacks</button></h3>
+      <p>Baseline → existing rule walk → write a stateful first-time-writer detection → tune.</p>
+      <div class="lab-tags"><span class="pill pill-docker">docker</span><span>105&ndash;135&nbsp;min</span></div>
+      <div class="lab-actions">
+        <button class="lab-action" data-pdf="/labs/08-defense-in-depth/08-defense-in-depth-lab.pdf" data-title="Lab 08 — Defense in Depth">Open lab</button>
+        <button class="lab-action lab-action-ghost" data-pdf="/labs/08-defense-in-depth/08-defense-in-depth-lab-solutions.pdf" data-title="Lab 08 — Solutions"><span class="pill pill-sol">solutions</span></button>
+      </div>
     </article>
 
-    <article class="lab-card">
-      <div class="lab-num">09</div>
-      <h3><a class="lab-title-link" href="/labs/09-standards/09-standards-lab.pdf">Regulatory Gap Analysis</a></h3>
-      <p>Map NIS2 / KRITIS / CRA obligations to controls for a German water utility.</p>
-      <div class="lab-tags"><span class="pill pill-paper">paper</span><span>60&nbsp;min</span></div>
-      <div class="lab-actions"><a class="lab-action" href="/labs/09-standards/09-standards-lab.pdf">Lab PDF</a>
-          <a class="solution-link" href="/labs/09-standards/09-standards-lab-solutions.pdf"><span class="pill pill-sol">solutions</span></a></div>
+    <article class="lab-card" data-lab="09" data-keywords="iec 62443 standards nis2 zoning gap analysis sl-t">
+      <header class="lab-card-head">
+        <div class="lab-num">09</div>
+        <button class="lab-done" data-lab="09" aria-label="Mark Lab 09 as completed" title="Mark as completed">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 11.5 2.5 8l1.4-1.4 2.1 2.1 5.6-5.6L13 4.5l-7 7z" fill="currentColor"/></svg>
+        </button>
+      </header>
+      <h3><button class="lab-title-link" data-pdf="/labs/09-standards/09-standards-lab.pdf" data-title="Lab 09 — Standards">IEC 62443-3-2 Zoning Walkthrough</button></h3>
+      <p>Apply ZCR 1–7 to the lab plant; SL-T per zone; NIS2 applicability check.</p>
+      <div class="lab-tags"><span class="pill pill-paper">paper</span><span>75&ndash;105&nbsp;min</span></div>
+      <div class="lab-actions">
+        <button class="lab-action" data-pdf="/labs/09-standards/09-standards-lab.pdf" data-title="Lab 09 — Standards">Open lab</button>
+        <button class="lab-action lab-action-ghost" data-pdf="/labs/09-standards/09-standards-lab-solutions.pdf" data-title="Lab 09 — Solutions"><span class="pill pill-sol">solutions</span></button>
+      </div>
     </article>
 
-    <article class="lab-card">
-      <div class="lab-num">10</div>
-      <h3><a class="lab-title-link" href="/labs/10-incident-response/10-incident-response-lab.pdf">Saturday Night Tabletop</a></h3>
-      <p>90-minute tabletop: an unexpected OT incident in real time, six roles.</p>
-      <div class="lab-tags"><span class="pill pill-paper">tabletop</span><span>90&nbsp;min</span></div>
-      <div class="lab-actions"><a class="lab-action" href="/labs/10-incident-response/10-incident-response-lab.pdf">Lab PDF</a>
-          <a class="solution-link" href="/labs/10-incident-response/10-incident-response-lab-solutions.pdf"><span class="pill pill-sol">solutions</span></a></div>
+    <article class="lab-card" data-lab="10" data-keywords="incident response tabletop forensics nis2 recovery">
+      <header class="lab-card-head">
+        <div class="lab-num">10</div>
+        <button class="lab-done" data-lab="10" aria-label="Mark Lab 10 as completed" title="Mark as completed">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 11.5 2.5 8l1.4-1.4 2.1 2.1 5.6-5.6L13 4.5l-7 7z" fill="currentColor"/></svg>
+        </button>
+      </header>
+      <h3><button class="lab-title-link" data-pdf="/labs/10-incident-response/10-incident-response-lab.pdf" data-title="Lab 10 — Incident Response">Tabletop + Zeek Forensics</button></h3>
+      <p>90-min tabletop on a Triconex scenario, then forensics against the lab's Zeek logs.</p>
+      <div class="lab-tags"><span class="pill pill-paper">tabletop</span><span>90&ndash;120&nbsp;min</span></div>
+      <div class="lab-actions">
+        <button class="lab-action" data-pdf="/labs/10-incident-response/10-incident-response-lab.pdf" data-title="Lab 10 — Incident Response">Open lab</button>
+        <button class="lab-action lab-action-ghost" data-pdf="/labs/10-incident-response/10-incident-response-lab-solutions.pdf" data-title="Lab 10 — Solutions"><span class="pill pill-sol">solutions</span></button>
+      </div>
     </article>
 
   </div>
@@ -188,7 +311,7 @@
   </div>
 
   <div class="stack-grid">
-    <div class="service-card service-plc">
+    <div class="service-card service-plc" data-keywords="openplc plc modbus 502 8080 ladder">
       <div class="service-icon">PLC</div>
       <h3>openplc</h3>
       <p>OpenPLC runtime &ndash; soft PLC with Modbus TCP on 502.</p>
@@ -196,29 +319,29 @@
       <p class="service-note">Web UI: <a href="http://127.0.0.1:8080" target="_blank" rel="noopener">127.0.0.1:8080</a><br>default creds: <code>openplc / openplc</code></p>
     </div>
 
-    <div class="service-card service-init">
+    <div class="service-card service-init" data-keywords="init bootstrap conveyor sidecar">
       <div class="service-icon">INIT</div>
       <h3>openplc-init</h3>
-      <p>One-shot sidecar &ndash; waits for OpenPLC to be healthy, uploads <code>conveyor.st</code>, starts the PLC. Exits cleanly.</p>
+      <p>One-shot sidecar &ndash; waits for OpenPLC, uploads <code>conveyor.st</code>, starts the PLC.</p>
       <code>runs once on up</code>
-      <p class="service-note">Re-prime after a restart with <code>docker compose up -d --no-deps --force-recreate openplc-init</code>.</p>
+      <p class="service-note">Re-prime: <code>docker compose up -d --force-recreate openplc-init</code></p>
     </div>
 
-    <div class="service-card service-ua">
+    <div class="service-card service-ua" data-keywords="opcua open62541 4840 anonymous">
       <div class="service-icon">UA</div>
       <h3>opcua</h3>
       <p>open62541 example server &ndash; anonymous, no encryption.</p>
       <code>172.28.0.11:4840</code>
     </div>
 
-    <div class="service-card service-mqtt">
+    <div class="service-card service-mqtt" data-keywords="mqtt mosquitto broker 1883 iiot sparkplug">
       <div class="service-icon">MQ</div>
       <h3>mqtt</h3>
       <p>Eclipse Mosquitto broker for the IIoT side-quest.</p>
       <code>172.28.0.12:1883</code>
     </div>
 
-    <div class="service-card service-student">
+    <div class="service-card service-student" data-keywords="student workbench python pymodbus tshark nmap">
       <div class="service-icon">WS</div>
       <h3>student</h3>
       <p>Debian workbench: python3, pymodbus, asyncua, paho-mqtt, nmap, tcpdump, tshark.</p>
@@ -226,7 +349,7 @@
       <p class="service-note">Enter: <code>docker compose exec student bash</code></p>
     </div>
 
-    <div class="service-card service-zeek">
+    <div class="service-card service-zeek" data-keywords="zeek ids detection passive netns">
       <div class="service-icon">IDS</div>
       <h3>zeek</h3>
       <p>Network monitor in the OpenPLC netns &ndash; sees every Modbus packet.</p>
@@ -237,7 +360,7 @@
 
   <div class="stack-quick">
     <h3>Quick commands</h3>
-    <pre><code><span class="c">cd bachelor/labs/_stack</span>
+<pre><code><span class="c">cd bachelor/labs/_stack</span>
 docker compose up -d              <span class="c"># start everything; openplc-init primes the PLC automatically</span>
 docker compose exec student bash  <span class="c"># jump into the workbench</span>
 docker compose down -v            <span class="c"># tear down (drops PCAPs)</span>
@@ -254,27 +377,27 @@ docker compose down -v            <span class="c"># tear down (drops PCAPs)</spa
   </div>
 
   <div class="script-grid">
-    <div class="script-card">
+    <div class="script-card" data-keywords="modbus_read read holding registers">
       <h3>modbus_read.py</h3>
       <p>Read 10 holding registers from the OpenPLC over Modbus TCP (FC 0x03).</p>
     </div>
-    <div class="script-card">
+    <div class="script-card" data-keywords="modbus_inject write coil attack">
       <h3>modbus_inject.py</h3>
       <p>Write coil 0 = TRUE on the OpenPLC over Modbus TCP &ndash; no auth, by design.</p>
     </div>
-    <div class="script-card">
+    <div class="script-card" data-keywords="modbus_poll baseline traffic loop">
       <h3>modbus_poll_loop.py</h3>
       <p>Background polling loop &ndash; useful as Zeek baseline traffic.</p>
     </div>
-    <div class="script-card">
+    <div class="script-card" data-keywords="opcua browse namespace open62541">
       <h3>opcua_browse.py</h3>
       <p>Anonymous OPC UA browse of the open62541 example server's <code>Objects</code> namespace.</p>
     </div>
-    <div class="script-card">
+    <div class="script-card" data-keywords="mqtt publish sparkplug iiot mosquitto">
       <h3>mqtt_publish.py</h3>
       <p>Publish one message to the Mosquitto broker; entry point for the IIoT side-quest.</p>
     </div>
-    <div class="script-card">
+    <div class="script-card" data-keywords="ladder conveyor structured text st">
       <h3>ladder/conveyor.st</h3>
       <p>Three-rung Structured Text ladder &ndash; the PLC program Lab 02 uploads.</p>
     </div>
@@ -290,7 +413,7 @@ docker compose down -v            <span class="c"># tear down (drops PCAPs)</spa
 
   <div class="ref-grid">
 
-    <div class="ref-card">
+    <div class="ref-card" data-keywords="modbus function codes read write coils registers">
       <h3>Common Modbus function codes</h3>
       <table class="ref-table">
         <tr><th>FC</th><th>Name</th><th>Direction</th></tr>
@@ -305,7 +428,7 @@ docker compose down -v            <span class="c"># tear down (drops PCAPs)</spa
       </table>
     </div>
 
-    <div class="ref-card">
+    <div class="ref-card" data-keywords="modbus tcp frame mbap header payload">
       <h3>Modbus TCP frame (12 + N bytes)</h3>
       <div class="frame">
         <div class="cell c-id" title="Transaction ID (2 B)">Trans ID</div>
@@ -315,10 +438,10 @@ docker compose down -v            <span class="c"># tear down (drops PCAPs)</spa
         <div class="cell c-fc" title="Function code (1 B)">FC</div>
         <div class="cell c-data" title="Payload (N bytes)">Data&hellip;</div>
       </div>
-      <p class="ref-note">First 7 bytes = MBAP header (incl.\ Unit). No auth, no integrity, no encryption.</p>
+      <p class="ref-note">First 7 bytes = MBAP header (incl. Unit). No auth, no integrity, no encryption.</p>
     </div>
 
-    <div class="ref-card">
+    <div class="ref-card" data-keywords="addresses ports services 172.28">
       <h3>Lab service addresses</h3>
       <table class="ref-table">
         <tr><th>Service</th><th>Address</th><th>Port</th></tr>
@@ -330,11 +453,9 @@ docker compose down -v            <span class="c"># tear down (drops PCAPs)</spa
       </table>
     </div>
 
-    <div class="ref-card">
+    <div class="ref-card" data-keywords="handouts schedule cheatsheets acronyms">
       <h3>Course handouts</h3>
-      <p style="font-size:0.9rem; color:var(--c-text-mute); margin-bottom:14px;">
-        Three lecturer / student PDFs at <code>bachelor/handouts/</code>.
-      </p>
+      <p class="ref-intro">Three lecturer / student PDFs at <code>bachelor/handouts/</code>.</p>
       <table class="ref-table">
         <tr><th>File</th><th>For</th></tr>
         <tr><td><code>delivery-schedule.pdf</code></td><td>lecturer</td></tr>
@@ -344,9 +465,9 @@ docker compose down -v            <span class="c"># tear down (drops PCAPs)</spa
       <p class="ref-note">Cheat-sheets cover Modbus, OPC UA, CVSS, NIS2/CRA.</p>
     </div>
 
-    <div class="ref-card">
+    <div class="ref-card" data-keywords="oneliners zeek tcpdump pcap tshark">
       <h3>One-liners</h3>
-      <pre><code><span class="c"># tail Zeek's Modbus log live</span>
+<pre><code><span class="c"># tail Zeek's Modbus log live</span>
 tail -f _stack/zeek-logs/modbus.log
 
 <span class="c"># PCAP from inside the student container</span>
@@ -372,23 +493,71 @@ docker compose restart openplc &amp;&amp; \
   </div>
 
   <div class="trouble-grid">
-    <div class="trouble-card">
+    <div class="trouble-card" data-keywords="modbus 502 connection refused openplc">
       <span class="trouble-code">Connection refused</span>
       <h3>port 502 closed</h3>
       <p>OpenPLC's Modbus listener only opens after a program is uploaded and started. Run <code>./bootstrap-openplc.sh</code> or do Lab&nbsp;02 step&nbsp;3 manually.</p>
     </div>
-    <div class="trouble-card">
+    <div class="trouble-card" data-keywords="zeek silent logs checksum offload">
       <span class="trouble-code">empty zeek-logs/</span>
       <h3>Zeek silent</h3>
       <p>Zeek only sees traffic when the PLC is running and something is talking to it. Generate traffic with <code>modbus_read.py</code> first. If still silent, check <code>docker compose logs zeek</code> for checksum-offload warnings.</p>
     </div>
-    <div class="trouble-card">
+    <div class="trouble-card" data-keywords="login openplc default credentials">
       <span class="trouble-code">login fails</span>
       <h3>OpenPLC web UI</h3>
       <p>Defaults are <code>openplc / openplc</code>. If you changed them, set <code>OPLC_USER</code> and <code>OPLC_PASS</code> before running the bootstrap script.</p>
     </div>
   </div>
 </section>
+
+<!-- ============================ KEYBOARD SHORTCUTS ============================ -->
+<section class="section section-alt" id="shortcuts">
+  <div class="section-head">
+    <h2>Keyboard shortcuts</h2>
+    <p>For the impatient.</p>
+  </div>
+  <div class="kbd-grid">
+    <div class="kbd-row"><kbd>/</kbd><span>Focus the filter box</span></div>
+    <div class="kbd-row"><kbd>T</kbd><span>Cycle theme (auto → light → dark)</span></div>
+    <div class="kbd-row"><kbd>1</kbd>…<kbd>9</kbd>,&nbsp;<kbd>0</kbd><span>Open lab N (0 = Lab 10)</span></div>
+    <div class="kbd-row"><kbd>Esc</kbd><span>Close PDF reader / clear search</span></div>
+  </div>
+</section>
+</main>
+
+<!-- ============================ PDF READER MODAL ============================ -->
+<div class="pdf-modal" id="pdf-modal" hidden role="dialog" aria-modal="true" aria-labelledby="pdf-modal-title">
+  <div class="pdf-modal-backdrop" data-close></div>
+  <div class="pdf-modal-card" role="document">
+    <header class="pdf-modal-head">
+      <div class="pdf-modal-title">
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M4 1.5a1.5 1.5 0 0 0-1.5 1.5v10A1.5 1.5 0 0 0 4 14.5h8A1.5 1.5 0 0 0 13.5 13V5L9.5 1.5H4zm5 .5L13 5H9V2zM5.5 8h5v1h-5V8zm0 2h5v1h-5v-1zm0 2h3v1h-3v-1z"/></svg>
+        <span id="pdf-modal-title">Lab</span>
+      </div>
+      <div class="pdf-modal-actions">
+        <a id="pdf-modal-open" href="#" target="_blank" rel="noopener" class="pdf-modal-btn pdf-modal-btn-ghost">Open in new tab ↗</a>
+        <a id="pdf-modal-download" href="#" download class="pdf-modal-btn pdf-modal-btn-ghost">Download</a>
+        <button id="pdf-modal-close" class="pdf-modal-btn pdf-modal-btn-close" aria-label="Close PDF reader" data-close>
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="m8 6.6 4-4 1.4 1.4-4 4 4 4L12 13.4l-4-4-4 4L2.6 12l4-4-4-4L4 2.6l4 4z"/></svg>
+        </button>
+      </div>
+    </header>
+    <div class="pdf-modal-body">
+      <iframe id="pdf-modal-frame" title="PDF document" src="about:blank"></iframe>
+      <div class="pdf-modal-fallback" id="pdf-modal-fallback" hidden>
+        <svg viewBox="0 0 48 48" width="48" height="48" aria-hidden="true">
+          <path fill="currentColor" opacity="0.18" d="M10 4h20l10 10v26a4 4 0 0 1-4 4H10a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4z"/>
+          <path fill="currentColor" d="M30 4v10h10"/>
+          <text x="24" y="32" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-weight="600" font-size="9" fill="currentColor">PDF</text>
+        </svg>
+        <h3>Inline PDF preview not available</h3>
+        <p>Your browser declined to render this PDF inside the page. Use the buttons above — <strong>Open in new tab</strong> or <strong>Download</strong> — to read the lab.</p>
+        <p class="pdf-modal-url"><code id="pdf-modal-url-text"></code></p>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ============================ FOOTER ============================ -->
 <footer class="footer">
@@ -398,5 +567,6 @@ docker compose restart openplc &amp;&amp; \
   </div>
 </footer>
 
+<script src="app.js?v=5" defer></script>
 </body>
 </html>

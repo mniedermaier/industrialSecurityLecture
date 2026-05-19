@@ -65,8 +65,8 @@
 \providecommand{\companyLogo}{logo}
 
 % --- modern palette --------------------------------------------------
-\definecolor{slideAccent}{HTML}{1F4E79}       % primary navy
-\definecolor{slideSecondary}{HTML}{E08E0B}    % amber accent
+\definecolor{slideAccent}{HTML}{00205B}       % deep navy
+\definecolor{slideSecondary}{HTML}{00A0DC}    % light blue accent
 
 % --- Corporate branding overrides ------------------------------------
 % A user-editable `branding.tex` at the repo root can override the
@@ -80,7 +80,7 @@
 \definecolor{slideRule}{HTML}{D6DEE8}
 
 % Callout colours
-\definecolor{calNote}{HTML}{1F4E79}
+\definecolor{calNote}{HTML}{00205B}
 \definecolor{calImportant}{HTML}{B23A48}
 \definecolor{calWarning}{HTML}{C77700}
 \definecolor{calTip}{HTML}{2E7D32}
@@ -310,7 +310,9 @@
       {\showlogo[2cm]};
     \node[anchor=south west, text=slideMuted, font=\small, align=left, text width=11cm]
       at ([xshift=1.2cm, yshift=1.0cm]current page.south west)
-      {\textbf{\sectionTitle}\\[2pt]\textit{\courseAuthor}\\{\scriptsize\courseInstitute}};
+      {\textbf{\sectionTitle}%
+        \ifx\courseAuthor\empty\else\\[2pt]\textit{\courseAuthor}\fi
+        \ifx\courseInstitute\empty\else\\{\scriptsize\courseInstitute}\fi};
   \end{tikzpicture}
 }
 

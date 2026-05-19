@@ -19,8 +19,12 @@
 *.bcf
 *.run.xml
 
-# Build artifacts (PDFs are committed for convenience; remove from this list if not wanted)
-# *.pdf
+# Build artefacts: PDF outputs from LaTeX builds are not tracked.
+# Run `make` locally; CI publishes PDFs as workflow artefacts and release assets.
+*.pdf
+# Keep the brand-asset PDFs (logos are source, not build output).
+!branding/*.pdf
+!branding/examples/**/*.pdf
 
 # Editor cruft
 *~

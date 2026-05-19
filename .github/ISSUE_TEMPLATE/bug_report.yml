@@ -1,0 +1,73 @@
+name: Bug report
+description: Something broken in the build, a lab, a slide, or the Docker stack.
+labels: [bug]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: One-paragraph description, plus the command you ran.
+      placeholder: |
+        Running `make verify` on a fresh clone fails with ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+      placeholder: |
+        `make verify` should exit 0 with "OK: no overfull boxes".
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Slide content (sections/)
+        - Exercise / solution (exercises/)
+        - Lab content (labs/NN-topic/)
+        - Lab Docker stack (labs/_stack/)
+        - LaTeX template / build system
+        - CI / GitHub Actions
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: section
+    attributes:
+      label: Section / lab number (if applicable)
+      placeholder: "e.g. 04-protocols"
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: |
+        OS:           Ubuntu 24.04
+        TeX Live:     2024
+        Docker:       27.x
+        Make:         GNU Make 4.3
+        Python:       3.12
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: |
+        Paste the failing LaTeX log (the few `^Overfull` or `^!` lines are usually enough), `docker compose ps`, or the failing command's stderr.
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Quick checks
+      options:
+        - label: I ran `make distclean && make verify` and the failure reproduces.
+        - label: I have read `CLAUDE.md` and confirmed this is not an intentional invariant.

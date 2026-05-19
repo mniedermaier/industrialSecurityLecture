@@ -54,6 +54,7 @@
     \draw[-{Stealth[length=2.5mm]}, shorten >=3pt, shorten <=3pt, thick, isOT] (n-\a) to[bend left=12] (n-\b);
   }
 \end{tikzpicture}
+{\footnotesize Same six NIST SP\,800-61 phases as IT --- OT inverts: visibility before isolation, safety before forensics.}
 \note{
   This is the NIST SP 800-61 Rev.\,2 lifecycle, but read every phase through an OT lens. Preparation in OT means knowing your process: golden PLC project files, signed firmware hashes, a list of who can authorise a shutdown. Detection lags in OT --- many plants found out about Industroyer-style payloads only because operators noticed breakers tripping, not because an EDR alerted. Containment and eradication look nothing like IT: you cannot just wipe and re-image a Safety Instrumented System, you negotiate a controlled outage during a planned maintenance window. The loop matters: lessons learned must feed back into preparation, otherwise the next incident repeats the last one. Stress that the cycle never stops --- it is continuous, not episodic.
 }
@@ -245,6 +246,155 @@ Premature ``all clear'' is how secondary incidents happen. The attacker may stil
   This is the slide where most real recovery efforts fail --- the pressure to ``get production back'' overrides verification. War story: after one ransomware event a European manufacturer restored the engineering workstations from backup and resumed production within 36 hours; nobody validated the PLC logic against a signed baseline, and the attacker's persistence in a ladder-logic subroutine triggered a second outage two weeks later. Re-baselining alarms and trends matters because attackers sometimes tamper with setpoints in ways that only show up under load. The 72-hour heightened monitoring window is borrowed from FIRST CSIRT guidance and catches most ``came back to finish the job'' attempts. Lessons learned within five working days is not arbitrary --- memory decays fast and people rotate off the incident, so the window for honest reflection is narrow. Underline the importantbox: ``all clear'' is a decision the plant manager makes on evidence, not a feeling the team has.
 }
 \end{frame}
+
+%% Frame 1: IEC 62443 anchor for §10
+\begin{frame}{IEC 62443 anchor for this section}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.85, transform shape]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, align=left] (a)
+    {\textbf{62443-2-1} \ Security programme --- \emph{requires} a documented IR plan as a programme element};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=110mm, font=\small, align=left, below=of a] (b)
+    {\textbf{2-1 clause 4.3.4.5} \ Incident planning \& response: roles, escalation, evidence handling};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=110mm, font=\small, align=left, below=of b] (c)
+    {\textbf{62443-3-3 SR\,6.1/6.2} \ Audit log accessibility \& continuous monitoring};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small, align=left, below=of c] (d)
+    {\textbf{62443-3-3 SR\,6 (Timely Response to Events)} \ FR\,6: detect, report, respond within stated time};
+\end{tikzpicture}
+\par\vspace{2mm}
+{\footnotesize Programme requirement (2-1) $\to$ system capability (3-3 FR\,6) $\to$ component evidence (4-2 logs).}
+\source{IEC 62443-2-1:2010 \emph{Security programme requirements for IACS asset owners}, cl.\,4.3.4.5 \textbar{} IEC 62443-3-3:2013, FR\,6.}
+\note{
+  62443-2-1 lists IR plan as a \emph{required} programme element under clause 4.3.4.5, alongside risk assessment and patch management. If auditor asks ``where is your IR plan,'' pointing at a SharePoint folder is not enough; 2-1 wants documented roles, escalation paths, evidence-handling rules. On system side, 3-3 FR\,6 (Timely Response to Events) maps to SOC capability: SR\,6.1 = audit logs accessible to authorised personnel, SR\,6.2 = continuous monitoring. At component level, 4-2 specifies that each PLC/HMI/gateway must emit the logs 3-3 expects to consume. IT analogue: ISO 27001 A.16 (information security incident management) feeding into SOC tooling.
+}
+\end{frame}
+
+%% Frame 2: NIS2 Reporting Timeline in Detail
+\begin{frame}{NIS2 Article 23 --- the reporting clock in detail}
+\centering
+\begin{tikzpicture}[x=1.45cm, scale=0.95, transform shape]
+  \draw[axisline] (0,0) -- (9.2,0);
+  \foreach \x in {0,2,5,8}{\draw[thick] (\x,-1mm) -- (\x,1mm);}
+  \node[font=\tiny, below=1mm] at (0,0) {T = 0};
+  \node[font=\tiny, below=1mm] at (2,0) {+24 h};
+  \node[font=\tiny, below=1mm] at (5,0) {+72 h};
+  \node[font=\tiny, below=1mm] at (8,0) {+1 month};
+  \node[isbox, fill=isOT!15, draw=isOT, font=\tiny, align=left, minimum width=26mm, above=4mm of {(0,0)}] {Detection\\of significant\\incident};
+  \node[isbox, fill=isPLC!15, draw=isPLC, font=\tiny, align=left, minimum width=28mm, above=4mm of {(2,0)}] {\textbf{Early warning} 23(4a)\\suspected cause,\\cross-border impact};
+  \node[isbox, fill=isAccent!15, draw=isAccent, font=\tiny, align=left, minimum width=28mm, above=4mm of {(5,0)}] {\textbf{Notification} 23(4b)\\severity, IoCs,\\initial assessment};
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, align=left, minimum width=28mm, above=4mm of {(8,0)}] {\textbf{Final report} 23(4c)\\root cause, impact,\\mitigations};
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{warnbox}{Consequences}
+Missing a deadline is itself a violation. Fines up to EUR10M or 2\,\% of global turnover (Art.\,34); essential entities have personally liable management (Art.\,32(6)).
+\end{warnbox}
+\source{Directive (EU) 2022/2555 (NIS2), Art.\,23(4)(a--c), Art.\,32(6), Art.\,34. In force 17 Oct 2024.}
+\note{
+  24-h early warning (23(4a)): suspicion incident is malicious, plus cross-border or cross-sector impact. 72-h notification (23(4b)) is the substantive one: severity, IoCs as far as known, initial impact assessment. One-month final report (23(4c)): detailed description, threat type, root cause, applied + ongoing mitigations, cross-border effects. IT analogue: GDPR Art.\,33 (72\,h) which room will recognise --- NIS2 adds the 24-h pre-warning. Art.\,34 caps fines at EUR10M or 2\% global turnover; Art.\,32(6) lets regulator temporarily ban management. Build notification workflow \emph{before} the incident --- who has BSI Meldeportal login, who legally signs off, who calls the customer? 24\,h is too short to invent that.
+}
+\end{frame}
+
+%% Frame 3: PLC Forensics Workflow
+\begin{frame}{PLC forensics --- the order matters}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.78, transform shape]
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=120mm, font=\scriptsize, align=left] (a)
+    {\textbf{1. Capture network FIRST} --- SPAN/TAP at L2 switch, PCAP + hash; the only volatile evidence that proves a write happened};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=120mm, font=\scriptsize, align=left, below=of a] (b)
+    {\textbf{2. Engineering workstation} --- TIA/Studio 5000 audit trail, project file timestamps, USB history, RAM if it is up};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=120mm, font=\scriptsize, align=left, below=of b] (c)
+    {\textbf{3. PLC diagnostic buffer} --- vendor tool, read-only; Siemens SZL/diagnostic buffer, Rockwell controller log};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=120mm, font=\scriptsize, align=left, below=of c] (d)
+    {\textbf{4. CPU mode \& firmware hash} --- RUN/STOP/PROG key position, firmware checksum vs.\ vendor signature};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=120mm, font=\scriptsize, align=left, below=of d] (e)
+    {\textbf{5. Logic + data blocks} --- upload project from CPU, diff against last signed baseline (OB1, FC, FB, DB)};
+\end{tikzpicture}
+\par\vspace{1mm}
+{\footnotesize \textcolor{isAttack}{Volatile (lost on reboot):} PCAP-in-flight, PLC diag buffer, RAM, CPU mode. \textcolor{isOT}{Survives:} project on flash, firmware, audit logs on WS.}
+\source{SANS ICS515 \emph{ICS Active Defense and Incident Response}, 2024 \textbar{} NIST SP 800-86 \emph{Guide to Integrating Forensic Techniques into IR}, 2006, \S3 (order of volatility).}
+\note{
+  Order follows NIST 800-86 order of volatility, inverted for OT: PCAP first --- the \emph{only} place that proves a malicious write (function code 5/6/16 on Modbus, S7 PutPut, EtherNet/IP forward open) actually crossed the wire. Reboot switch or PLC first, that evidence is gone forever. Engineering workstation is forensic gold: TIA Portal audit trail \texttt{Audit.log}, Studio 5000 controller log, project-file mtime pins time of malicious download to the second. PLC diagnostic buffer (Siemens SZL list ID 0xA0, Rockwell controller log) is volatile and bounded --- pull before any restart. CPU mode matters: attacker who STOP'd CPU to download bad logic then RUN'd leaves fingerprint. Firmware hash catches PLC-Blaster/EvilPLC firmware implants. IT analogue: `volatility` for embedded devices.
+}
+\end{frame}
+
+%% Frame 4: Designing a Tabletop Exercise
+\begin{frame}{Designing a tabletop --- 60--90 minutes that surface gaps}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.85, transform shape]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=120mm, font=\scriptsize, align=left] (a)
+    {\textbf{Scope \& time-box} --- one scenario, 60--90 min, one facilitator, one scribe, no laptops};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=120mm, font=\scriptsize, align=left, below=of a] (b)
+    {\textbf{Pick adversary tier} --- SL-2 (skilled, generic tools, opportunistic) vs.\ SL-3 (sector-specific, OT-aware, persistent)};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=120mm, font=\scriptsize, align=left, below=of b] (c)
+    {\textbf{Inject 3--5 decision points} --- e.g.\ T+15 IDS alert, T+30 HMI lies, T+45 vendor pings, T+60 press call};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=120mm, font=\scriptsize, align=left, below=of c] (d)
+    {\textbf{Force the hard questions} --- WHEN do we shut down? WHO authorises? WHO calls BSI / CISA / customer?};
+  \node[isbox, fill=isMute!20, draw=isMute, minimum width=120mm, font=\scriptsize, align=left, below=of d] (e)
+    {\textbf{After-action template} --- timeline, decisions made, decisions \emph{missed}, owners, due dates, next rehearsal};
+\end{tikzpicture}
+\par\vspace{1mm}
+\begin{tipbox}{Cheap and high-signal}
+A printed scenario, the actual on-call rota, a kitchen timer. No tooling needed --- the gap is always in roles, not tech.
+\end{tipbox}
+\source{CISA \emph{CISA Tabletop Exercise Packages (CTEPs)}, 2023 \textbar{} SANS ICS515 \S5 \emph{Active Defense Cycle}, 2024 \textbar{} IEC 62443-2-1 cl.\,4.3.4.5.5 (testing the IR plan).}
+\note{
+  Operational: a tabletop students could run Monday morning. 60--90 min is the sweet spot --- longer disengages, shorter does not reach the press-call moment. SL-2 vs SL-3 is IEC 62443-3-3 vocabulary they have met: SL-2 is script kiddie with Shodan + Metasploit module; SL-3 is sector-aware adversary with custom OT tooling. Pick honestly --- a small machine builder rehearsing SL-4 nation-state is theatre; rehearse SL-2 ransomware ten times first. Decision points: ``HMI shows T1 = 80\textdegree C but historian shows 95\textdegree C --- what do you do, who decides?'' Force naming a person, not a role. Shutdown authorisation is the most valuable output --- in 80\,\% of orgs the answer is ``I'm not sure.''
+}
+\end{frame}
+
+%% Frame 5: Recovery Sequencing
+\begin{frame}{Recovery sequencing --- why ``rebuild'' is dangerous in OT}
+\centering
+\begin{tikzpicture}[node distance=1mm, scale=0.72, transform shape]
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=120mm, font=\scriptsize, align=left] (a)
+    {\textbf{1. Confirm safe state} --- process at hold or controlled shutdown; SIS confirmed in service};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=120mm, font=\scriptsize, align=left, below=of a] (b)
+    {\textbf{2. Preserve evidence} --- hashes, PCAPs, project diffs locked before \emph{any} write to the asset};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=120mm, font=\scriptsize, align=left, below=of b] (c)
+    {\textbf{3. Restore from golden image} --- signed PLC project + signed firmware, never from ``last known good'' on the WS};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=120mm, font=\scriptsize, align=left, below=of c] (d)
+    {\textbf{4. Re-validate logic} --- offline simulation \emph{and} loop check against a known input set before energising};
+  \node[isbox, fill=isHMI!15, draw=isHMI, minimum width=120mm, font=\scriptsize, align=left, below=of d] (e)
+    {\textbf{5. Re-link to process} --- staged: I/O scan only $\to$ open-loop $\to$ closed-loop $\to$ full production};
+  \node[isbox, fill=isNet!15, draw=isNet, minimum width=120mm, font=\scriptsize, align=left, below=of e] (f)
+    {\textbf{6. Re-authorise operators} --- new credentials, briefed on changes, heightened monitoring for 72\,h};
+\end{tikzpicture}
+\par\vspace{1mm}
+\begin{warnbox}{IT vs OT}
+``Rebuild and restart'' is safe in IT (the worst case is rework). In OT a wrong restart can overspeed a turbine, overpressure a vessel, or weld a contact shut --- physical, irreversible.
+\end{warnbox}
+\source{NIST SP 800-61 Rev.\,2 \S3.4 (Recovery), 2012 \textbar{} INL \emph{Cyber-Informed Engineering for Recovery}, 2022 \textbar{} IEC 62443-2-1 cl.\,4.3.4.5.7 (recovery planning).}
+\note{
+  Order is everything. Step 1: cannot pull cable on a running cracker; process must be at defined hold-point or controlled shutdown; SIS confirmed operational because it is your last guardrail. Step 2: preserve evidence before any write keeps post-mortem honest and regulator off your back. Step 3: most teams get wrong --- they restore from engineering WS, the asset attacker compromised; you must restore from off-host, signed, version-controlled copy. Step 4: offline simulation + loop check (feed PLC known inputs in test rig, verify outputs match spec). Step 5: I/O scan only (read, no actuate) $\to$ open-loop (manual setpoints) $\to$ closed-loop (PID engaged) $\to$ full production. Each transition is a go/no-go with plant manager. Step 6: operator credentials may have been cached on compromised WS --- rotate and brief.
+}
+\end{frame}
+
+%% Frame 6: NotPetya at Maersk
+\begin{frame}{NotPetya at Maersk --- a recovery case study}
+\centering
+\begin{tikzpicture}[x=1.3cm, scale=0.92, transform shape]
+  \draw[axisline] (0,0) -- (9.5,0);
+  \foreach \x/\lbl in {0/{27 Jun},2/{Day 1},4.5/{Day 2--3},7/{Day 10},9.2/{Q2 close}}{
+    \draw[thick] (\x,-1mm) -- (\x,1mm);
+    \node[font=\tiny, below=1mm] at (\x,0) {\lbl};
+  }
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, align=left, minimum width=24mm, above=4mm of {(0,0)}] {NotPetya hits\\via M.E.Doc\\update (UA)};
+  \node[isbox, fill=isAttack!15, draw=isAttack, font=\tiny, align=left, minimum width=24mm, above=4mm of {(2,0)}] {4{,}000 servers\\45{,}000 PCs\\encrypted};
+  \node[isbox, fill=isPLC!15, draw=isPLC, font=\tiny, align=left, minimum width=26mm, above=4mm of {(4.5,0)}] {Ghana DC\\offline (power)\\$\Rightarrow$ AD survives};
+  \node[isbox, fill=isAccent!15, draw=isAccent, font=\tiny, align=left, minimum width=24mm, above=4mm of {(7,0)}] {Manual port ops\\paper bills of\\lading};
+  \node[isbox, fill=isOT!15, draw=isOT, font=\tiny, align=left, minimum width=24mm, above=4mm of {(9.2,0)}] {\$\,250--300\,M\\reported loss\\Q2 2017};
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{takeawaybox}{Three lessons}
+\textbf{Backups:} restoration succeeded only because a power cut in Accra preserved one offline domain controller --- luck, not design.\\
+\textbf{IT/OT coupling:} 76 ports stopped because the \emph{IT} domain that authenticated terminal operators died.\\
+\textbf{Blast radius:} a Ukrainian tax-software update reached every Maersk site in 7 minutes (worm via EternalBlue + Mimikatz).
+\end{takeawaybox}
+\source{A.P.\ M{\o}ller--Maersk, \emph{Interim Report Q2 2017}, 16 Aug 2017 \textbar{} A.\ Greenberg, \emph{The Untold Story of NotPetya}, Wired, 22 Aug 2018.}
+\note{
+  27 June 2017: NotPetya entered via backdoored M.E.Doc update; spread via EternalBlue + Mimikatz; encrypted MBRs irrecoverably (wiper masquerading as ransomware). Within hours Maersk lost 4,000 servers and 45,000 PCs across 130 countries; 17 of 76 terminals went silent (terminal OS could not authenticate). Every AD replica encrypted except one in Ghana offline during a local power cut --- entire global rebuild depended on flying that one DC back to UK. Without that accident recovery would have taken weeks longer or required forest rebuild. Maersk Q2 2017: USD 200--300M. Lessons: backups must be offline + geographically separated; IT/OT coupling is invisible single point of failure; software supply chain is hostile. Greenberg's Wired piece is the canonical narrative.
+}
+\end{frame}
+
 
 \begin{frame}{Summary -- Section \sectionNumber}
 \begin{takeawaybox}{What to remember from this section}
