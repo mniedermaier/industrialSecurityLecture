@@ -117,6 +117,15 @@ python3 /labs/scripts/modbus_read.py
 
 Open the lab landing page at <http://127.0.0.1:8000> — brand-consistent overview of all 10 labs, deep-linking to the PDFs, with a quick-reference strip (Modbus function codes, addressing, one-liners) and a troubleshooting cheat sheet.
 
+> **PDFs are built from source, not committed to git.** The landing page links to lab PDFs; on a fresh clone they don't exist yet. Build them once — either with the top-level `make` (above), or, if you only have Docker, with the opt-in build service:
+>
+> ```bash
+> # From bachelor/labs/_stack/ — uses TeX Live in a container (~2 GB, one-time):
+> docker compose --profile docs run --rm build-docs
+> ```
+>
+> After it finishes, reload the landing page and every "Open lab" button works. The normal `docker compose up -d` stays lightweight and never pulls TeX Live.
+
 ### Tear it all down
 
 ```bash

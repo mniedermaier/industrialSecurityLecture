@@ -31,7 +31,7 @@
   })();
 </script>
 
-<link rel="stylesheet" href="style.css?v=5">
+<link rel="stylesheet" href="style.css?v=6">
 <!-- Fonts are bundled locally (see fonts/). No internet required. -->
 </head>
 <body>
@@ -551,8 +551,21 @@ docker compose restart openplc &amp;&amp; \
           <path fill="currentColor" d="M30 4v10h10"/>
           <text x="24" y="32" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-weight="600" font-size="9" fill="currentColor">PDF</text>
         </svg>
-        <h3>Inline PDF preview not available</h3>
-        <p>Your browser declined to render this PDF inside the page. Use the buttons above — <strong>Open in new tab</strong> or <strong>Download</strong> — to read the lab.</p>
+        <!-- Shown when the PDF file is missing on disk (fresh clone). -->
+        <div class="pdf-fallback-missing">
+          <h3>This PDF hasn't been built yet</h3>
+          <p>Lab PDFs are generated from LaTeX source and are <strong>not committed to git</strong>. Build them once — they'll appear here on reload:</p>
+          <pre><code><span class="c"># Option A — Docker only (no LaTeX needed, ~2 GB image, one-time):</span>
+docker compose --profile docs run --rm build-docs
+
+<span class="c"># Option B — if you have LaTeX on the host (faster):</span>
+make -C bachelor labs exercises handouts</code></pre>
+        </div>
+        <!-- Shown when the file exists but the browser won't render it inline. -->
+        <div class="pdf-fallback-noinline">
+          <h3>Inline PDF preview not available</h3>
+          <p>Your browser declined to render this PDF inside the page. Use the buttons above — <strong>Open in new tab</strong> or <strong>Download</strong> — to read the lab.</p>
+        </div>
         <p class="pdf-modal-url"><code id="pdf-modal-url-text"></code></p>
       </div>
     </div>
@@ -567,6 +580,6 @@ docker compose restart openplc &amp;&amp; \
   </div>
 </footer>
 
-<script src="app.js?v=5" defer></script>
+<script src="app.js?v=6" defer></script>
 </body>
 </html>

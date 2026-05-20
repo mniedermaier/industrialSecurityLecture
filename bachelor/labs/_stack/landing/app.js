@@ -180,27 +180,43 @@
       else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
     }
 
-    function open(pdfUrl, niceTitle) {
+    async function open(pdfUrl, niceTitle) {
       if (!pdfUrl) return;
       lastFocus = document.activeElement;
       title.textContent = niceTitle || "Lab PDF";
-      // Hide fallback up front; show iframe.
       if (fallback) fallback.hidden = true;
       if (fbUrl) fbUrl.textContent = pdfUrl;
-      // #toolbar=1 is honored by Chromium's PDF viewer; harmless elsewhere.
-      frame.src = pdfUrl + "#toolbar=1&navpanes=0";
       openLnk.href = pdfUrl;
       dlLnk.href   = pdfUrl;
       dlLnk.setAttribute("download", "");
       modal.hidden = false;
       document.body.classList.add("modal-open");
       document.addEventListener("keydown", trapFocusKeydown);
-      // Focus the close button so Esc/Tab work immediately.
       setTimeout(() => closeBn.focus(), 30);
+
+      // Existence check: PDFs are built from source and are NOT committed
+      // to git, so a fresh clone may not have them yet. A plain HEAD tells
+      // us whether the file is there (reliable, unlike introspecting the
+      // cross-process PDF viewer). 404 -> show the "build the PDFs" panel.
+      let exists = true;
+      try {
+        const head = await fetch(pdfUrl, { method: "HEAD" });
+        exists = head.ok;
+      } catch (e) { exists = false; }
+
+      if (exists) {
+        if (fallback) fallback.hidden = true;
+        frame.src = pdfUrl + "#toolbar=1&navpanes=0";
+      } else {
+        frame.src = "about:blank";
+        modal.classList.add("pdf-missing");
+        if (fallback) fallback.hidden = false;
+      }
     }
     function close() {
       modal.hidden = true;
       frame.src = "about:blank";
+      modal.classList.remove("pdf-missing");
       if (fallback) fallback.hidden = true;
       document.body.classList.remove("modal-open");
       document.removeEventListener("keydown", trapFocusKeydown);

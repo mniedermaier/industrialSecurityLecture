@@ -792,11 +792,20 @@ kbd {
 .pdf-modal-fallback h3 { margin: 0 0 8px; color: var(--c-text-strong); }
 .pdf-modal-fallback p { max-width: 480px; }
 .pdf-modal-fallback .pdf-modal-url { margin-top: 14px; }
-.pdf-modal-fallback code {
+.pdf-modal-fallback > .pdf-modal-url code {
   background: var(--c-bg-band); color: var(--c-text-strong);
   padding: 5px 10px; border-radius: 6px;
   font-size: 0.85rem; word-break: break-all;
 }
+.pdf-modal-fallback pre {
+  text-align: left; margin-top: 14px;
+  max-width: 560px; width: 100%;
+}
+/* Toggle the two fallback variants: default = "no inline" message.
+   When the modal is in .pdf-missing state, swap to the build-it message. */
+.pdf-fallback-missing { display: none; }
+.pdf-modal.pdf-missing .pdf-fallback-missing  { display: block; }
+.pdf-modal.pdf-missing .pdf-fallback-noinline { display: none; }
 
 body.modal-open { overflow: hidden; }
 

@@ -22,6 +22,38 @@ networks:
 services:
 
   # --------------------------------------------------------------
+  # build-docs -- OPT-IN one-shot PDF builder (profile: "docs").
+  #
+  # The lab/exercise/handout PDFs are NOT committed to git -- only their
+  # .tex sources are. So a fresh `git clone` has no PDFs, and the landing
+  # page's "Open lab" buttons would 404. This service builds them from
+  # source with a full TeX Live image:
+  #
+  #     docker compose --profile docs run --rm build-docs
+  #
+  # It writes the PDFs into the repo tree (mounted at /repo), which the
+  # landing service already serves -- so once it finishes, every lab link
+  # works. The TeX Live image is large (~2 GB) and is only pulled when you
+  # opt into the "docs" profile, so the normal `docker compose up -d` stays
+  # lightweight.
+  #
+  # If you already have LaTeX on the host, this is equivalent and faster:
+  #     make -C bachelor labs exercises handouts
+  # --------------------------------------------------------------
+  build-docs:
+    image: texlive/texlive:latest
+    container_name: is-build-docs
+    profiles: ["docs"]
+    working_dir: /repo
+    volumes:
+      - ../../../:/repo
+    command:
+      - sh
+      - -c
+      - "make -C bachelor labs exercises handouts && echo '==> PDFs built. Reload http://127.0.0.1:8000'"
+    restart: "no"
+
+  # --------------------------------------------------------------
   # Landing page -- polished HTML overview of the whole stack.
   # Open http://127.0.0.1:8000 after `docker compose up -d`.
   # --------------------------------------------------------------
