@@ -364,7 +364,7 @@ Many OT TLS deployments ship with 20-year self-signed certs, no revocation path,
   \node[hmi, below right=10mm and 18mm of br, minimum width=18mm, font=\scriptsize] (c3) {Cloud\\analytics};
   \foreach \n in {e1,e2,e3}{\draw[flow] (\n) -- node[midway, sloped, above=1pt, font=\tiny, fill=white, inner sep=1pt]{pub} (br);}
   \foreach \n in {c1,c2,c3}{\draw[flow] (br) -- node[midway, sloped, above=1pt, font=\tiny, fill=white, inner sep=1pt]{sub} (\n);}
-  \node[font=\tiny, below=4mm of br, align=center]
+  \node[font=\tiny, below=9mm of br, align=center, fill=white, inner sep=2pt]
     {Topic: \,\texttt{spBv1.0/PlantA/DDATA/Line3/Pump21}\\NBIRTH / DBIRTH / NDATA / DDATA / NDEATH / DDEATH};
 \end{tikzpicture}
 \par\vspace{2mm}

@@ -137,20 +137,23 @@ Likelihood depends on adversary capability \emph{and} exploit difficulty.
 \end{frame}
 
 \begin{frame}{Consequence-Driven Cyber-Informed Engineering (CCE)}
-\vspace{-4mm}
 \centering
-\begin{tikzpicture}[scale=0.62, transform shape]
+\begin{tikzpicture}[scale=0.55, transform shape, >={Stealth[length=2.5mm]}]
   \def\R{1.4}
   \draw[thick] (0,0) circle (\R);
   \node[font=\bfseries\small] at (0,0) {CCE};
   \node[isbox, fill=isAttack!10, draw=isAttack, font=\scriptsize, align=center, minimum width=26mm]
-    at (90:\R+2.4) {1. Consequence\\prioritisation};
+    (cce1) at (90:\R+2.4) {1. Consequence\\prioritisation};
   \node[isbox, fill=isAttack!10, draw=isAttack, font=\scriptsize, align=center, minimum width=26mm]
-    at (0:\R+2.4) {2. System-of-\\systems analysis};
+    (cce2) at (0:\R+2.4) {2. System-of-\\systems analysis};
   \node[isbox, fill=isAttack!10, draw=isAttack, font=\scriptsize, align=center, minimum width=26mm]
-    at (270:\R+2.4) {3. Consequence-based\\targeting};
+    (cce3) at (270:\R+2.4) {3. Consequence-based\\targeting};
   \node[isbox, fill=isAttack!10, draw=isAttack, font=\scriptsize, align=center, minimum width=26mm]
-    at (180:\R+2.4) {4. Mitigations \&\\protections};
+    (cce4) at (180:\R+2.4) {4. Mitigations \&\\protections};
+  \draw[->, thick, isAttack!70] (cce1) to[bend left=18] (cce2);
+  \draw[->, thick, isAttack!70] (cce2) to[bend left=18] (cce3);
+  \draw[->, thick, isAttack!70] (cce3) to[bend left=18] (cce4);
+  \draw[->, thick, isAttack!70] (cce4) to[bend left=18] (cce1);
 \end{tikzpicture}
 \vspace{-1mm}
 \begin{notebox}{INL methodology}
@@ -371,7 +374,7 @@ SIS interlock & SIL-2 trip & $10^{-2}$ & independent & $10^{-2}$ \\
 \end{tikzpicture}
 \par\vspace{1mm}
 {\scriptsize\centering
-\begin{tabular}{|p{36mm}|p{24mm}|p{40mm}|}
+\begin{tabular}{|p{36mm}|p{24mm}|>{\raggedright\arraybackslash}p{40mm}|}
 \hline
 \rowcolor{slidePanel}
 \textbf{Loss component} & \textbf{Estimate} & \textbf{Basis (automotive tier-1)} \\
@@ -399,7 +402,7 @@ FAIR monetises everything --- but \textbf{a fatality is not a dollar figure}. Fo
 \centering
 \scriptsize
 \renewcommand{\arraystretch}{1.2}
-\begin{tabular}{|p{14mm}|p{20mm}|p{22mm}|p{14mm}|p{18mm}|p{18mm}|}
+\begin{tabular}{|>{\raggedright\arraybackslash}p{14mm}|>{\raggedright\arraybackslash}p{20mm}|>{\raggedright\arraybackslash}p{22mm}|>{\raggedright\arraybackslash}p{14mm}|>{\raggedright\arraybackslash}p{18mm}|>{\raggedright\arraybackslash}p{18mm}|}
 \hline
 \rowcolor{slidePanel}
 \textbf{Zone} & \textbf{Threat} & \textbf{Vulnerability} & \textbf{Likely.} & \textbf{Consequence} & \textbf{Residual} \\

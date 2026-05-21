@@ -129,7 +129,7 @@ Topology choice in OT is driven by \textbf{determinism} and \textbf{availability
   \node[plc, fill=isAttack!15, draw=isAttack] (s2) at (7.0,-1.9) {SIS 2};
   \draw[conduit] (h2.east) to[bend left=22] node[above, font=\tiny, sloped, fill=white, inner sep=2pt] {OPC UA} (p1.west);
   \draw[conduit] (h1.east) to[bend right=18] (p2.west);
-  \draw[conduit] (p1.south) -- node[right=3pt, font=\tiny, fill=white, inner sep=2pt] {dry contact} (s1.north);
+  \draw[conduit] (p1.south) -- node[right=6pt, font=\tiny, fill=white, inner sep=3pt, rounded corners=1pt] {dry contact} (s1.north);
   \draw[conduit] (p2.south) -- (s2.north);
 \end{tikzpicture}
 \par\vspace{1mm}
@@ -423,10 +423,10 @@ All three encrypt the payload; none stop an SDR-driven jammer on the same band. 
     \node[plc, minimum width=8mm, minimum height=5mm] (pd) at (0,-1.2) {Dst};
     \draw[netline] (pa)--(lan1); \draw[netline] (pa)--(lan2);
     \draw[netline] (lan1)--(pd); \draw[netline] (lan2)--(pd);
-    \node[font=\tiny, below=18mm of pa, align=center] {two parallel LANs\\zero-loss};
+    \node[font=\tiny, below=4mm of pd, align=center] {two parallel LANs\\zero-loss};
   \end{scope}
 \end{tikzpicture}
-\par\vspace{2mm}
+\par\vspace{1mm}
 \begin{notebox}{IT analogue}
 HSRP/VRRP failover takes seconds and drops in-flight packets --- fine for a web session, fatal for a 4\,ms control loop. MRP recovers under 200\,ms; HSR and PRP are \emph{bumpless} (zero packet loss) because every frame is already duplicated.
 \end{notebox}
