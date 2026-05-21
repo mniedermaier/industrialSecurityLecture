@@ -213,6 +213,101 @@ You get what you give. ISACs work because members share, even when it is uncomfo
 \end{notebox}
 \end{frame}
 
+%% Frame 1: Framework anchor -- ATT&CK for ICS / Diamond Model / STIX 2.1 + TAXII
+\begin{frame}{Framework anchor for this section}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.85, transform shape]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small] (a)
+    {\textbf{ATT\&CK for ICS} \ TTP taxonomy --- 12 tactic columns, technique IDs (T08xx) you map both ways};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=110mm, font=\small, below=of a] (b)
+    {\textbf{Diamond Model} \ one intrusion event = adversary / capability / infrastructure / victim + meta-features};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=110mm, font=\small, below=of b] (c)
+    {\textbf{STIX 2.1} \ object graph: \texttt{attack-pattern}, \texttt{indicator}, \texttt{malware}, \texttt{intrusion-set}, relationships};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small, below=of c] (d)
+    {\textbf{TAXII 2.1} \ HTTPS collections + channels --- the transport that moves STIX between peers};
+\end{tikzpicture}
+\par\vspace{2mm}
+{\footnotesize ATT\&CK names the \emph{behaviour}; the Diamond Model frames a single \emph{event}; STIX/TAXII make both \emph{machine-readable and shareable}.}
+\source{MITRE, \emph{ATT\&CK for ICS} \textbar{} Caltagirone, Pendergast, Betz, \emph{The Diamond Model}, 2013 \textbar{} OASIS \emph{STIX 2.1} / \emph{TAXII 2.1}, 2021.}
+\note{
+  Anchor frame: the three frameworks are complementary, not competing. ATT\&CK is the verb list --- when an analyst writes ``T0859 Valid Accounts'' every reader in the field knows exactly what was done. The Diamond Model is the atom of analysis: one event ties four corners together, and pivoting from any one corner (e.g.\ a C2 IP) to the others is the core analytic move. STIX 2.1 is the data model that encodes both --- an \texttt{attack-pattern} object can carry an external reference straight to an ATT\&CK technique ID, and \texttt{relationship} objects wire the Diamond corners together. TAXII is just the pipe. Pre-empt the misconception that STIX = IOC dumps: STIX expresses TTPs, campaigns and intrusion-sets, not only hashes. Transition: ``Let us walk one real campaign around the Diamond.''
+}
+\end{frame}
+
+%% Frame 2: The Diamond Model on a real OT incident (Industroyer2 / ELECTRUM)
+\begin{frame}{Diamond Model worked: Industroyer2 / ELECTRUM}
+\centering
+\begin{tikzpicture}[scale=0.85, transform shape]
+  % Diamond vertices
+  \node[isbox, fill=isAttack!18, draw=isAttack, font=\small\bfseries, align=center, minimum width=34mm] (adv) at (0,3.2) {ELECTRUM\\\scriptsize (overlaps Sandworm/GRU)};
+  \node[isbox, fill=isAccent!18, draw=isAccent, font=\small\bfseries, align=center, minimum width=34mm] (cap) at (5.2,1.6) {Capability\\\scriptsize CaddyWiper + Industroyer2 IEC-104};
+  \node[isbox, fill=isOT!15, draw=isOT, font=\small\bfseries, align=center, minimum width=34mm] (vic) at (0,0) {Victim\\\scriptsize Ukrainian HV substation};
+  \node[isbox, fill=isPLC!15, draw=isPLC, font=\small\bfseries, align=center, minimum width=34mm] (inf) at (-5.2,1.6) {Infrastructure\\\scriptsize hijacked IT host $\to$ OT segment};
+  % Diamond edges
+  \draw[isMute, thick] (adv) -- (cap);
+  \draw[isMute, thick] (cap) -- (vic);
+  \draw[isMute, thick] (vic) -- (inf);
+  \draw[isMute, thick] (inf) -- (adv);
+  % Stage split annotations
+  \node[font=\scriptsize, align=center, text=isPLC] at (-4.1,3.3) {\textbf{Stage 1}\\IT foothold, lateral move};
+  \node[font=\scriptsize, align=center, text=isAttack] at (4.1,3.3) {\textbf{Stage 2}\\OT-native protocol attack};
+\end{tikzpicture}
+\par\vspace{1mm}
+{\footnotesize \textbf{Meta-features:} timestamp 2022-04-08; methodology = bespoke wiper + protocol abuse; result = breaker-open command via IEC-104; phase = Stage-1 access $\to$ Stage-2 ICS Impact.}
+\source{ESET \& CERT-UA, \emph{Industroyer2}, Apr 2022 \textbar{} Dragos \emph{ELECTRUM} profile \textbar{} Diamond Model: Caltagirone et al., 2013.}
+\note{
+  This is the analytic payoff of Frame~1. Industroyer2 is the cleanest public Stage-1/Stage-2 example: ELECTRUM (Dragos name; capability and infrastructure overlap heavily with Sandworm/GRU Unit 74455) first established an IT foothold and moved laterally (Stage~1 --- generic intrusion tradecraft, mappable to ATT\&CK Enterprise), then pivoted into the OT segment to deploy Industroyer2, a purpose-built binary speaking IEC~60870-5-104 to issue breaker-open commands, paired with CaddyWiper to destroy the recovery path (Stage~2 --- ATT\&CK for ICS, Impact). Walk the diamond: from the victim substation pivot along the edge to infrastructure (the hijacked host), then to capability (the wiper + protocol module), then to adversary. Emphasise that the Stage-2 capability was hard-coded to the specific substation's configuration --- this was a tailored, not opportunistic, attack. Note CERT-UA + Microsoft assess the attack was contained before the scheduled detonation. Transition: ``ELECTRUM is one of a small named set --- here is the wider landscape.''
+}
+\end{frame}
+
+%% Frame 3: OT threat-group landscape (Dragos activity groups)
+\begin{frame}{OT threat-group landscape}
+\centering
+\renewcommand{\arraystretch}{1.25}
+\scriptsize
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{26mm} >{\raggedright\arraybackslash}p{30mm} >{\raggedright\arraybackslash}p{52mm}@{}}
+\toprule
+\textbf{Activity group} & \textbf{Primary targets} & \textbf{Signature capability} \\
+\midrule
+\textbf{ELECTRUM} \newline (overlaps Sandworm) & Electric, Ukraine & Industroyer / Industroyer2, CaddyWiper; native IEC-104/61850 attack \\
+\textbf{CHERNOVITE} & Electric, oil \& gas, LNG & PIPEDREAM --- modular, cross-vendor ICS toolkit (CODESYS, OPC~UA, Modbus) \\
+\textbf{VOLTZITE} \newline (Volt Typhoon) & Electric, water, telecom & Living-off-the-land, edge-device pivot, long-dwell OT pre-positioning \\
+\textbf{KAMACITE} & Electric, energy & Access operations / phishing; hands ICS effects to ELECTRUM \\
+\textbf{XENOTIME} & Oil \& gas, SIS & TRISIS / TRITON --- targeted Triconex safety-instrumented systems \\
+\bottomrule
+\end{tabular}
+\par\vspace{2mm}
+{\footnotesize Distinct groups specialise: \emph{access} (KAMACITE), \emph{effects} (ELECTRUM), \emph{tooling} (CHERNOVITE), \emph{safety} (XENOTIME).}
+\source{Dragos, \emph{Year in Review} 2022--2024 and activity-group profiles \textbar{} Microsoft, Volt Typhoon, 2023.}
+\note{
+  Master-level point: these are \emph{activity groups} defined by clustered behaviour and infrastructure, deliberately decoupled from geopolitical attribution --- Dragos tracks what the cluster does, not who signs its paycheck, though overlaps are well known (ELECTRUM~$\approx$~Sandworm; VOLTZITE~$\approx$~Volt Typhoon). Stress the division of labour: KAMACITE runs access operations and is assessed to hand off to ELECTRUM for the actual ICS effect --- a real-world adversary supply chain. CHERNOVITE matters because PIPEDREAM is the first cross-vendor, reusable ICS attack framework (not bespoke like Industroyer), lowering the bar for future operations. XENOTIME's TRISIS is the only known malware to deliberately target a safety-instrumented system, crossing the line from disruption to potential physical harm. The deck already named Sandworm, Volt Typhoon and CHERNOVITE strategically (Frame ``Strategic Threat Actors''); this table is the operational-tier complement --- target sector + capability per group, the form an analyst actually queries. Transition: ``Knowing the groups, how do we decide what to collect on? Consequence-driven PIRs.''
+}
+\end{frame}
+
+%% Frame 4: Consequence-driven intelligence requirements (PIRs)
+\begin{frame}{Consequence-driven intelligence requirements}
+\centering
+\begin{tikzpicture}[node distance=3mm, scale=0.85, transform shape]
+  \node[isbox, fill=isSafety!12, draw=isSafety, minimum width=120mm, font=\small] (a)
+    {\textbf{Crown-jewel consequence} \ ``loss of the boiler-feed pump trips the unit''};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=120mm, font=\small, below=of a] (b)
+    {\textbf{PIR} \ ``Which groups have demonstrated capability against our SIS / Modbus pumps?''};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=120mm, font=\small, below=of b] (c)
+    {\textbf{Collection} \ Dragos/E-ISAC feeds, vendor PSIRT, honeypot telemetry tagged to that consequence};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=120mm, font=\small, below=of c] (d)
+    {\textbf{Analysis $\to$ dissemination} \ finished assessment to SOC + plant ops, with a deadline};
+\end{tikzpicture}
+\par\vspace{1.5mm}
+\begin{notebox}{Drive collection from consequence, not from feeds}
+A PIR is answerable, time-bound and owned by a decision-maker. TLP governs who sees it: \textbf{RED} named-recipient only, \textbf{AMBER+STRICT} org-internal, \textbf{GREEN} community, \textbf{CLEAR} public. Tag every artefact at ingest --- mislabelled sharing is the program-ending mistake.
+\end{notebox}
+\source{CISA \emph{Cyber-Informed Engineering} / consequence-driven CCE (INL) \textbar{} FIRST \emph{TLP 2.0} \textbar{} U.S.\ ICD~204 PIR practice.}
+\note{
+  The closing analytic discipline of the section. Reverse the usual flow: most teams collect feeds and then look for relevance; a mature OT program starts from the crown-jewel consequence (here, an INL/CCE-style ``loss of the boiler-feed pump trips the unit'') and derives Priority Intelligence Requirements from it. A good PIR is answerable, time-bound, and has a named consumer who will \emph{act} on the answer --- contrast with the ``intel nobody reads'' failure mode named later in the deck. Walk the cycle top-to-bottom: consequence $\to$ PIR $\to$ targeted collection (note collection is now scoped, cutting the low-signal STIX volume problem from the existing STIX frame) $\to$ analysis $\to$ dissemination with a deadline. TLP 2.0 handling is non-negotiable in ISAC sharing: RED is named-eyes-only, AMBER+STRICT restricts to the recipient org, GREEN is community-wide, CLEAR is public --- and the fatal mistake is mis-tagging on ingest, which either leaks a source or buries actionable intel. Tie back: this is how the threat-group table (Frame~3) becomes a collection plan rather than trivia. Transition into the existing programme-building frames.
+}
+\end{frame}
+
+
 \begin{frame}{Summary -- Section \sectionNumber}
 \begin{takeawaybox}{OT threat intelligence}
 \begin{itemize}\setlength{\itemsep}{2pt}

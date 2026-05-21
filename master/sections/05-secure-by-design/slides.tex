@@ -229,6 +229,109 @@ You cannot segment what you have not inventoried. You cannot retire what you hav
 \end{tipbox}
 \end{frame}
 
+%% Frame 1: IEC 62443 design spine -- the full secure-by-design chain
+\begin{frame}{The 62443 Design Spine -- Risk to Component}
+\centering
+\begin{tikzpicture}[node distance=2.2mm, scale=0.85, transform shape]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=118mm, minimum height=9mm, font=\small, align=left, text width=112mm] (a)
+    {\textbf{62443-3-2} \ Risk assessment $\rightarrow$ partition into \emph{zones \& conduits} $\rightarrow$ assign \textbf{SL-T} per zone};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=118mm, minimum height=9mm, font=\small, align=left, below=of a, text width=112mm] (b)
+    {\textbf{62443-3-3} \ System security requirements: 7 foundational requirements \textbf{FR\,1--7} $\rightarrow$ SR per SL};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=118mm, minimum height=9mm, font=\small, align=left, below=of b, text width=112mm] (c)
+    {\textbf{62443-4-1} \ Vendor \emph{secure development lifecycle} (SDL): how the product was built securely};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=118mm, minimum height=9mm, font=\small, align=left, below=of c, text width=112mm] (d)
+    {\textbf{62443-4-2} \ Component requirements $\rightarrow$ each device carries a capability level \textbf{SL-C} that must meet SL-T};
+  \draw[flow] (a.south) -- (b.north);
+  \draw[flow] (b.south) -- (c.north);
+  \draw[flow] (c.south) -- (d.north);
+\end{tikzpicture}
+\par\vspace{1.5mm}
+{\footnotesize FR\,1--7 = identification/auth control, use control, system integrity, data confidentiality, restricted data flow, timely response, resource availability. \quad \textbf{SL-T} (target) is owner-set per zone; \textbf{SL-C} (capability) is what a procured component can deliver; the design closes when every conduit's components satisfy $\text{SL-C}\ge\text{SL-T}$.}
+\source{IEC 62443-3-2:2020 \textbar{} IEC 62443-3-3:2013 (FR\,1--7) \textbar{} IEC 62443-4-1:2018 \textbar{} IEC 62443-4-2:2019.}
+\note{
+  This is the load-bearing slide for the whole section: the four parts of 62443 form one chain, not four silos. Walk it top to bottom. 3-2 is the \emph{process} that turns a risk assessment into zones, conduits and a target SL per zone (SL-T) -- it is the only part that produces SL-T. 3-3 is the \emph{system} answer: the seven foundational requirements, and the system requirements (SRs) that each FR expands into at SL\,1--4. 4-1 is about the \emph{vendor's process} (SDL) -- distinct from the product itself. 4-2 is the \emph{component} answer: the device's capability level SL-C. The design only closes when, for every zone, the components you can buy (SL-C) meet or exceed what the risk assessment demanded (SL-T). Hammer the SL-T vs SL-C distinction now -- the next slide derives it on a worked plant. Common student error: conflating SL-T (a design target) with SL-C (a vendor datasheet number) and with SL-A (achieved, measured post-commissioning). Transition: ``Let us actually derive SL-T for a small plant.''
+}
+\end{frame}
+
+%% Frame 2: Worked SL-T derivation + matching SL-C procurement
+\begin{frame}{Worked SL-T Derivation -- a Small Batch Plant}
+\centering
+\renewcommand{\arraystretch}{1.1}
+\setlength{\tabcolsep}{4pt}
+\scriptsize
+\begin{tabular}{|p{2.7cm}|p{2.3cm}|p{2.4cm}|>{\centering\arraybackslash}p{0.7cm}|p{2.7cm}|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Zone} & \textbf{Worst consequence} & \textbf{Threat actor} & \textbf{SL-T} & \textbf{SL-C to procure} \\
+\hline
+Field / SIS (L0--1)      & loss of safety function, harm to people & skilled, resourced (APT) & \textbf{3} & SIS, sensors, final elements at SL-C\,3 \\
+Process control (L2)     & batch loss, equipment damage & skilled, moderate resources & \textbf{2} & PLC/DCS controllers at SL-C\,2+ \\
+Supervisory / Ops (L3)   & production stop, recipe theft & generic, low effort & \textbf{2} & historian, EWS, HMI at SL-C\,2 \\
+Site DMZ / remote (3.5)  & pivot into control & opportunistic + insider & \textbf{2} & broker, jump host at SL-C\,2 \\
+\hline
+\end{tabular}
+\par\vspace{1mm}
+\begin{notebox}{The derivation rule}
+SL-T rises with both \emph{consequence severity} and \emph{threat-actor capability} (62443-3-2). Procure components whose datasheet \textbf{SL-C $\ge$ SL-T}; a conduit is sized to the higher of the two zones it joins.
+\end{notebox}
+\source{IEC 62443-3-2:2020 (zone/conduit \& SL-T method) \textbar{} IEC 62443-4-2:2019 (component SL-C).}
+\note{
+  Make this concrete and quantitative. The two inputs to SL-T in 3-2 are consequence and threat-actor capability -- the table reads left to right exactly as the standard's tolerable-risk loop runs. Field/SIS lands at SL\,3, not 4, because SL\,4 assumes a nation-state with extended resources and the willingness to spend them on this specific zone; for most non-critical batch plants SL\,3 is the defensible design target, and SL\,4 is reserved for the highest-consequence critical infrastructure. The right column is the procurement consequence: you do not buy ``a secure PLC'', you buy a component whose certified SL-C meets the zone's SL-T. If no vendor offers SL-C\,3 for a needed device, that gap becomes either a compensating control or a documented residual risk -- tie this back to the risk-acceptance slide. Stress conduit sizing: a conduit inherits the higher SL-T of the two zones it connects. Watch for students who pick SL by ``feel'' -- force them to name the consequence and the actor first. Transition: ``SL-T is risk-driven. CCE pushes the same logic further -- engineer the worst case out entirely.''
+}
+\end{frame}
+
+%% Frame 3: Consequence-driven Cyber-Informed Engineering (CCE)
+\begin{frame}{Consequence-Driven Cyber-Informed Engineering}
+\centering
+\begin{tikzpicture}[scale=0.6, transform shape, node distance=20mm]
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=42mm, minimum height=14mm, align=center, font=\small] (p1)
+    {\textbf{1. Consequence}\\\textbf{prioritisation}\\\scriptsize what would end the business?};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=42mm, minimum height=14mm, align=center, font=\small, right=40mm of p1] (p2)
+    {\textbf{2. System-of-}\\\textbf{systems analysis}\\\scriptsize map every path to it};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=42mm, minimum height=14mm, align=center, font=\small, below=24mm of p2] (p3)
+    {\textbf{3. Consequence-}\\\textbf{based targeting}\\\scriptsize how would an expert do it?};
+  \node[isbox, fill=isNet!15, draw=isNet, minimum width=42mm, minimum height=14mm, align=center, font=\small, below=24mm of p1] (p4)
+    {\textbf{4. Mitigations \&}\\\textbf{protections}\\\scriptsize engineer the path out};
+  \draw[flow] (p1) to[bend left=15] (p2);
+  \draw[flow] (p2) to[bend left=15] (p3);
+  \draw[flow] (p3) to[bend left=15] (p4);
+  \draw[flow] (p4) to[bend left=15] (p1);
+\end{tikzpicture}
+\par\vspace{1.5mm}
+\begin{importantbox}{Engineer out the worst case}
+CCE assumes a determined, capable adversary \emph{will} get in. Instead of stacking detection, it removes the engineering path to the worst consequence -- e.g.\ a hardwired interlock or mechanical relief that no software compromise can defeat.
+\end{importantbox}
+\source{A.\ Bochman \& S.\ Freeman, \emph{Countering Cyber Sabotage: Introducing CCE}, INL / CRC Press, 2021.}
+\note{
+  CCE is INL's methodology and the philosophical counterpoint to ``add more controls''. The premise is uncomfortable but honest: assume the sophisticated adversary defeats your IT and OT defences, then ask what is the single worst physical outcome and how do we make it \emph{engineering-impossible} rather than merely hard. Walk the four phases as a cycle. Phase 1 (consequence prioritisation) is a board-level question -- the few events that would actually destroy the company or kill people, not a CVE list. Phase 2 maps the system-of-systems: every digital and human path that could reach that consequence, including the trusted ones. Phase 3 (consequence-based targeting) is red-teaming from the adversary's seat -- how would a capable expert actually cause it. Phase 4 designs the mitigation, and the prized mitigations are non-digital: analog interlocks, mechanical pressure relief, manual valves, physical limits that firmware cannot override. Contrast with 62443: 62443 raises the floor everywhere with SLs; CCE concentrates effort on the handful of catastrophic outcomes and engineers them out. They are complementary, not rivals. Transition: ``Both still assume zones. Zero Trust questions the zone itself.''
+}
+\end{frame}
+
+%% Frame 4: Zero Trust for OT
+\begin{frame}{Zero Trust on the Plant Floor}
+\centering
+\begin{tikzpicture}[node distance=6mm, scale=0.82, transform shape]
+  \node[isbox, fill=isMute!15, draw=isMute, font=\small, align=center] (eng) {Engineer\\or asset};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of eng, font=\small, align=center, minimum width=30mm] (pep) {Policy enforcement\\(per request)};
+  \node[plc, right=16mm of pep, font=\small] (plc) {PLC / asset};
+  \node[isbox, fill=isPLC!12, draw=isPLC, above=8mm of pep, font=\scriptsize, align=center, minimum width=30mm] (pdp) {Policy decision\\identity + posture + protocol};
+  \draw[flow] (eng) -- (pep);
+  \draw[flow] (pep) -- (plc) node[midway, above, font=\scriptsize] {allow/deny};
+  \draw[flow, dashed] (pep) -- (pdp);
+\end{tikzpicture}
+\par\vspace{1mm}
+{\footnotesize NIST 800-207: \textbf{no implicit trust by network location}. Each request is authorised on identity, device posture, and protocol/function -- ``inside the zone'' grants nothing.}
+\par
+\begin{notebox}{The realistic OT ceiling}
+ZTA fits engineering access, remote vendors, and IT-class assets well. It cannot wrap legacy controllers with no auth, must not add latency to deterministic Level\,0--1 loops, and a PEP cannot inspect fieldbus it does not parse. So ZTA lives \emph{north of the cell}: enforce per-asset/per-protocol at L3/L3.5; keep hard real-time loops as protected enclaves.
+\end{notebox}
+\source{NIST SP 800-207:2020 (Zero Trust Architecture) \textbar{} CISA Zero Trust Maturity Model v2, 2023.}
+\note{
+  Master students will have heard ``Zero Trust'' as an IT buzzword; the job here is to say precisely what survives the trip to the plant floor and what does not. The core 800-207 idea is removing implicit trust granted by network position -- being inside the OT zone is no longer an authorisation. Every access is brokered through a policy enforcement point that consults a policy decision point on identity, device posture, and the requested protocol/function. Where it genuinely helps: brokered engineer and vendor access (ties straight back to Pattern 3), IT-class OT assets like historians and EWS, and micro-segmenting east-west traffic that flat L2 networks never controlled. Now the honest ceiling, which is the notebox: a 25-year-old PLC with no authentication cannot participate in ZTA -- you wrap it, you do not convert it. A deterministic Level\,0--1 control loop cannot tolerate a policy round-trip on every packet without breaking timing and safety, so you do not put a PEP in the loop. And a PEP can only enforce on protocols it can parse -- proprietary or serial fieldbus often defeats deep policy. The defensible posture: ZTA \emph{north of the cell} at L3/L3.5, hard-real-time loops kept as protected enclaves behind it. Avoid the vendor pitch that ZTA replaces segmentation -- on OT it complements zones, it does not abolish them. This closes the architecture arc: 62443 zones, CCE consequence focus, ZTA identity-per-request -- three lenses on the same plant.
+}
+\end{frame}
+
+
 \begin{frame}{Summary -- Section \sectionNumber}
 \begin{takeawaybox}{Build it in, not on}
 \begin{itemize}\setlength{\itemsep}{2pt}

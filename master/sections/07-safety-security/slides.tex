@@ -182,6 +182,117 @@ A single named individual with both safety and security training is worth a bind
 \end{tipbox}
 \end{frame}
 
+%% Frame 1: Standards anchor -- the safety<->security standards stack
+\begin{frame}{Standards anchor -- four standards, one safety case}
+\centering
+\begin{tikzpicture}[node distance=2.2mm, scale=0.85, transform shape]
+  \node[isbox, fill=isSafety!12, draw=isSafety, minimum width=120mm, font=\small, align=left, text width=114mm] (a)
+    {\textbf{IEC 61508} \ Generic E/E/PE functional safety --- the SIL machinery (PFD\textsubscript{avg}, HFT, SFF) every sector inherits};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=120mm, font=\small, align=left, below=of a, text width=114mm] (b)
+    {\textbf{IEC 61511} \ Process-sector application of 61508 --- the SIS lifecycle, SIF allocation, proof testing};
+  \node[isbox, fill=isAccent!18, draw=isAccent, minimum width=120mm, font=\small, align=left, below=of b, text width=114mm] (c)
+    {\textbf{ISA TR84.00.09} \ The bridge --- Cyber-PHA / SECURE inserts the adversary as a demand source into 61511};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=120mm, font=\small, align=left, below=of c, text width=114mm] (d)
+    {\textbf{IEC 62443} \ Security for IACS --- zones/conduits, SL-T, hardening that keeps the SIS an \emph{independent} layer};
+\end{tikzpicture}
+\par\vspace{2mm}
+{\footnotesize Read top-down: 61508 defines \emph{how safe}, 61511 \emph{how to engineer it}, TR84.00.09 \emph{how the adversary breaks the assumption}, 62443 \emph{how to keep it valid}.}
+\source{IEC 61508-1:2010 \textbar{} IEC 61511-1:2016 \textbar{} ISA TR84.00.09-2017 (rev.\,2024) \textbar{} IEC 62443-3-2:2020 / -3-3:2013.}
+\note{
+  This is the spine of the section: students must hold all four in mind at once. 61508 is the parent standard --- it owns the SIL definition, the PFD\textsubscript{avg} bands, the architectural-constraint tables (HFT, SFF, route 1H/2H). 61511 is the daughter for process industries: you almost never apply 61508 directly on a refinery, you apply 61511, which calls 61508 for the maths. TR84.00.09 is the only standard that formally connects the two worlds --- its Cyber-PHA / "SECURE" workflow treats a cyber-induced deviation as just another demand on the SIF, so it slots straight into the existing 61511 risk assessment. 62443 then supplies the controls that justify the residual-frequency credit you claimed in LOPA. Pre-empt the misconception that these compete: they nest. Transition: "If 61508 owns the SIL maths, let us refresh exactly what a SIL number budgets."
+}
+\end{frame}
+
+%% Frame 2: SIL & PFDavg refresher (advanced) -- ladder + architecture factors
+\begin{frame}{SIL refresher -- PFD\textsubscript{avg}, RRF, and architecture}
+\centering
+\begin{tikzpicture}[x=1.05cm, y=0.76cm]
+  \foreach \sl/\pfd/\rrf/\col in {
+    1/{$10^{-2}$--$10^{-1}$}/{10--100}/isOT,
+    2/{$10^{-3}$--$10^{-2}$}/{100--1\,000}/isPLC,
+    3/{$10^{-4}$--$10^{-3}$}/{1\,000--10\,000}/isAccent,
+    4/{$10^{-5}$--$10^{-4}$}/{10\,000--100\,000}/isAttack}{
+    \pgfmathsetmacro{\w}{1.5 + (\sl-1)*0.65}
+    \draw[fill=\col!15, draw=\col, thick] (0, -\sl) rectangle (\w, -\sl+0.7);
+    \node[font=\scriptsize\bfseries, anchor=center] at (\w/2, -\sl+0.35) {SIL\,\sl};
+    \node[font=\tiny, anchor=west] at (4.4, -\sl+0.5) {PFD\textsubscript{avg}: \pfd};
+    \node[font=\tiny, anchor=west] at (4.4, -\sl+0.18) {RRF $=1/$PFD\textsubscript{avg}: \rrf};
+  }
+\end{tikzpicture}
+\par\vspace{1mm}
+{\footnotesize Low-demand SIF: $\mathrm{PFD_{avg}}\approx\tfrac{1}{2}\,\lambda_{DU}\,T_{1}$ --- proof-test interval $T_{1}$ and the dangerous-undetected rate $\lambda_{DU}$ dominate.}
+\par\vspace{0.5mm}
+\begin{notebox}{Architecture knobs (61508 / 61511)}
+\footnotesize Redundancy \textbf{1oo2} cuts $\lambda_{DU}$ but raises spurious trips; \textbf{2oo3 / TMR} balances both. Common-cause factor $\beta$ caps the gain: $\mathrm{PFD_{avg}}\gtrsim \tfrac{1}{2}\beta\,\lambda_{DU}\,T_{1}$ never falls below the $\beta$-floor, so a shorter $T_{1}$ buys SIL only until $\beta$ dominates.
+\end{notebox}
+\source{IEC 61508-6:2010 Annex B (PFD\textsubscript{avg} formulae, $\beta$-model) \textbar{} IEC 61511-1:2016 \S\,11 (architectural constraints).}
+\note{
+  Master-level refresher --- assume they have seen the ladder in the Bachelor standards section, so push the maths. Two points to land. First, RRF is just $1/\mathrm{PFD_{avg}}$; a SIL\,3 SIF buys a risk-reduction factor of 1\,000--10\,000, and that is what LOPA spends. Second, the architecture and the $\beta$ factor are where co-engineering bites: 1oo2 halves dangerous-undetected failure but doubles spurious trips; 2oo3 / TMR (the Triconex topology) is the process favourite because it tolerates one channel failed without tripping. The killer is common cause --- $\beta$ (typically 1--10\%) sets a floor no amount of redundancy or proof testing can beat, because identical channels fail together. Tie this forward: a cyber attack is the ultimate common-cause failure, $\beta\to1$, every redundant channel runs the same compromised logic. Transition: "TRITON is exactly that $\beta\to1$ event --- let us walk the kill chain."
+}
+\end{frame}
+
+%% Frame 3: TRITON / TRISIS deep-dive
+\begin{frame}{TRITON / TRISIS -- neutralising the last line of defence}
+\centering
+\begin{tikzpicture}[node distance=7mm, scale=0.82, transform shape]
+  \node[attacker, minimum width=20mm] (atk) {Attacker};
+  \node[workstation, right=of atk, minimum width=22mm, font=\scriptsize, align=center] (ews) {Engineering\\WS (TriStation)};
+  \node[plc, right=of ews, fill=isAttack!20, draw=isAttack, minimum width=22mm, font=\scriptsize, align=center] (sis) {Triconex\\SIS (2oo3)};
+  \node[process, right=of sis, minimum width=20mm, font=\scriptsize] (proc) {Process};
+  \draw[attack] (atk) -- node[above, font=\tiny, yshift=0.6mm]{IT$\to$OT pivot} (ews);
+  \draw[attack] (ews) -- node[above, font=\tiny, yshift=0.6mm]{TriStation} node[below, font=\tiny, yshift=-0.6mm]{inject logic} (sis);
+  \draw[flow] (sis) -- node[above, font=\tiny, yshift=0.6mm]{trip} (proc);
+\end{tikzpicture}
+\par\vspace{1.5mm}
+\begin{columns}[T]
+\column{0.5\textwidth}
+\footnotesize
+\textbf{The kill chain}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item Pivot from IT to the SIS engineering workstation.
+  \item Speak the proprietary \emph{TriStation} protocol (UDP/1502) to the controller in PROGRAM mode.
+  \item Append a backdoor (\texttt{inject.bin} / \texttt{imain.bin}) to the controller's firmware, ready to rewrite safety logic on demand.
+\end{itemize}
+\column{0.5\textwidth}
+\footnotesize
+\textbf{Intent \& the bug}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item Goal was to \emph{disable} the SIS so a \emph{separate} physical attack on the process would not be stopped.
+  \item A flaw in the injected logic failed the 2oo3 validation; the controller fault-tripped to safe state.
+  \item That nuisance trip --- not detection --- exposed the campaign.
+\end{itemize}
+\end{columns}
+\source{Dragos, \emph{TRISIS Malware Analysis of Safety System Targeted Malware}, 2017 \textbar{} Mandiant/FireEye, \emph{TRITON Attribution \& Analysis}, 2017--2018.}
+\note{
+  This goes deeper than the earlier "SIS as target" frame --- here we walk the actual chain. Key teaching points. (1) The SIS was never internet-facing; the attacker reached it by pivoting from compromised IT through to the safety engineering workstation, which legitimately ran TriStation. The single dual-homed workstation collapsed the air gap. (2) TriStation is an undocumented proprietary protocol over UDP 1502 --- the malware reverse-engineered it to talk to the controller while it sat in PROGRAM (key-switch) mode, which is the controllable lesson: had the key been in RUN, the download would have failed. (3) Intent matters for the exam: this was not sabotage-for-its-own-sake, it was \emph{pre-positioning} --- neutralise the safety layer first, then a later physical/process attack proceeds with no automatic protection. That is the nightmare scenario for a process plant. (4) The irony: the operation was discovered only because the injected logic had a bug that failed the 2oo3 redundancy check and tripped the plant. Without that bug it might still be undetected. Transition: "TRITON is a single point of failure crossing every protection layer --- which breaks the core LOPA assumption."
+}
+\end{frame}
+
+%% Frame 4: The independence-defeat principle
+\begin{frame}{The independence-defeat principle}
+\centering
+\begin{tikzpicture}[node distance=6mm, scale=0.82, transform shape]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=26mm, font=\scriptsize, align=center] (bpcs) {BPCS\\control};
+  \node[isbox, fill=isHMI!15, draw=isHMI, minimum width=26mm, font=\scriptsize, align=center, right=of bpcs] (alm) {Operator\\alarm};
+  \node[isbox, fill=isAccent!18, draw=isAccent, minimum width=26mm, font=\scriptsize, align=center, right=of alm] (sis) {SIS\\trip};
+  \node[attacker, below=10mm of alm, minimum width=30mm, font=\scriptsize\bfseries] (cc) {Common cyber compromise};
+  \draw[attack] (cc) -- (bpcs.south);
+  \draw[attack] (cc) -- (alm.south);
+  \draw[attack] (cc) -- (sis.south);
+\end{tikzpicture}
+\par\vspace{1.5mm}
+{\footnotesize LOPA credit assumes layers fail \emph{independently}: $f_{\text{res}} = f_{\text{init}}\cdot\!\prod_i \mathrm{PFD}_i$. One shared cyber cause makes the PFDs correlated --- the product collapses toward the worst single term.}
+\par\vspace{1mm}
+\begin{importantbox}{Independence is the load-bearing assumption}
+\footnotesize Before: $f_{\text{res}} = 10^{-1}\!\cdot\!10^{-1}_{\text{(BPCS)}}\!\cdot\!10^{-1}_{\text{(alarm)}}\!\cdot\!10^{-2}_{\text{(SIS)}} = 10^{-5}/\text{yr}$. After a common-cause cyber event ($\beta\!\to\!1$): the credited PFDs no longer multiply, so $f_{\text{res}} \to 10^{-1}/\text{yr}$ --- a $10^{4}\times$ jump. TR84.00.09 demands you prove cyber-independence of every IPL before you bank its credit; an unhardened SIS sharing a network with the BPCS is \emph{not} an independent layer.
+\end{importantbox}
+\source{ISA TR84.00.09-2017 \S\,IPL independence \textbar{} CCPS, \emph{Layer of Protection Analysis}, 2001; \emph{Guidelines for Independent Protection Layers}, 2014.}
+\note{
+  This is the conceptual payoff of the whole section. LOPA (Layer of Protection Analysis) works only if each independent protection layer (IPL) fails independently of the initiating event and of every other layer --- that is the only reason you are allowed to multiply the PFDs and claim a tiny residual frequency. The classic stack is BPCS control, then operator response to an alarm, then the SIS trip. A single cyber compromise that reaches all three --- because they share a flat OT network, a common engineering workstation, or a common vendor maintenance path --- makes the failures fully correlated: $\beta\to1$. The arithmetic on the slide is the headline: a credited $10^{-5}$/yr residual frequency collapses to roughly the worst single layer, here $10^{-1}$/yr, a four-order-of-magnitude erosion of the safety case that no proof test or redundancy can recover. The actionable rule from TR84.00.09: you may only bank an IPL's risk-reduction credit if you can demonstrate its cyber-independence --- which is precisely what 62443 zoning, conduits, and SIS hardening exist to provide. Close the loop: this is why safety and security cannot be separate programmes --- the security controls are what make the safety arithmetic true.
+}
+\end{frame}
+
+
 \begin{frame}{Summary -- Section \sectionNumber}
 \begin{takeawaybox}{Safety and security on one plant}
 \begin{itemize}\setlength{\itemsep}{2pt}

@@ -163,6 +163,119 @@ A finding obtained on equipment you do not own (or are not authorised to test) i
 \end{warnbox}
 \end{frame}
 
+%% Frame 1: Standards & methodology anchor for firmware RE
+\begin{frame}{Standards anchor for this section}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.85, transform shape]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=120mm, font=\small] (a)
+    {\textbf{IEC 62443-4-1} \ Secure product dev lifecycle --- what RE \emph{audits} (SR, threat model, SUM)};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=120mm, font=\small, below=of a] (b)
+    {\textbf{OWASP FSTM} \ Firmware Security Testing Methodology --- 9 stages, recon $\rightarrow$ exploit $\rightarrow$ report};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=120mm, font=\small, below=of b] (c)
+    {\textbf{ISO/IEC 29147} \ Vulnerability \emph{disclosure} --- how a researcher reports a finding};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=120mm, font=\small, below=of c] (d)
+    {\textbf{ISO/IEC 30111} \ Vulnerability \emph{handling} --- how the vendor triages and remediates it};
+\end{tikzpicture}
+\par\vspace{2mm}
+{\footnotesize 62443-4-1 is the bar the product was \emph{built} to; OWASP FSTM is how you \emph{test} against it; 29147/30111 are the two halves of the disclosure handshake (you report, they handle).}
+\source{IEC 62443-4-1:2018 \textbar{} OWASP Firmware Security Testing Methodology (FSTM), 2019 \textbar{} ISO/IEC 29147:2018 \textbar{} ISO/IEC 30111:2019.}
+\note{
+  This is the spine for the whole section --- map every later activity back to one of these four rows. 62443-4-1 defines the eight practices a secure-by-design vendor must follow (SM, SR, SD, SI, SVV, SG, DM, SUM); when we find a hard-coded key or an unsigned update we are really finding a 4-1 \emph{practice failure} (SR/SI for secrets, SUM for updates). OWASP FSTM gives the verb list students will execute in the lab: (1) recon, (2) obtain firmware, (3) analyse, (4) extract filesystem, (5) analyse filesystem contents, (6) emulate, (7) dynamic analysis, (8) runtime analysis, (9) binary exploitation --- our binwalk/Ghidra workflow is stages 3--5 and 9. 29147 vs 30111 is the most-confused pair: 29147 is the researcher-facing disclosure standard (how to receive and publish), 30111 is the internal handling/PSIRT process --- two standards for the two sides of the same conversation. Pre-empt ``standards are paperwork'': every CVE in the famous-findings slide is a concrete violation of a named row here. Transition: ``Before we carve an image, look at what is actually inside one.''
+}
+\end{frame}
+
+%% Frame 2: Firmware image anatomy -- what binwalk carves
+\begin{frame}{Firmware Image Anatomy --- What \texttt{binwalk} Carves}
+\centering
+\begin{tikzpicture}[every node/.style={font=\scriptsize}]
+  % flash map: boxes anchored to a common west edge so the offset column lines up
+  \node[isbox, fill=isMute!15, draw=isMute, minimum width=92mm, minimum height=8mm, align=left, anchor=north west] (boot) at (0,0)
+    {\textbf{Bootloader} (U-Boot / proprietary) --- unencrypted, holds env \& boot args};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=92mm, minimum height=8mm, align=left, anchor=north west] (dtb) at (0,-8.5mm)
+    {\textbf{DTB} --- flattened device tree, magic \texttt{0xD00DFEED}};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=92mm, minimum height=8mm, align=left, anchor=north west] (kernel) at (0,-17mm)
+    {\textbf{Kernel} --- uImage/zImage, LZMA/gzip, magic \texttt{0x27051956}};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=92mm, minimum height=8mm, align=left, anchor=north west] (rootfs) at (0,-25.5mm)
+    {\textbf{Root filesystem} --- SquashFS \texttt{hsqs} / JFFS2 / CramFS (the prize)};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=92mm, minimum height=8mm, align=left, anchor=north west] (nvram) at (0,-34mm)
+    {\textbf{NVRAM / config} --- calibration, serials, sometimes plaintext creds};
+  % offset labels in a left column, right-anchored to a common edge
+  \node[font=\tiny\ttfamily, anchor=east] at ($(boot.west)+(-3mm,0)$) {0x000000};
+  \node[font=\tiny\ttfamily, anchor=east] at ($(dtb.west)+(-3mm,0)$) {0x040000};
+  \node[font=\tiny\ttfamily, anchor=east] at ($(kernel.west)+(-3mm,0)$) {0x060000};
+  \node[font=\tiny\ttfamily, anchor=east] at ($(rootfs.west)+(-3mm,0)$) {0x180000};
+  \node[font=\tiny\ttfamily, anchor=east] at ($(nvram.west)+(-3mm,0)$) {0x7E0000};
+\end{tikzpicture}
+\par\vspace{1.5mm}
+{\footnotesize \texttt{binwalk} signature-scans for these magics; offsets are illustrative for a 8\,MB SPI-NOR part. Padding/erase regions (\texttt{0xFF}) sit between partitions.}
+\source{OWASP FSTM stage 4 (filesystem extraction) \textbar{} U-Boot \& Linux \texttt{mtd} partition conventions \textbar{} binwalk signature DB.}
+\note{
+  The mental model: flash is a stack of partitions, and binwalk is a magic-byte scanner that prints an offset table. Walk top to bottom. Bootloader first because the SoC bootrom jumps there; it is usually plaintext even on devices that sign later stages, so it leaks the boot chain and U-Boot env (and sometimes a \texttt{bootdelay} you can interrupt over UART). DTB tells you the board --- chip, memory map, peripherals --- before you ever load the kernel; its \texttt{0xD00DFEED} magic is a fast architecture/board fingerprint. Kernel uImage magic \texttt{0x27051956} (Wolfgang Denk's birthday) plus the compression type tells you what to decompress. The rootfs is where 80\% of findings live --- SquashFS \texttt{hsqs} is overwhelmingly the most common; unsquashfs gives you /etc/passwd, /etc/shadow, web roots, and vendor binaries. NVRAM/config last: on cheap ICS gear this is where calibration, device serials, and occasionally plaintext credentials or WPA keys sit. Stress that offsets are MTD-partition-aligned and the gaps are erased \texttt{0xFF} flash, which binwalk reports as nothing. Transition: ``Now --- why can we even open the kernel and rootfs? Because the boot chain often is not actually locked.''
+}
+\end{frame}
+
+%% Frame 3: Secure boot & the chain of trust
+\begin{frame}{Secure Boot \& the Chain of Trust}
+\centering
+\begin{tikzpicture}[node distance=8mm]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=24mm, font=\small] (rom) {Boot ROM\\\scriptsize root of trust};
+  \node[isbox, fill=isPLC!15, draw=isPLC, right=of rom, minimum width=24mm, font=\small] (spl) {Signed\\bootloader};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of spl, minimum width=24mm, font=\small] (kern) {Signed\\kernel};
+  \node[isbox, fill=isHMI!15, draw=isHMI, right=of kern, minimum width=24mm, font=\small] (app) {App /\\rootfs};
+  \draw[flow] (rom) -- node[above, font=\tiny, fill=white, inner sep=1pt, yshift=0.5mm] {verify} (spl);
+  \draw[flow] (spl) -- node[above, font=\tiny, fill=white, inner sep=1pt, yshift=0.5mm] {verify} (kern);
+  \draw[flow] (kern) -- node[above, font=\tiny, fill=white, inner sep=1pt, yshift=0.5mm] {verify} (app);
+  % break markers below the weak links
+  \node[font=\scriptsize\bfseries, text=isAttack, below=6mm of spl] (b1) {unsigned stage};
+  \node[font=\scriptsize\bfseries, text=isAttack, below=6mm of kern] (b2) {JTAG / UART};
+  \node[font=\scriptsize\bfseries, text=isAttack, below=6mm of app] (b3) {downgrade};
+  \draw[attack] (b1.north) -- (spl.south);
+  \draw[attack] (b2.north) -- (kern.south);
+  \draw[attack] (b3.north) -- (app.south);
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{notebox}{Why RE still finds wins}
+The chain is only as strong as its first \emph{unverified} link. Cheap ICS gear routinely ships with an unsigned SPL, live debug ports (JTAG/UART giving a root shell), eFuses left unblown, or no anti-rollback --- any one breaks the chain and re-opens the whole image to modification.
+\end{notebox}
+\source{NIST SP 800-193 (Platform Firmware Resiliency), 2018 \textbar{} IEC 62443-4-2 CR 3.4/3.14 (integrity \& secure boot).}
+\note{
+  Secure boot is a chain: each stage cryptographically verifies the next before handing off, and trust is anchored in immutable boot ROM plus a public key (or its hash) burned into eFuses/OTP. The whole guarantee collapses at the first link that does \emph{not} verify the next --- this is the single idea to land. Now the reality of low-cost ICS hardware: (1) the SPL/first-stage bootloader is frequently unsigned to save cost or because the SoC's secure-boot eFuses were never blown in production --- you can flash a modified SPL and the ROM happily runs it; (2) debug interfaces (JTAG, SWD, or a U-Boot console on UART) are left live, handing a root shell or memory access that bypasses every signature check downstream; (3) no anti-rollback / version-counter, so an attacker re-flashes an older, vulnerable, validly-signed image (this is exactly the Modicon M340 downgrade pattern from the earlier slide); (4) sometimes signature verification code exists but the return value is ignored --- a one-instruction patch. Tie back to 62443-4-2 CR 3.4 (software integrity) and CR 3.14 (integrity of the boot process), and NIST 800-193's protect/detect/recover model. The takeaway for offensive work: confirm secure boot is actually enforced before assuming the image is immutable --- on this class of device it usually is not. Transition: ``Here is one concrete finding that fell out of exactly this kind of analysis.''
+}
+\end{frame}
+
+%% Frame 4: Real firmware finding deep-dive -- D-Link hard-coded backdoor
+\begin{frame}{Finding Deep-Dive --- A Hard-Coded Backdoor}
+\begin{columns}[T]
+\begin{column}{0.55\textwidth}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item Firmware web server checked the browser \textbf{User-Agent} string.
+  \item One literal value skipped all auth:\\[1pt]
+    {\scriptsize\texttt{xmlset\_roodkcableoj28840ybtide}}
+  \item Reversed: \emph{``edit by 04882 joel backdoor''} --- a shipped dev hook.
+  \item Found by RE alone: \texttt{strings} + Ghidra on the carved SquashFS.
+\end{itemize}
+\end{column}
+\begin{column}{0.45\textwidth}
+\begin{importantbox}{Classification}
+\scriptsize
+\textbf{CVE-2013-6026} \\
+\textbf{CWE-798} --- Hard-coded credentials \\
+\textbf{CWE-287} --- Improper authentication \\
+D-Link DIR routers --- SOHO/edge gear bridging OT remote sites.
+\end{importantbox}
+\end{column}
+\end{columns}
+\vspace{-1mm}
+\begin{takeawaybox}{Lesson}
+A magic string is an auth bypass that never expires or rotates --- a 62443-4-1 SR/SI failure.
+\end{takeawaybox}
+\source{T.\ Heffner, ``Reverse Engineering a D-Link Backdoor'', /dev/ttyS0, Oct 2013 \textbar{} CVE-2013-6026 \textbar{} CWE-798.}
+\note{
+  This is the canonical teaching case for CWE-798 found by firmware RE alone, and it is fully verifiable (Craig Heffner's public 2013 write-up plus the assigned CVE). The mechanism: the device's web daemon compared the incoming HTTP User-Agent header against a hard-coded literal; if it matched, the request skipped the login check entirely and was served as authenticated. The literal \texttt{xmlset\_roodkcableoj28840ybtide} reads as ``editby04882joelbackdoor'' reversed --- almost certainly a developer/QA hook (probably to let an internal config tool poke settings without logging in) that shipped to production. Pedagogically it ties the whole section together: it was found by exactly our workflow --- carve the SquashFS, run strings, spot a suspicious literal, confirm the comparison in Ghidra --- no source code, no special hardware. Map it to the standards anchor: it is a 62443-4-1 Secure Implementation (SI) and Security Requirements (SR) failure (test hooks left in a release), classified CWE-798 (hard-coded credentials) with CWE-287 (improper authentication) as the consequence. Why it matters for ICS even though it is a consumer router: this exact class of SOHO/edge device is what bridges remote OT sites and cellular backhaul, and the same User-Agent / magic-value bypass pattern recurs in industrial gateways. The lesson to leave them with: a hard-coded credential or backdoor string never expires and cannot be rotated --- the only fix is to never ship it, which is what a 62443-4-1 lifecycle is designed to enforce. Disclosure: this predates coordinated norms but D-Link did issue patched firmware; contrast with the responsible-disclosure path slide.
+}
+\end{frame}
+
+
 \begin{frame}{Summary -- Section \sectionNumber}
 \begin{takeawaybox}{Firmware RE for ICS in one breath}
 \begin{itemize}\setlength{\itemsep}{2pt}

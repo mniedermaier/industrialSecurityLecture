@@ -175,6 +175,116 @@ The asset owner's safety engineers should be able to read the report and say whe
 \end{warnbox}
 \end{frame}
 
+%% Frame 1: Framework anchor -- MITRE ATT&CK for ICS + ICS Cyber Kill Chain
+\begin{frame}{Framework anchor -- ATT\&CK for ICS \& the ICS Kill Chain}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.85, transform shape]
+  \node[isbox, fill=isIT!15, draw=isIT, minimum width=120mm, font=\footnotesize, align=left] (a)
+    {\textbf{Recon \& Initial Access} \ ATT\&CK \emph{Initial Access} (T0817 Drive-by, T0866 Remote Services) $\;\equiv\;$ Kill Chain \textbf{Stage 1}};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=120mm, font=\footnotesize, align=left, below=of a] (b)
+    {\textbf{Pivot \& Cross iDMZ} \ ATT\&CK \emph{Lateral Movement} (T0859 Valid Accounts, T0867 Eng.\ WS) $\;\equiv\;$ end of \textbf{Stage 1}};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=120mm, font=\footnotesize, align=left, below=of b] (c)
+    {\textbf{Logic \& Command} \ ATT\&CK \emph{Impair Process Control} (T0836 Mod.\ Param., T0843 Program Download) $\;\equiv\;$ \textbf{Stage 2}};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=120mm, font=\footnotesize, align=left, below=of c] (d)
+    {\textbf{Disable Safety \& Effect} \ ATT\&CK \emph{Inhibit Response} (T0880) \& \emph{Impact} (T0831 Loss of Control) $\;\equiv\;$ \textbf{Stage 2}};
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{notebox}{Two lenses, one engagement}
+ATT\&CK for ICS names \emph{techniques}; the Assante/Lee kill chain names \emph{stages}. Map every authorised action to both: the technique tells the blue team what to detect, the stage tells them where they still have leverage.
+\end{notebox}
+\source{MITRE ATT\&CK for ICS, \texttt{attack.mitre.org/matrices/ics/} \textbar{} M.\ Assante \& R.\ Lee, \emph{The ICS Cyber Kill Chain}, SANS, 2015.}
+\note{
+  This is the anchor frame for the offensive section: two complementary frameworks the rest of the deck maps onto. Read the four rows top-down as the attacker's arc and stress that each row carries both an ATT\&CK technique ID and a kill-chain stage. ATT\&CK for ICS is the technique taxonomy (the matrix runs Initial Access $\to$ Execution $\to$ Persistence $\to$ Privilege Escalation $\to$ Evasion $\to$ Discovery $\to$ Lateral Movement $\to$ Collection $\to$ Command \& Control, then the three ICS-distinctive tactics: \emph{Inhibit Response Function}, \emph{Impair Process Control}, and \emph{Impact}). The Assante/Lee chain is the staged model: Stage 1 is the IT intrusion (recon, weaponise, deliver, exploit, install, C2, act) and Stage 2 is the ICS attack-development-and-execution stage (develop, test, deliver, install/modify, execute the cyber-physical effect). The pedagogical point for the room: an authorised tester reports findings in ATT\&CK technique IDs because that is the language the asset owner's detection engineering team already speaks, while the kill-chain stage tells you which control layer should have caught it. Tie every later frame in this section back here.
+}
+\end{frame}
+
+%% Frame 2: The two-stage ICS kill chain -- TikZ chain with detection break points
+\begin{frame}{The Two-Stage ICS Kill Chain -- where detection breaks it}
+\centering
+\begin{tikzpicture}[node distance=2mm, every node/.style={font=\scriptsize}, scale=0.82, transform shape]
+  \node[isbox, fill=isIT!15, draw=isIT, minimum width=18mm, minimum height=13mm, align=center] (a) {1. Phish /\\stolen creds};
+  \node[isbox, fill=isIT!15, draw=isIT, right=of a, minimum width=18mm, minimum height=13mm, align=center] (b) {2. Pivot\\IT LAN};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of b, minimum width=18mm, minimum height=13mm, align=center] (c) {3. Cross\\iDMZ / jump};
+  \node[isbox, fill=isOT!15, draw=isOT, right=of c, minimum width=18mm, minimum height=13mm, align=center] (d) {4. Eng.\\workstation};
+  \node[isbox, fill=isPLC!15, draw=isPLC, right=of d, minimum width=18mm, minimum height=13mm, align=center] (e) {5. PLC /\\logic push};
+  \node[isbox, fill=isAttack!15, draw=isAttack, right=of e, minimum width=18mm, minimum height=13mm, align=center] (f) {6. Process /\\physical};
+  \foreach \x/\y in {a/b, b/c, c/d, d/e, e/f}{\draw[attack] (\x) -- (\y);}
+  % stage brackets
+  \node[font=\tiny\bfseries, text=isIT, below=5mm of a.south, align=left] {Stage 1\\(IT intrusion)};
+  \node[font=\tiny\bfseries, text=isOT, below=5mm of e.south, align=left] {Stage 2\\(eng.\,$\to$\,PLC\,$\to$\,process)};
+  % detection break markers above the chain
+  \node[font=\tiny, text=isNet, above=4mm of c.north, align=center, fill=isNet!12, draw=isNet, inner sep=1pt] (dx1) {EDR / NetFlow\\breaks here};
+  \node[font=\tiny, text=isNet, above=4mm of e.north, align=center, fill=isNet!12, draw=isNet, inner sep=1pt] (dx2) {OT-IDS\\breaks here};
+  \draw[->, isNet, thick] (dx1.south) -- (c.north);
+  \draw[->, isNet, thick] (dx2.south) -- (e.north);
+\end{tikzpicture}
+\par\vspace{3mm}
+\begin{importantbox}{Authorised testing earns its keep at the breaks}
+Detection \emph{anywhere} severs the chain. An authorised engagement is most valuable when it proves the asset owner can break it at the iDMZ (Stage 1$\to$2) and again on the OT wire (Stage 2) -- not when it merely reaches the process.
+\end{importantbox}
+\source{Adapted from M.\ Assante \& R.\ Lee, \emph{The ICS Cyber Kill Chain}, SANS, 2015 \textbar{} MITRE ATT\&CK for ICS.}
+\note{
+  Walk the chain left-to-right. Stages 1--2 are bog-standard IT attack work (phishing, credential theft, lateral movement) and IT defences still apply; this is where EDR and NetFlow anomaly detection have a chance. Stage 3 is the iDMZ crossing -- the single highest-leverage detection point because it is a chokepoint the asset owner controls and monitors. Once the attacker lands on the engineering workstation (Stage 4) and pushes logic to the PLC (Stage 5), only OT-aware controls -- a protocol-aware OT-IDS watching for S7 program-download or Modbus writes -- can see it. The two green markers are the message of the slide: a good authorised test does not just demonstrate it can reach Stage 6, it demonstrates exactly where the blue team's existing controls do and do not sever the chain. Reinforce the strict authorised-use frame: you only run this against a contained lab or a scoped, signed engagement. Tie Stage 5 detection forward to Frame 4 (offense tied to detection). The leverage point for the room: the defender does not have to win at every stage -- breaking it once defeats the attack.
+}
+\end{frame}
+
+%% Frame 3: PIPEDREAM / INCONTROLLER as a capability (the framework, not the bug)
+\begin{frame}{PIPEDREAM / INCONTROLLER -- the framework \emph{is} the threat}
+\centering
+\begin{tikzpicture}[node distance=7mm, scale=0.85, transform shape]
+  \node[attacker, minimum width=22mm, font=\scriptsize\bfseries, align=center] (core) {Core +\\launcher};
+  \node[plc, fill=isAttack!15, draw=isAttack, above right=3mm and 16mm of core, minimum width=30mm, font=\scriptsize, align=center] (sch) {Schneider M580/M340\\(\textsc{evilscholar})};
+  \node[plc, fill=isAttack!15, draw=isAttack, below right=3mm and 16mm of core, minimum width=30mm, font=\scriptsize, align=center] (om) {Omron NX/NJ\\(\textsc{badomen})};
+  \node[scada, fill=isSCADA!15, draw=isSCADA, right=20mm of core, minimum width=30mm, font=\scriptsize, align=center] (opc) {OPC UA pivot\\(\textsc{mousehole})};
+  \node[plc, fill=isAttack!12, draw=isAttack, right=14mm of opc, minimum width=26mm, font=\scriptsize, align=center] (any) {Any OPC UA\\server / vendor};
+  \draw[attack] (core) -- (sch);
+  \draw[attack] (core) -- (om);
+  \draw[attack] (core) -- (opc);
+  \draw[attack] (opc) -- node[above, font=\tiny, yshift=0.5mm, fill=white, inner sep=1pt]{vendor-agnostic} (any);
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{importantbox}{The framework, not the bug -- caught pre-deployment}
+PIPEDREAM is modular: per-vendor modules plus an OPC UA pivot that is vendor-agnostic \emph{by construction}. Patching one CVE does not blunt it -- the capability outlives any single bug. It is the first ICS attack framework discovered \emph{before} any victim impact.
+\end{importantbox}
+\source{CISA \emph{AA22-103A}, ``APT Cyber Tools Targeting ICS/SCADA Devices'', 13 Apr 2022 \textbar{} Dragos, \emph{PIPEDREAM/CHERNOVITE}, Apr 2022 \textbar{} Mandiant, \emph{INCONTROLLER}, Apr 2022.}
+\note{
+  The headline is in the importantbox: PIPEDREAM (Dragos's name for the toolkit; CHERNOVITE the actor) and INCONTROLLER (Mandiant's name) are the same modular attack framework, wrapped by the joint CISA/DOE/NSA/FBI advisory AA22-103A. The architecture is the lesson: a core/launcher orchestrates vendor-specific modules -- \textsc{evilscholar} for Schneider Modicon M580/M340, \textsc{badomen} for Omron NX/NJ -- plus \textsc{mousehole}, an OPC UA module that pivots between devices regardless of vendor because OPC UA is the lingua franca of modern ICS data exchange. Drive the ``framework, not the bug'' point hard: students trained on CVE-chasing want a patch, but a framework that speaks native protocols and abuses legitimate engineering functions does not depend on any single CVE -- close one module's bug and the architecture survives. This is the same modular lineage as Industroyer and TRITON, only broader and caught earlier. The interdiction matters too: it was found before deployment via partner reporting, the first time we got ahead of an ICS-specific capability. For the authorised tester, the takeaway is that emulating \emph{framework behaviour} (multi-vendor module dispatch, OPC UA pivoting) tests detection better than reproducing one exploit. Attribution stays officially undisclosed; Dragos leans Russia-state, consistent with the Feb 2022 timing.
+}
+\end{frame}
+
+%% Frame 4: Offense tied to detection -- techniques vs what an OT-IDS sees
+\begin{frame}{Offense Tied to Detection -- what the OT-IDS sees}
+\centering
+\renewcommand{\arraystretch}{1.15}
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{|p{30mm}|p{16mm}|p{60mm}|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Offensive technique} & \textbf{ATT\&CK} & \textbf{Zeek / ICSNPP visibility} \\
+\hline
+Network scan / device enum & T0846 & \textbf{Sees} -- new conn fan-out, function-code sweep across hosts \\
+\hline
+Modbus coil/register write & T0855 & \textbf{Sees} -- \texttt{modbus.log} write FC 5/6/15/16 off baseline \\
+\hline
+S7 program download (logic) & T0843 & \textbf{Sees} -- \texttt{s7comm.log} job: download block to CPU \\
+\hline
+OPC UA over TLS (encrypted) & T0867 & \textbf{Blind} -- payload encrypted; only endpoint metadata \\
+\hline
+Spoof reporting / HMI replay & T0856 & \textbf{Partial} -- needs process-baseline model, not parsing alone \\
+\hline
+\end{tabular}
+\par\vspace{2mm}
+\begin{importantbox}{Build detection \emph{from} offense}
+Every authorised technique you run is a detection-engineering test case. Map it to its ATT\&CK ID, capture the PCAP, and hand the blue team the exact Zeek signature it should -- or could not -- have produced.
+\end{importantbox}
+\source{MITRE ATT\&CK for ICS (T0846/T0855/T0843/T0867/T0856) \textbar{} Zeek + ICSNPP protocol analysers, \texttt{github.com/cisagov/icsnpp}.}
+\note{
+  This frame closes the offensive section by tying every technique back to the defender's instrument. The table is the heart of it: walk each row and stress the \textbf{Sees / Blind / Partial} verdict. Scanning (T0846) is loud -- Zeek logs the connection fan-out and ICSNPP flags the function-code sweep. Modbus writes (T0855) and S7 program downloads (T0843) are fully visible because the ICSNPP analysers parse \texttt{modbus.log} and \texttt{s7comm.log} down to the function code and the download-block job; an authorised tester should produce exactly those log lines and confirm an alert fires. The two hard cases are the lesson: OPC UA over TLS (T0867) is a \emph{blind spot} -- the OT-IDS sees only endpoint/metadata, not the payload, which is precisely why the PIPEDREAM \textsc{mousehole} pivot from the previous frame is dangerous; mitigations are endpoint logging or a sanctioned TLS-inspection point. HMI replay / spoofed reporting (T0856 -- the Stuxnet trick) is only \emph{partially} detectable from the wire: protocol parsing alone cannot tell a replayed-but-valid telemetry value from a real one, so you need a process-behaviour baseline. Land the importantbox: the entire value of authorised offense to a mature SOC is that each technique becomes a labelled detection test case -- run it, capture the PCAP, and hand over the Zeek/ICSNPP signature that should have caught it (or document the gap). That is detection engineering built from offense, and it is the deliverable that makes a pentest worth more than its findings list.
+}
+\end{frame}
+
+
 \begin{frame}{Summary -- Section \sectionNumber}
 \begin{takeawaybox}{Offensive ICS, responsibly}
 \begin{itemize}\setlength{\itemsep}{2pt}

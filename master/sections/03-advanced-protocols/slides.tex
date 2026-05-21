@@ -185,6 +185,100 @@ Span-port IDS gives full visibility on legacy plaintext stacks and only partial 
 \end{notebox}
 \end{frame}
 
+%% Frame 1: IEC 62351 / 62443-3-3 standards anchor
+\begin{frame}{Security-standard anchor for advanced protocols}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.85, transform shape]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=120mm, font=\small] (a)
+    {\textbf{IEC 62351-3/4/5} \ TLS for TCP, auth for MMS, key/MAC for 60870-5/DNP3};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=120mm, font=\small, below=of a] (b)
+    {\textbf{IEC 62351-6} \ GOOSE/SV authentication --- per-message signature, R-GOOSE};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=120mm, font=\small, below=of b] (c)
+    {\textbf{IEC 62443-3-3 SR 1.x/3.x} \ identification, use control, integrity the protocol must support};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=120mm, font=\small, below=of c] (d)
+    {\textbf{Retrofit reality} \ S7commPlus (vendor), 61850 (62351), DLMS (62056-5-3 GMAC)};
+\end{tikzpicture}
+\par\vspace{2mm}
+{\footnotesize 62351 is the bolt-on crypto layer for the TC~57 protocols; 62443-3-3 fixes \emph{which} system requirements (SR) the deployed protocol must meet at each security level.}
+\source{IEC 62351 (multipart) \textbar{} IEC 62443-3-3:2013 SR\,1--7 \textbar{} IEC 62056-5-3.}
+\note{
+  This is the spine for the whole section. 62351 retrofits crypto onto protocols designed in the 1990s with zero security; 62443-3-3 is the system-level checklist of foundational requirements (FR1 identification \& authentication, FR3 system integrity, FR4 data confidentiality) that the deployed protocol must satisfy at SL 1--4. Make the split explicit: 62351 is the mechanism, 62443-3-3 is the requirement that drives whether you must turn it on. Stress that adoption lags badly --- most substations and meters run the plaintext base protocol because the retrofit costs latency and key management. S7commPlus is the odd one out: vendor-proprietary crypto, no 62351 coverage. Transition: ``Start with the one that pretends to be secure --- S7commPlus.''
+}
+\end{frame}
+
+%% Frame 2: S7commPlus anti-replay internals
+\begin{frame}[fragile]{S7commPlus anti-replay --- challenge/response internals}
+\centering
+\begin{tikzpicture}[x=9mm, y=7mm, font=\scriptsize]
+  \foreach \x/\w/\name/\col in {0/1/{0x72}/isOT, 1/1/{Ver\,0x03}/isOT, 2/2/{Len}/isOT, 4/2/{Opcode}/isPLC, 6/3/{Integrity (digest)}/isAttack, 9/3/{Payload}/isMute}{
+    \draw[fill=\col!15, draw=\col, thick] (\x,0) rectangle ++(\w,1);
+    \node[align=center] at (\x+\w/2, 0.5) {\name};
+  }
+\end{tikzpicture}
+\par\vspace{0.5mm}
+{\footnotesize The \emph{integrity} field is a keyed digest over opcode + payload --- the per-session anti-replay/anti-tamper guard.}
+\par\vspace{0.5mm}
+\begin{importantbox}{Why early versions were defeated}
+The handshake digest (\texttt{0x011d}/\texttt{0x011e}) derives a session key from a server \emph{challenge}, but the KDF and seed constants are baked into the firmware --- so the per-session integrity field is \emph{recomputable offline}. Capture one challenge, replay with a valid digest.
+\end{importantbox}
+\begin{notebox}{Hardening (v3 protocol, S7-1500 FW $\geq$ 2.x)}
+Later firmware adds a non-derivable nonce and binds the digest to TLS transport --- the offline-recompute path closes; legacy units in compatibility mode stay exposed.
+\end{notebox}
+\source{Lei, C.\ et al., \emph{S7commPlus reverse engineering}, 2017--2020 \textbar{} Cheng, L., \emph{Wireshark s7comm-plus dissector notes}.}
+\note{
+  This is the depth jump from the Bachelor view. The earlier frame in this deck says ``session keying is reproducible'' --- here we say exactly why. The integrity field is a keyed digest over opcode+payload, intended as anti-replay/anti-tamper. The defeat is not a crypto break: the KDF inputs (challenge) are observable on the wire and the KDF constants are static in firmware, so an attacker reconstructs the same key the PLC will. Emphasise the difference between obfuscation and authentication: a key both endpoints can derive from public data authenticates nobody. The byte sketch is deliberately simplified --- real frames carry TLV item lists --- but the integrity field's position relative to opcode/payload is the load-bearing detail. Mitigation only lands when the digest is bound to a transport secret the attacker cannot derive. Transition: ``S7commPlus at least tries; GOOSE ships sub-4ms frames with a sequence counter and nothing else.''
+}
+\end{frame}
+
+%% Frame 3: IEC 61850 GOOSE/SV timing & spoofing
+\begin{frame}{GOOSE/SV timing window and the spoofing race}
+\centering
+\begin{tikzpicture}[font=\scriptsize, node distance=0mm, scale=0.8, transform shape]
+  \draw[axisline] (0,0) -- (9.2,0) node[right] {t};
+  \foreach \x/\lbl/\dt in {0.4/{stNum=7}/T0=2ms, 1.9/{retx}/T1=4ms, 3.8/{retx}/8ms, 6.2/{stable}/$\geq$16ms}{
+    \draw[isOT, thick] (\x,0.05) -- (\x,0.8);
+    \node[isOT, font=\tiny, anchor=south] at (\x,0.8) {\lbl};
+    \node[isMute, font=\tiny, anchor=north] at (\x,-0.05) {\dt};
+  }
+  \draw[attack] (2.85,1.25) -- (2.85,0.1);
+  \node[isAttack, font=\tiny\bfseries, anchor=south] at (2.85,1.25)
+    {spoof stNum=8 wins};
+\end{tikzpicture}
+\par\vspace{1mm}
+\begin{importantbox}{The spoofing window}
+Each event triggers a burst of retransmissions (\texttt{stNum}++, \texttt{sqNum}=0). A forged frame with a \emph{higher} \texttt{stNum} is trusted instantly --- no origin check, no time to react inside the 3ms trip budget.
+\end{importantbox}
+\begin{notebox}{Mitigation: IEC 62351-6 / R-GOOSE}
+Per-message signing (R-GOOSE over UDP/IP) authenticates the publisher and seals \texttt{stNum}/\texttt{sqNum}; verify latency must still fit the 3ms P1 budget --- HW MAC, not RSA.
+\end{notebox}
+\source{IEC 61850-8-1 / IEC 61850-90-5 (R-GOOSE) \textbar{} IEC 62351-6:2020.}
+\note{
+  Master-level GOOSE: the Bachelor view stopped at ``higher stNum is accepted.'' Here we make the timing concrete. stNum increments on every state change and resets sqNum to 0; between events sqNum just counts retransmissions. The publisher floods retransmits at shrinking intervals (T0~2ms growing toward a stable ~16ms-1s heartbeat). The attacker only needs to inject one frame with stNum greater than the legitimate counter during that burst --- the subscriber accepts the newest state with no source authentication. Tie the impossibility of naive defence to the timing class: trip messages are performance class P1, 3ms transfer time, so you cannot afford asymmetric crypto on the verify path. That is why 62351-6 specifies a MAC/signature scheme amenable to hardware acceleration, and why R-GOOSE matters when the message must leave the L2 segment. Ask students: what does signing buy you if the key is shared substation-wide? (Answer: integrity, not non-repudiation --- segue to key management.) Transition: ``Same key-management problem at scale --- millions of meters running DLMS/COSEM.''
+}
+\end{frame}
+
+%% Frame 4: DLMS/COSEM & smart-metering security
+\begin{frame}{DLMS/COSEM --- association, HLS-GMAC, key hierarchy}
+\centering
+\begin{tikzpicture}[node distance=7mm, font=\scriptsize]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=24mm] (c) {Client (HES)};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=24mm, right=40mm of c] (m) {Meter (server)};
+  \draw[flow] ([yshift=3mm]c.east) -- node[above, font=\tiny, yshift=0.5mm] {AARQ + auth-value} ([yshift=3mm]m.west);
+  \draw[flow] ([yshift=-3mm]m.west) -- node[below, font=\tiny, yshift=-0.5mm] {AARE + StoC (challenge)} ([yshift=-3mm]c.east);
+\end{tikzpicture}
+\par\vspace{1.5mm}
+{\footnotesize Key hierarchy: \textbf{Master Key} (KEK) wraps $\rightarrow$ \textbf{AK} (authentication, HLS-GMAC) and \textbf{EK} (encryption, AES-128-GCM), each per-association.}
+\par\vspace{1.5mm}
+\begin{notebox}{Metering attack surface}
+HLS level 5 (GMAC): forged StoC/CtoS or nonce reuse breaks the GCM auth; a leaked global broadcast EK (firmware extraction) decrypts whole concentrator segments. Low-Level Security (shared password) and security-suite-0 fallbacks remain the practical entry. BSI TR-03109 forces the gateway to terminate this in tamper-resistant HW.
+\end{notebox}
+\source{IEC 62056-5-3 (DLMS green book) \textbar{} IEC 62056-6-2 security suites \textbar{} BSI TR-03109-1.}
+\note{
+  Deepens the Bachelor auth-level list into the actual mechanism. The Application Association (AARQ/AARE) negotiates the authentication mechanism and exchanges the challenge for HLS; the auth-value carries the response. HLS-GMAC (mechanism 5) uses AES-GCM in MAC-only mode keyed by AK with a 12-byte IV = system-title || invocation-counter --- so invocation-counter monotonicity is security-critical; a reset or wrap enables nonce reuse and forgery. Walk the key hierarchy: a master/KEK wraps the per-association AK and EK; security suite 1 adds AES-GCM-128 for confidentiality. The brutal failure mode is the global broadcast key shared across a population --- one firmware extraction compromises a whole segment, exactly the systemic risk regulators fear. BSI TR-03109 answers this by mandating a Smart Meter Gateway with X.509 + secure element so keys never live in the cheap meter. Ask: why is the invocation counter the most attacked field? (Nonce reuse in GCM is catastrophic.) Close the section here.
+}
+\end{frame}
+
+
 \begin{frame}{Summary -- Section \sectionNumber}
 \begin{takeawaybox}{Advanced protocols, in one breath}
 \begin{itemize}\setlength{\itemsep}{2pt}

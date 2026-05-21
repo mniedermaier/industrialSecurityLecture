@@ -201,6 +201,121 @@ Logic from a production PLC you do not own is contaminated evidence. No serious 
 \end{warnbox}
 \end{frame}
 
+%% Frame 1: Standards anchor -- IEC 61131-3 languages, 62443-4-2 CR 3.4, compile chain
+\begin{frame}{Standards anchor for control-logic RE}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.85, transform shape]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, align=left, text width=104mm] (a)
+    {\textbf{IEC 61131-3} \ Five PLC languages you reverse: \textbf{LD} ladder, \textbf{IL} instruction list, \textbf{ST} structured text, \textbf{FBD}, \textbf{SFC}};
+  \node[isbox, fill=isPLC!15, draw=isPLC, minimum width=110mm, font=\small, below=of a, align=left, text width=104mm] (b)
+    {\textbf{POU model} \ Programs / function blocks / functions over \texttt{\%I}, \texttt{\%Q}, \texttt{\%M} located variables --- the RE target language};
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=110mm, font=\small, below=of b, align=left, text width=104mm] (c)
+    {\textbf{62443-4-2 CR 3.4} \ Software / firmware \emph{integrity} --- the control whose absence makes silent logic swaps possible};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=110mm, font=\small, below=of c, align=left, text width=104mm] (d)
+    {\textbf{Compile chain} \ Source $\to$ vendor / IEC compiler $\to$ on-PLC artefact (bytecode or native) --- divergence is the attack surface};
+\end{tikzpicture}
+\par\vspace{2mm}
+{\footnotesize 61131-3 fixes \emph{what} the logic says; CR 3.4 is \emph{whether} what runs is what was signed. RE bridges the gap when CR 3.4 is missing.}
+\source{IEC 61131-3:2013 \textbar{} IEC 62443-4-2:2019, CR 3.4 (software/firmware integrity) \textbar{} PLCopen, \emph{IEC 61131-3 a Standardized Programming Language}, 2014.}
+\note{
+  This is the spine of the section. Three load-bearing points. First, 61131-3 is the language family --- a Master audience already knows LD/ST; the move here is that all five map onto the same POU/located-variable model, so reversing one is reversing all. Second, CR 3.4 is the single component requirement that, when implemented (signed downloads, verified boot), would have stopped Stuxnet-class logic swaps; its absence is precisely what creates work for an RE analyst. Third, the compile chain is the reason runtime and project diverge --- hammer that the PLC executes the compiled artefact, never the source. Pre-empt: students conflate ``the standard'' with ``the vendor tool'' --- 61131-3 is portable, the artefact format is not. Transition: ``So what exactly does that compile chain produce, and at which layer do you reverse it?''
+}
+\end{frame}
+
+%% Frame 2: The compile-to-binary artefact chain (TikZ flow, what you reverse at which layer)
+\begin{frame}{The compile-to-binary artefact chain}
+\centering
+\begin{tikzpicture}[node distance=7mm, scale=0.82, transform shape]
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=24mm, font=\scriptsize, align=center] (st) {ST / LD\\source (POU)};
+  \node[isbox, fill=isPLC!15, draw=isPLC, right=of st, minimum width=22mm, font=\scriptsize, align=center] (mat) {MatIEC\\transpiler};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of mat, minimum width=30mm, font=\scriptsize, align=center] (c) {\texttt{POUS.c} +\\\texttt{LOCATED\_VARIABLES.h}};
+  \node[isbox, fill=isMute!15, draw=isMute, below=12mm of c, minimum width=22mm, font=\scriptsize, align=center] (cc) {C compiler\\(gcc)};
+  \node[isbox, fill=isAttack!15, draw=isAttack, left=of cc, minimum width=24mm, font=\scriptsize, align=center] (elf) {Native ELF\\.so on runtime};
+  \node[plc, left=of elf, minimum width=18mm, font=\scriptsize] (plc) {PLC scan};
+  \draw[flow] (st) -- (mat);
+  \draw[flow] (mat) -- (c);
+  \draw[flow] (c) -- (cc);
+  \draw[flow] (cc) -- (elf);
+  \draw[flow] (elf) -- (plc);
+\end{tikzpicture}
+\par\vspace{1mm}
+{\footnotesize \textbf{Reverse at the layer you can reach:} source if you have the project; \texttt{POUS.c} if you catch the build; \textbf{ELF / Ghidra} if all you have is the device.}
+\par\vspace{1mm}
+\begin{notebox}{Why the C layer matters}
+OpenPLC and many soft-PLCs compile IEC code to C, then to native code --- the running logic is a stripped shared object, not bytecode. \texttt{LOCATED\_VARIABLES.h} is the Rosetta stone mapping \texttt{\%QX0.0} to a C symbol and a memory offset.
+\end{notebox}
+\source{T.\ R.\ Alves, OpenPLC / MatIEC build pipeline, 2018 \textbar{} Beremiz/MatIEC project documentation (IEC 61131-3 to C), 2013--.}
+\note{
+  Master-level depth: this frame says where your tools attach. Walk left to right, then make the key point --- as you move down the chain you lose symbols and gain ground truth. At the source layer you have names; at POUS.c you still have readable C and the located-variables header; at the ELF you have offsets and Ghidra. The LOCATED\_VARIABLES.h call-out is the practical gem: it is the deterministic map from \%IX/\%QX to C variables, so if you can grab it from a build artefact you skip most of the static-analysis pain. Tie back to Frame 1: this is the compile chain that CR 3.4 is supposed to protect end to end. Note the contrast with Siemens MC7 (bytecode) covered later --- soft-PLCs go all the way to native, hard PLCs often stop at bytecode; the RE workflow differs. Transition: ``Once you can read the logic at some layer, the real question is not syntax but intent.''
+}
+\end{frame}
+
+%% Frame 3: Reconstructing control intent (worked seal-in latch example)
+\begin{frame}[fragile]{Reconstructing control intent: a seal-in latch}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\begin{lstlisting}[basicstyle=\ttfamily\tiny\color{slideTitle}]
+Start AT %IX0.0 : BOOL;
+Stop  AT %IX0.1 : BOOL;(*NC*)
+Guard1 AT %IX0.2 : BOOL;
+Guard2 AT %IX0.3 : BOOL;
+Motor AT %QX0.0 : BOOL;
+Lamp  AT %QX0.1 : BOOL;
+Motor := (Start OR Motor)
+   AND Stop AND Guard1
+   AND Guard2;
+Lamp  := Motor;
+\end{lstlisting}
+\end{column}
+\begin{column}{0.5\textwidth}
+\scriptsize
+\textbf{Reconstructed I/O map}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \texttt{\%IX0.0} start PB \,(momentary)
+  \item \texttt{\%IX0.1} stop PB \,(NC, fail-safe)
+  \item \texttt{\%IX0.2/.3} two guard switches
+  \item \texttt{\%QX0.0} motor; \texttt{\%QX0.1} run lamp
+\end{itemize}
+\textbf{Interlock logic}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \texttt{(Start OR Motor)} = seal-in latch
+  \item Stop+Guard1+Guard2 all TRUE to run (de-energise-to-stop)
+\end{itemize}
+\end{column}
+\end{columns}
+\begin{notebox}{Intent, not syntax, is the goal}
+The win is naming the \emph{behaviour}: ``self-holding motor start, fail-safe stop, two guard interlocks'' --- a decompile you cannot state in one safety sentence is transcribed, not reversed.
+\end{notebox}
+\source{IEC 61131-3:2013 (seal-in / latch pattern) \textbar{} repo lab \texttt{labs/\_stack/scripts/ladder/conveyor.st}.}
+\note{
+  The pedagogical pivot of the section: decompilation is necessary but not sufficient. Work the example live --- read the rung, then force the class to articulate intent. Key teaching beats: (1) the \texttt{(Start OR Motor)} term is the classic seal-in/latch --- once Motor is TRUE it holds itself until a series condition drops; recognising this idiom instantly is the RE skill. (2) Stop is normally-closed and ANDed, so a broken wire stops the motor --- de-energise-to-stop is a safety design choice you must call out, because an attacker who flips it to normally-open removes the fail-safe with a one-character change. (3) Two guards in series = both must be closed; this is a safety interlock, not arbitrary logic. The notebox is the assessment criterion: if a student hands back ST that is correct but cannot say what it is FOR, mark it incomplete. Transition: ``Now imagine logic that LOOKS like this rung but hides a payload.''
+}
+\end{frame}
+
+%% Frame 4: Logic-bomb / malicious-logic patterns + baseline-diff detection
+\begin{frame}{Logic bombs: hiding payloads in PLC code}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.85, transform shape]
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small, align=left, text width=104mm] (a)
+    {\textbf{Counter-gated} \ Fires only after N scans --- invisible in a short bench test};
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small, below=of a, align=left, text width=104mm] (b)
+    {\textbf{Time-gated} \ Keyed on RTC/date --- Stuxnet armed only on a process match};
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small, below=of b, align=left, text width=104mm] (c)
+    {\textbf{Hidden OB / FC} \ Cyclic block (OB35) or rare function outside the block list};
+  \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small, below=of c, align=left, text width=104mm] (d)
+    {\textbf{Set-point mimicry} \ Replays true values on read --- HMI normal while output diverges};
+\end{tikzpicture}
+\par\vspace{1mm}
+\begin{importantbox}{Detection: baseline-diff against a signed golden project}
+None of the above survives a byte-level diff of every block CRC against a \emph{signed} golden project archived off-line. Compare on-PLC blocks to the signed baseline, not the engineering-workstation copy --- the WS can be tampered too.
+\end{importantbox}
+\source{R.\ Langner, \emph{To Kill a Centrifuge}, 2013 \textbar{} N.\ Falliere et al., \emph{W32.Stuxnet Dossier} v1.4, Symantec, 2011 \textbar{} IEC 62443-4-2:2019 CR 3.4.}
+\note{
+  Synthesis of attack + defence. The four rows are a taxonomy of how malicious logic stays dormant: gating (counter or time) defeats short bench tests, hidden blocks defeat a casual block-list review, and set-point mimicry defeats the operator's eyes --- this last one is the Stuxnet move and ties straight back to Section's earlier ``HMI lied'' frame, so cross-reference it. The importantbox is the only durable answer: you cannot eyeball your way out of a logic bomb, you need a cryptographically signed golden baseline kept off the engineering workstation, and an automated CRC/byte diff of every block on the live PLC. Stress the trust-anchor subtlety: diffing against the WS copy is worthless if the WS was the entry vector --- the baseline must be signed and stored off-line. Tie the whole thing to CR 3.4 from Frame 1: signed downloads plus verified boot would make most of these undetectable-by-eye patterns detectable-by-policy. Close: this is why integrity monitoring, not just access control, defines a mature OT program.
+}
+\end{frame}
+
+
 \begin{frame}{Summary -- Section \sectionNumber}
 \begin{takeawaybox}{Ladder RE for ICS}
 \begin{itemize}\setlength{\itemsep}{2pt}

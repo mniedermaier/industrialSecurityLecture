@@ -191,6 +191,88 @@ A paper that promises 12 lines of ``future work'' usually delivers zero. Pick on
 \end{warnbox}
 \end{frame}
 
+%% Frame 1: Governance scaffold -- ethics, disclosure, reproducibility anchor
+\begin{frame}{Governance anchor for OT-security research}
+\centering
+\begin{tikzpicture}[node distance=2mm, scale=0.85, transform shape,
+    anchorrow/.style={isbox, minimum width=124mm, text width=120mm, align=left, font=\small}]
+  \node[anchorrow, fill=isOT!15, draw=isOT] (a)
+    {\textbf{Menlo Report (2012)} \ Beneficence, justice, respect for persons \& law --- ethics for ICT research};
+  \node[anchorrow, fill=isPLC!15, draw=isPLC, below=of a] (b)
+    {\textbf{ISO/IEC 29147:2018} \ Vulnerability \emph{disclosure} --- how a researcher reports to a vendor};
+  \node[anchorrow, fill=isAccent!15, draw=isAccent, below=of b] (c)
+    {\textbf{ISO/IEC 30111:2019} \ Vulnerability \emph{handling} --- how the vendor triages, fixes, coordinates};
+  \node[anchorrow, fill=isAttack!15, draw=isAttack, below=of c] (d)
+    {\textbf{ACM Artifact Review \& Badging (2020)} \ Available / Functional / Reproduced --- proof holds};
+\end{tikzpicture}
+\par\vspace{2mm}
+{\footnotesize Menlo governs \emph{whether} you may run the study; 29147/30111 govern \emph{how} you release a finding; ACM badging governs \emph{whether} a third party can re-run it. All three apply before a single packet is captured.}
+\source{Dittrich \& Kenneally, \emph{The Menlo Report}, US DHS, 2012 \textbar{} ISO/IEC 29147:2018 \textbar{} ISO/IEC 30111:2019 \textbar{} ACM Artifact Review and Badging v1.1, 2020.}
+\note{
+  This is the spine for the whole section --- pin every later slide back to one of these four rows. Menlo is the ICT-specific reinterpretation of Belmont (1979); stress that human-subjects review boards rarely understand network measurement or honeypot data, so the researcher must self-apply Menlo's four principles and the companion ``Menlo Companion'' for concrete cases. 29147 is what the researcher \emph{sends}; 30111 is the mirror process \emph{inside} the vendor --- students conflate the two constantly, so anchor 29147 = outbound report, 30111 = internal triage/fix/CVD. ACM's three badges are independent: Available (artefact archived), Functional (it runs), Reproduced (a separate team got the same numbers); only the third certifies the science. Pre-empt the misconception that ethics review is optional for ``just scanning the internet'' --- Shodan-style censuses still touch real production OT and fall squarely under Menlo beneficence. Transition: ``With the rules fixed, here is the pipeline they constrain end to end.''
+}
+\end{frame}
+
+%% Frame 2: The OT-security research pipeline (TikZ flow + dual-use checkpoint)
+\begin{frame}{The OT-security research pipeline}
+\centering
+\begin{tikzpicture}[node distance=3mm, scale=0.82, transform shape,
+    stage/.style={isbox, fill=isOT!15, draw=isOT, minimum width=19mm, minimum height=12mm, font=\scriptsize, align=center}]
+  \node[stage] (q)   {Research\\question};
+  \node[stage, right=of q] (lit) {Lit.\ review\\+ gap};
+  \node[stage, right=of lit] (des) {Testbed /\\experiment\\design};
+  \node[stage, fill=isAccent!15, draw=isAccent, right=of des] (art) {Reproducible\\artefact};
+  \node[stage, fill=isAttack!15, draw=isAttack, right=of art] (cvd) {Coordinated\\disclosure};
+  \node[stage, fill=isPLC!15, draw=isPLC, right=of cvd] (pub) {Publication\\+ archive};
+  \foreach \s/\e in {q/lit, lit/des, des/art, art/cvd, cvd/pub}{\draw[flow] (\s) -- (\e);}
+  % dual-use checkpoint gate above the artefact->disclosure edge
+  \node[isbox, fill=isLight, draw=isAttack, dashed, font=\scriptsize\bfseries, align=center,
+        above=8mm of art.north east, anchor=south] (gate) {Dual-use\\checkpoint};
+  \draw[attack] (gate.south) -- ($(art.east)!0.5!(cvd.west)$);
+\end{tikzpicture}
+\par\vspace{2mm}
+\begin{notebox}{The dual-use gate sits between artefact and disclosure}
+Before any release, ask: does the artefact weaponise faster than it defends? If yes, throttle --- redact exploit primitives, gate the testbed behind request-only access, and hold the proof-of-concept until the patch ships. Menlo beneficence is the test; ISO/IEC 29147 is the channel.
+\end{notebox}
+\source{Dittrich \& Kenneally, \emph{The Menlo Report}, US DHS, 2012 \textbar{} ISO/IEC 29147:2018 \textbar{} J.\ B.\ Tucker (ed.), \emph{Innovation, Dual Use, and Security}, MIT Press, 2012.}
+\note{
+  Walk the chain left to right and name the failure mode at each node: a question with no falsifiable hypothesis (q), a lit review that misses the OT-specific prior art buried in S4/CSCS proceedings (lit), a testbed that only exists in one lab so nobody can replicate (des), an artefact that is code-only with no pinned environment (art), a disclosure that races the patch (cvd), a publication with no archival DOI (pub). The dual-use gate is the single most Master-level point: unlike IT bugs, an OT proof-of-concept can move a physical actuator, so the harm calculus is asymmetric --- emphasise that throttling release is a legitimate scientific choice, not censorship, and that the gate is where Menlo and 29147 jointly bite. Tie back to Frame 1: artefact node = ACM badging, disclosure node = 29147/30111. Transition: ``Once you clear the gate, where does the work actually land --- and can reviewers re-run it?''
+}
+\end{frame}
+
+%% Frame 3: Venue & reproducibility landscape (table + checklist + validity notebox)
+\begin{frame}{Venue \& reproducibility landscape}
+\centering
+\renewcommand{\arraystretch}{1.05}
+\tiny
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{|p{2.0cm}|p{4.9cm}|p{3.1cm}|}
+\hline
+\rowcolor{slidePanel}
+\textbf{Venue} & \textbf{Focus} & \textbf{Artifact evaluation} \\
+\hline
+USENIX Security & Top-tier systems security; strong measurement & Yes --- AE committee, badges \\
+IEEE S\&P       & Top-tier; theory + systems            & Yes --- artifact evaluation track \\
+ACSAC           & Applied security, ICS-friendly        & Yes --- artifacts encouraged \\
+ESORICS         & European systems security            & Yes --- AE since 2022 \\
+WOOT            & Offensive / PoC, attack technique     & PoC expected, lighter AE \\
+ICS-CSR         & ICS/CRITIS-focused, OT-specific       & Practitioner; AE rare \\
+S4 (Digital Bond) & Practitioner OT conference; not peer-reviewed & No formal AE \\
+\hline
+\end{tabular}
+\par\vspace{1mm}
+{\scriptsize\textbf{Reproducibility package:} \ pinned container (Docker/Nix) \ $\cdot$ \ data + provenance \ $\cdot$ \ run-cold README \ $\cdot$ \ seeds + config \ $\cdot$ \ archival DOI (Zenodo) \ $\cdot$ \ license.}
+\par\vspace{0.5mm}
+\begin{notebox}{Threats to validity --- state them or a reviewer will}
+\emph{Internal:} confounds, unmeasured latency, lab-only equipment. \emph{External:} single-vendor / single-sector generalisation. \emph{Construct:} CVE-count as a security proxy. \emph{Conclusion:} no ground truth in the dataset.
+\end{notebox}
+\source{USENIX Security, IEEE S\&P, ACSAC, ESORICS, WOOT, ICS-CSR (CRITIS) calls for papers \textbar{} ACM Artifact Review and Badging v1.1, 2020 \textbar{} S4 (Dale Peterson / Digital Bond).}
+\note{
+  The table's last column is the discriminator: artifact-evaluated venues (USENIX, S\&P, ACSAC, ESORICS) certify re-runnability; WOOT expects a working PoC but runs lighter AE; ICS-CSR and S4 are where OT-specific work reaches operators but offer little or no formal AE --- so a Master student aiming for both rigour and reach typically publishes the evaluated version at an AE venue and a distilled talk at S4. Note S4 is a practitioner conference (Digital Bond / Dale Peterson), not peer-reviewed, hence ``No formal AE''. Drive the reproducibility checklist as the concrete deliverable that earns the ACM ``Reproduced'' badge from Frame 1. The threats-to-validity notebox maps onto Cook \& Campbell's four classic categories; insist students pre-empt each --- the strongest defence against the hostile seminar question is a slide that names the threat first. Transition out of the section: ``Method, gate, venue, validity --- now build one artefact end to end for the seminar.''
+}
+\end{frame}
+
+
 \begin{frame}{Summary -- Section \sectionNumber}
 \begin{takeawaybox}{Doing OT-security research well}
 \begin{itemize}\setlength{\itemsep}{2pt}
