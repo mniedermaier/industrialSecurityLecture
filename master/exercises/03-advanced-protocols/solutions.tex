@@ -3,27 +3,312 @@
 \def\courseTitle{Industrial Security (Master)}
 \def\sectionNumber{03}
 \def\sectionTitle{Advanced Industrial Protocols}
-\def\sheetKind{Solution Sheet}
+\def\sheetKind{Solutions}
 
 \input{../../../template/exercise-preamble.tex}
 
 \begin{document}
 \sheetheader
 
-\begin{taskbox}{Exercise 3.1 -- S7commPlus (mark scheme)}
-Pass requires: correct version identification (v3 for S7-1500), correct location of the two challenge fields, working KDF in Python that produces the same key as derived in the paper, and a decrypted read-request matching the actual tag name.
-\end{taskbox}
+\noindent\textbf{Note to graders.}
+These answers are at byte-level depth on purpose. Full credit requires the
+student to name the concrete field, offset, or value -- not a paraphrase.
+Equivalent encodings or tool output (Wireshark field names) are acceptable
+where they identify the same construct. ``Add authentication'' or ``use a
+firewall'' without a named mechanism is never full credit.
 
-\begin{taskbox}{Exercise 3.2 -- GOOSE Spoof (mark scheme)}
-The student must show: capture vs.\ spoof PCAP side-by-side, the subscriber accepting the higher-\texttt{stNum} frame, and the only effective mitigation -- IEC 62351-6 signed GOOSE (or strict L2 isolation as a workaround).
-\end{taskbox}
+\vspace{0.4em}
 
-\begin{taskbox}{Exercise 3.3 -- Scapy Dissector (mark scheme)}
-Award marks for: layer that round-trips (encode/decode) at least one captured frame, working replay against a test client, and an honest limits section (no support for fragmentation, no encryption, single endpoint only).
-\end{taskbox}
+\begin{solutionbox}
+\textbf{Exercise 3.1 -- S7commPlus Anti-Replay/Integrity Field.}
+(1) Offset~0 is the S7commPlus \emph{protocol id} \texttt{0x72} (the magic
+that discriminates S7P from classic S7comm). Offset~1 is the \emph{protocol
+version}: here \texttt{0x03}, which is the integrity-protected variant
+shipped on S7-1500 / S7-1200 v4+. Values \texttt{0x01}/\texttt{0x02} are the
+earlier reproducible-KDF variants without the trailing digest; the presence
+of \texttt{0x03} plus the trailing integrity TLV proves v3.
+(2) Bytes at offsets~8--9 (\texttt{ec a5}) are the per-session
+\emph{sequence number} (a.k.a.\ integrity-id / message counter) that
+increments by one per data PDU -- this is the \textbf{anti-replay} field. The
+block after \texttt{a1 00} is the integrity TLV: \texttt{a1} = integrity
+part tag, then a digest of length \texttt{0x1f}/\texttt{0x20} bytes -- a
+keyed HMAC (SHA-256 family) computed over the PDU body and the counter using
+the session key -- this is the \textbf{integrity} primitive. They combine
+because the digest covers the counter, so a replayed body fails the check
+once the counter has moved on: integrity binds the frame, the counter binds
+it to a position in the session.
+(3) \emph{Weakness:} the session key derives from the handshake challenges
+through a fixed, publicly reverse-engineered KDF (Lei/He et al.\
+2017--2020). An on-path attacker who captured the handshake can re-derive
+the key and therefore recompute a valid digest for any counter value -- so
+for the v1/v2 variants, and for v3 against an attacker who saw the
+challenge exchange, the integrity tag is forgeable: it is obfuscation, not
+authenticated encryption against a passive-then-active adversary. What it
+\emph{still} stops: a blind off-path attacker who never saw the handshake
+cannot produce a valid digest, and a naive replay of a captured PDU fails
+because its stale counter no longer matches the live session.
+\textit{Rubric: $-1$ each for misnaming \texttt{0x72}/\texttt{0x03}; full
+credit on (3) needs the ``reproducible KDF $\Rightarrow$ forgeable digest''
+chain, not just ``it is weak''.}
+\end{solutionbox}
 
-\begin{taskbox}{Exercise 3.4 -- Fuzz Harness}
-A clean answer documents: harness, mutation strategy, observed behaviour (crash backtrace, hang, watchdog reset), CWE mapping (CWE-787 OOB write, CWE-400 resource exhaustion, etc.), and a vendor-disclosure note.
-\end{taskbox}
+\begin{hintbox}
+For 3.2, the spoofing window is bounded above by how long the subscriber
+believes the current state is still ``fresh'': the published
+\texttt{timeAllowedtoLive} and the heartbeat cadence. Think about when the
+real publisher's next \texttt{stNum} bump closes the window.
+\end{hintbox}
+
+\begin{solutionbox}
+\textbf{Exercise 3.2 -- GOOSE Spoofing Window.}
+(1) The subscriber accepts any frame whose \texttt{stNum} exceeds the last
+seen, immediately and with no nonce or signature. So the moment the attacker
+sends \texttt{stNum = 8}, it is accepted. The \emph{window} is the interval
+in which $8$ is still the highest number the subscriber has seen -- i.e.\
+from now until the \emph{legitimate} publisher next increments its own
+\texttt{stNum} (on its next real event) to $8$ or beyond, at which point the
+attacker's frame is no longer ``newer''. In steady state the publisher only
+bumps \texttt{stNum} on an actual data change, so at the heartbeat cadence
+($\texttt{maxTime}=1000$\,ms) the window is effectively open until the next
+genuine event. Concretely: the attacker's forged state survives until either
+(a) the real publisher issues \texttt{stNum} $\ge 9$, or (b) the
+\texttt{timeAllowedtoLive} of the last \emph{genuine} frame expires and the
+subscriber flags loss-of-comms -- whichever comes first. With
+$\texttt{TAL}=1000$\,ms the subscriber will not even declare staleness for
+$\sim$1\,s, so a single spoof at \texttt{stNum=8} typically dominates for
+the better part of a heartbeat period. (Numerically: window
+$\approx \min(\,t_{\text{next genuine event}},\ \texttt{TAL})$; here the
+guaranteed-accepted floor is the instant of injection and the practical
+ceiling is $1000$\,ms.)
+(2) Three field edits (TLV bytes):
+\texttt{85 01 07}~$\to$~\texttt{85 01 08} (\texttt{stNum}: $7\to8$);
+\texttt{86 01 00} stays \texttt{86 01 00} (reset \texttt{sqNum}~$=0$ for a
+new state -- if it was nonzero, force it to \texttt{00}); and flip the
+boolean data member in \texttt{allData} from \texttt{83 01 00} (FALSE) to
+\texttt{83 01 ff} (TRUE) to assert the trip. The attacker must also keep
+\texttt{gocbRef}/\texttt{datSet}/\texttt{goID}/\texttt{appID} identical so
+the subscriber maps it to the same control block.
+(3) \emph{R-GOOSE} (routable GOOSE, IEC 61850-90-5) adds a session/SPDU
+wrapper with a signature/HMAC and a monotonic session counter so the frame
+can cross L3 and be authenticated; objection: the added header plus crypto
+processing and the UDP/IP path raise end-to-end latency, threatening the
+sub-4\,ms transfer-trip budget. \emph{IEC 62351-6} adds an authentication
+tag (HMAC-SHA256, or signature) appended to the GOOSE PDU; objection: the
+same -- per-frame MAC computation on every IED at the 4\,ms cadence is what
+protection engineers say busts the latency budget on legacy CPUs, which is
+why adoption in production substations is still rare.
+\textit{Rubric: the window argument must tie to ``higher \texttt{stNum}
+accepted instantly'' AND to TAL/heartbeat bounding it; full credit on (3)
+needs the latency objection for each, not just naming the standards.}
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 3.3 -- IEC 61850 MMS Report-Control Structure.}
+(1) \texttt{RptID} \texttt{"LD0/LLN0\$RP\$urcb01"} identifies the report and,
+by the ObjectReference path, the logical device LD0, logical node LLN0, the
+\texttt{RP} (report) functional constraint, and the control block instance
+\texttt{urcb01}. \texttt{SqNum = 42} (\texttt{85 04 00 00 00 2a}) is the
+report's own sequence number, used by the client to detect lost/duplicated
+reports. \texttt{ConfRev = 1} (\texttt{86 04 00 00 00 01}) is the
+configuration revision of the data set -- if it does not match what the
+client expects, the data-set membership changed and the report layout is no
+longer trusted. The \texttt{a2 ...} \texttt{SEQUENCE OF AccessResult} is the
+actual payload: \texttt{83 01 ff} is \texttt{BOOLEAN = TRUE} -- e.g.\ a
+breaker/position/alarm point now asserted; the \texttt{BITSTRING} is the
+associated IEC 61850 \emph{quality} (validity/source bits) and the
+\texttt{UtcTime} is the timestamp of the change.
+(2) A \textbf{URCB} (unbuffered report-control block) sends reports only when
+a client is connected and does not retain events across a connection loss; a
+\textbf{BRCB} (buffered) queues events with an \texttt{EntryID} so they
+survive a disconnect and are replayed on reconnect. This is a \emph{URCB}:
+the name is \texttt{urcb01} and there is no \texttt{EntryID}/\texttt{TimeOfEntry}
+member in the structure (those appear only in buffered reports).
+(3) In the default MMS profile \emph{nothing} authenticates the report --
+MMS over ISO-on-TCP (RFC 1006) carries no message authentication. A host on
+the segment can therefore replay a captured \texttt{informationReport} (feed
+the HMI a stale boolean and timestamp) or forge one (assert a false breaker
+state). IEC 62351-4 wraps the MMS association in TLS (mutual X.509),
+providing transport-level confidentiality, integrity, and peer
+authentication, which defeats both replay and forgery -- but only between
+endpoints that both implement it.
+\textit{Rubric: full credit needs URCB-vs-BRCB justified by name + missing
+EntryID, and the 62351-4 = TLS answer. Accept ``RptID is an
+ObjectReference'' phrasing.}
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 3.4 -- DLMS/COSEM Access-Control Reasoning.}
+(1) The \texttt{mechanism-name} is the COSEM security mechanism OID
+\texttt{2.16.756.5.8.2.\textit{n}} (encoded \texttt{60 85 74 05 08 02
+0x}); the tail \texttt{...02.03} selects mechanism~\texttt{3}, which is
+\textbf{HLS (High Level Security) with GMAC} -- DLMS authentication
+\emph{level 3 (high-GMAC)}. Mechanism~0 = none (level~0), 1 = LLS / shared
+password (level~1), 2 = HLS-MD5, 3 = HLS-GMAC; the \texttt{.03} suffix is
+the discriminator.
+(2) It is a mutual challenge-response. The client sends an 8-byte CtoS
+(client-to-server) challenge in \texttt{calling-authentication-value}; the
+meter must return a value derived from CtoS under the shared key (proving it
+holds the key and binding to \emph{this} fresh challenge), and the meter
+sends its own StoC, which the client answers in the next APDU. Because each
+side's response is keyed to the \emph{other side's} random challenge,
+recording one full AARQ/AARE pair lets the attacker replay only that exact
+exchange against a party that happens to reissue the identical challenge --
+which a correct implementation never does (challenges are random/nonce-like).
+The attacker cannot derive the key, cannot answer a \emph{new} challenge,
+and so cannot open a fresh authenticated association or forge subsequent
+GMAC-protected APDUs.
+(3) BSI TR-03109 mandates the German \emph{Smart Meter Gateway} (SMGW) as the
+security anchor: meter-to-SMGW and SMGW-to-HES communication is protected
+with X.509 certificates and AES-GCM (TLS to the WAN, end-to-end content
+encryption to market participants), i.e.\ a high, certificate-backed level
+-- \emph{not} a meter-local shared password. Low-level (LLS, level~1)
+association is forbidden because a single shared password gives no per-device
+identity, no replay protection, no integrity, and is trivially harvested
+from one compromised meter to impersonate the fleet.
+\textit{Rubric: full credit needs ``mechanism 3 = HLS-GMAC'' read from the
+OID tail, the mutual-nonce replay argument, and TR-03109 = SMGW + X.509 +
+AES-GCM. Accept ``GCM/GMAC'' interchangeably for the primitive.}
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 3.5 -- Identify the Protocol and Function.}
+\textbf{A:} \texttt{68 .. 68 .. 16} fixed-length framing with two
+\texttt{0x68} start bytes and a \texttt{0x16} stop byte is
+\textbf{IEC 60870-5-101/104} (here the FT1.2 / fixed style; the \texttt{68}
+sentinels and \texttt{16} terminator are the family signature). The type
+identifier \texttt{0x65} = \texttt{101} decimal is \emph{C\_RD\_NA\_1 / clock
+or interrogation}-class control depending on dataset; more generally the TI
+octet after the APCI is what selects the ASDU service -- a
+\texttt{0x46}/\texttt{0x2e}-class TI with a write/command gates a control
+action. The field that gates a state change is the \emph{cause-of-transmission}
+plus the command TI (e.g.\ C\_SC\_NA\_1 single command).
+\textbf{B:} \texttt{05 64} is the \textbf{DNP3} data-link start. After it the
+length octet \texttt{0x0b} (11) and the control octet \texttt{0x44} encode
+the frame: bit~7 (DIR) and bit~6 (PRM) of \texttt{0x44} = \texttt{0100 0100}
+$\Rightarrow$ DIR=0, PRM=1 (primary, master-to-outstation direction in this
+encoding), function code in the low nibble \texttt{0x4} = \emph{unconfirmed
+user data}. Destination \texttt{0a 00}=10, source \texttt{01 00}=1. The
+application function (after the transport byte \texttt{c0} and app control
+\texttt{c1}) \texttt{81} would be unsolicited; \texttt{c0 c1 81}
+here is the app layer -- the function code byte is what gates a write/operate
+(e.g.\ \texttt{0x05} OPERATE).
+\textbf{C:} \texttt{03 00 00 16} is \textbf{TPKT} (version~3, length~0x16=22).
+The next layer \texttt{11 e0} is COTP: length \texttt{0x11}, PDU type
+\texttt{0xe0} = \emph{CR, Connection Request}. This is the COTP connection
+phase; the parameters \texttt{c1 02 01 00} (calling TSAP) and
+\texttt{c2 02 01 02} (called TSAP) negotiate the source/destination TSAPs
+(rack/slot for S7), and \texttt{c0 01 0a} sets TPDU size $2^{10}$. No
+read/write is gated yet -- this is association setup that precedes any S7 job.
+\textit{Rubric: protocol family + the gating field per payload. Accept
+``IEC 60870-5'' for A without the exact TI if the \texttt{68/16} framing and
+TI-selects-service point is made; B must get DNP3 + DIR/PRM read from
+\texttt{0x44}; C must get TPKT+COTP CR.}
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 3.6 -- Passive Detection Rule (model: GOOSE high-stNum).}
+(1) Invariant: for a given (\texttt{appID}, \texttt{goID},
+\texttt{gocbRef}), there is exactly \emph{one} legitimate publisher (one
+source MAC) and \texttt{stNum} is monotonic non-decreasing with bounded
+increments; \texttt{sqNum} resets to 0 only when \texttt{stNum} increments;
+the inter-frame gap follows the published retransmission schedule
+(\texttt{minTime} doubling to \texttt{maxTime}).
+(2) Zeek-style stateful logic:
+\begin{lstlisting}[language={}]
+state[goID].pub_mac, state[goID].max_stNum
+on each GOOSE frame:
+  if src_mac != state[goID].pub_mac:        -> ALERT "GOOSE publisher change"
+  if stNum > state[goID].max_stNum + 1:     -> ALERT "stNum jump"
+  if stNum == state[goID].max_stNum and sqNum < last_sqNum:
+                                            -> ALERT "sqNum regression"
+  if delta_t << minTime (two frames same stNum too close):
+                                            -> ALERT "injection burst"
+  update state[goID]
+\end{lstlisting}
+The fields keyed are \texttt{goID}/\texttt{appID} (identity), source MAC
+(publisher binding), and the (\texttt{stNum}, \texttt{sqNum}) pair plus
+arrival time (the stateful condition). The rule fires when a second source
+asserts a higher \texttt{stNum} for an existing control block.
+(3) False positive: a legitimate publisher restart or IED failover changes
+the source MAC and may jump \texttt{stNum}, tripping the publisher-change /
+jump alerts. Evasion: an attacker who first \emph{silences} the real
+publisher (e.g.\ ARP/L2 disruption or unplugging) and then takes over its
+exact source MAC with \texttt{stNum = max+1} produces a stream
+indistinguishable from a clean failover -- the rule cannot tell a forged
+takeover from a real one without a cryptographic binding (i.e.\ 62351-6).
+\textit{Rubric: accept S7P-replay (key on integrity-id monotonicity per TCP
+session) or MMS-replay (key on report \texttt{SqNum}/\texttt{ConfRev}
+monotonicity) instead. Full credit needs invariant + concrete keyed field +
+one FP and one evasion.}
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 3.7 -- Authentication Across Four Stacks.}
+\begin{center}\small
+\setlength{\tabcolsep}{4pt}
+\par\begin{tabular}{p{2.3cm}p{2.6cm}p{2.6cm}p{2.6cm}p{2.7cm}}
+\toprule
+ & \textbf{S7commPlus v3} & \textbf{GOOSE (62351-6)} & \textbf{DNP3-SAv5} & \textbf{OPC UA Basic256Sha256} \\
+\midrule
+Auth mech.\ & session key from KDF over handshake & HMAC/sig tag on PDU & pre-shared update key, HMAC challenge & X.509 mutual + user token \\
+Anti-replay & per-session counter (integrity-id) & \texttt{stNum}/\texttt{sqNum} (+62351 ctr) & CSQ \& challenge nonce & sequence \# + session nonce \\
+Integrity & keyed digest (HMAC-SHA family) & HMAC-SHA256 & HMAC-SHA-256 (SAv5) & RSA-SHA256 signature \\
+Confident.\ & none (payload not encrypted) & none (signed, not encrypted) & none (auth only) & AES-256-CBC (SignAndEncrypt) \\
+Default-on? & yes (v3 firmware) & no (rarely enabled) & no (often disabled) & no (config can be None) \\
+\bottomrule
+\end{tabular}
+\end{center}
+\noindent The strongest \emph{default} guarantee in practice is S7commPlus
+v3: on current firmware the integrity counter and keyed digest are on
+without operator action, so an unconfigured device still resists blind
+replay -- whereas GOOSE 62351-6, DNP3-SAv5 and OPC UA all default to a weak
+or null mode (no auth, SA disabled, \texttt{SecurityPolicy = None}) and only
+become secure once an engineer correctly configures them. That is why
+``default-on'' matters more than peak capability in OT: brownfield devices
+are commissioned once, by integrators under time pressure, and the
+as-found configuration is what an attacker meets years later. OPC UA has the
+strongest \emph{ceiling} (mutual X.509 + AES-GCM), but its repeatedly
+observed real-world default of \texttt{None} means the ceiling is irrelevant
+to the median deployment. The lesson: evaluate the shipped default and the
+likelihood it is changed, not the spec's best mode.
+\textit{Rubric: cell mechanisms may use equivalent names; the paragraph must
+argue default-on $>$ peak capability and cite the OPC~UA \texttt{None}
+default as the counter-example.}
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 3.8 -- Essay: Bump-in-the-Wire Crypto (model points).}
+A full-credit essay covers, with concrete grounding:
+\emph{Installed base / firmware freeze:} brownfield plants run IEDs and PLCs
+that are out of vendor support or validated against a frozen firmware; an
+in-protocol crypto upgrade requires a firmware change on every device, which
+many cannot accept. BITW adds security \emph{outside} the device, leaving
+the validated firmware untouched.
+\emph{Safety re-certification cost:} touching IED firmware in a
+safety-relevant loop (SIS, protection) can invalidate the functional-safety
+case (IEC 61508/61511) and force re-validation; an inline gateway that does
+not alter the control logic is far cheaper to qualify.
+\emph{Latency budget:} GOOSE/SV transfer-trip lives in a sub-4\,ms budget;
+a BITW MAC/encrypt step adds latency, so for those flows BITW often cannot
+sit in-line and L2 isolation or 62351-6 is used instead -- but for slower
+flows (MMS, S7, DNP3, historian links) a TLS/IPsec gateway fits comfortably.
+A strong answer states \emph{where} BITW can and cannot sit.
+\emph{Key management at scale:} BITW concentrates keys/certs at a manageable
+number of gateways rather than thousands of heterogeneous devices, so PKI
+lifecycle (issuance, rotation, CRL/OCSP) is tractable; in-protocol crypto
+pushes that burden onto every device with its own vendor tooling.
+\emph{Residual risk:} the segment \emph{behind} the gateway is still
+plaintext and unauthenticated, so a foothold inside the protected zone (a
+compromised engineering laptop on the same VLAN) bypasses BITW entirely --
+BITW protects the conduit, not the zone.
+Cite at least two of: IEC 62351 (the in-protocol comparison point),
+MACsec/IEEE 802.1AE (L2 BITW), an OT VPN/IPsec gateway or data diode, and
+the brownfield reality that in-protocol upgrades stall on vendor support
+matrices.
+\textit{Rubric (out of 5): 1 pt installed-base/firmware-freeze; 1 pt
+safety re-cert; 1 pt latency placement (where BITW can/can't sit); 1 pt key
+mgmt at fleet scale; 1 pt residual-plaintext-zone risk. Deduct for no named
+standard/product and for treating BITW as a complete fix.}
+\end{solutionbox}
 
 \end{document}

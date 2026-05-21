@@ -2,34 +2,228 @@
 
 \def\courseTitle{Industrial Security (Master)}
 \def\sectionNumber{04}
-\def\sectionTitle{Offensive ICS in Authorised Labs}
-\def\sheetKind{Solution Sheet}
+\def\sectionTitle{Offensive ICS}
+\def\sheetKind{Solutions}
 
 \input{../../../template/exercise-preamble.tex}
 
 \begin{document}
 \sheetheader
 
-\begin{taskbox}{Exercise 4.1 -- ROE (mark scheme)}
-Pass requires: named scope, explicit forbidden actions (especially around safety), kill-switch contact reachable 24/7, and an end-of-engagement evidence-handover process. Deduct for vague language (``best-effort'', ``where possible'').
-\end{taskbox}
+\noindent
+\textbf{Note.} Model answers are concise; open-ended tasks carry a rubric hint stating what must be
+present for full marks. Technique IDs follow MITRE \emph{ATT\&CK for ICS}; accept any defensible ID
+that sits in the correct tactic and is justified. Mark on reasoning, source-citation, and
+safety-awareness, not on exact ID matches.
 
-\begin{taskbox}{Exercise 4.2 -- Recon Plan (mark scheme)}
-Strong answers privilege \emph{passive} sources and explain why -- ICS devices are fragile, scans can trip safety. Active probes are limited to known-safe NSE scripts at low rates.
-\end{taskbox}
+\begin{hintbox}
+Three habits unlock most of this sheet: (1)~think \emph{passive before active, read before write,
+paper before live} -- the safe ordering is itself the answer to several tasks; (2)~every offensive
+action has both an ATT\&CK ID \emph{and} a detection footprint, and the gap between ``what I did''
+and ``what the sensor saw'' is where the report's value lives; (3)~for SIS/safety questions, ask
+what the safe state is and what it costs the attacker to defeat it \emph{quietly}.
+\end{hintbox}
 
-\begin{taskbox}{Exercise 4.3 -- Attack Path (sample)}
-Modbus write example:
-\begin{itemize}
-  \item Pre-conditions: L2 reach to PLC, no write allow-list.
-  \item Steps: \texttt{pymodbus} write\_coil to set point, observe HMI.
-  \item Process impact: pump cycles unexpectedly, alarm chain fires.
-  \item Detection: industrial firewall log (DPI), Zeek \texttt{ModbusWatch::Unsolicited\_Write}.
+\begin{warnbox}
+\textbf{Authorised use only -- non-negotiable.} Every technique modelled here is lawful only inside
+a contained lab you own or a written, scoped, signed engagement. Pointing any of it at a system you
+have no ROE for is a crime (\S\,202a/\S\,202c StGB, CFAA, Computer Misuse Act); against a live OT
+process it can injure or kill. There is no ``I was only testing'' defence. If a student's answer
+treats unauthorised action as acceptable in any scenario, it fails regardless of technical quality.
+\end{warnbox}
+
+\begin{solutionbox}
+\textbf{Exercise 4.1 -- ROE and scope (model + mark scheme).}\\[2pt]
+A pass-grade ROE makes every clause named and testable:
+\begin{itemize}\setlength{\itemsep}{0pt}
+  \item \emph{Scope (in):} SCADA master \texttt{10.0.10.5}, PLC sites \texttt{10.0.20.0/24}, eng.\
+        workstation \texttt{10.0.10.40}, historian \texttt{10.0.10.60}.
+        \emph{Scope (out, explicit):} the Triconex SIS and its network, corporate AD/IT, anything
+        Internet-facing, and any device not listed -- out-of-scope is a \emph{deny-list by default}.
+  \item \emph{Timing:} test 09:00--16:00 weekdays only; exclusion windows during peak demand and any
+        maintenance; named kill-switch contact reachable 24/7 with a stated max response time.
+  \item \emph{Approval chain:} operations manager, CISO, and process-safety engineer each
+        counter-sign; the safety engineer's signature attests that the in-scope actions cannot, by
+        design, place a demand on the SIS.
+  \item \emph{Communications:} start-of-day go/no-go, daily written status, immediate-escalation
+        triggers (any unexpected process deviation, any device unresponsive), end-of-engagement
+        evidence handover with chain of custody.
+  \item \emph{Forbidden actions:} no DoS against safety systems, no writes to production
+        controllers, no SIS testing, no pivot outside scope.
 \end{itemize}
-\end{taskbox}
+\emph{Mark scheme:} pass requires named scope (in \emph{and} explicit out), an explicit forbidden
+list centred on safety, a 24/7 kill-switch, and an evidence-handover/chain-of-custody clause.
+Deduct for vague language (``best-effort'', ``where possible''). \emph{Source:} NIST SP~800-115;
+PTES Pre-engagement.
+\end{solutionbox}
 
-\begin{taskbox}{Exercise 4.4 -- Report Writing (mark scheme)}
-Strong reports begin with the executive summary the plant manager actually reads, ranked by \emph{process impact} not CVSS, with reproduction the asset owner can run in 10 minutes.
-\end{taskbox}
+\begin{solutionbox}
+\textbf{Exercise 4.2 -- ICS Cyber Kill Chain mapping.}\\[2pt]
+Example (Stuxnet); other campaigns acceptable.
+\par\begin{tabular}{@{}p{7.0cm}p{7.0cm}@{}}
+\toprule
+\textbf{Stage~1 -- intrusion} & \textbf{Stage~2 -- ICS attack} \\
+\midrule
+Recon of contractor / supply chain to a target with no Internet path. &
+Develop centrifuge-specific logic to drive Vacon/Fararo Paya VFDs out of envelope. \\
+Weaponise USB + LNK / print-spooler 0-days; sign driver with stolen cert. &
+Test against a mirror cascade (the attacker had a model of the plant). \\
+Deliver across the air gap on removable media; install; limited C2. &
+Deliver/modify the S7-315 OB via the Step7 DLL hook. \\
+Act: spread on the engineering LAN, locate Step7 project. &
+Execute: vary rotor speed while replaying 21\,s of recorded telemetry to the HMI. \\
+\bottomrule
+\end{tabular}\\[3pt]
+\emph{Why the split matters:} Stage~1 is generic IT tradecraft and is the cheapest place to break
+the chain (patching, segmentation, removable-media control, MFA) before the adversary ever
+acquires the ICS-specific capability that Stage~2 requires. \emph{Source:} M.\ Assante \&
+R.\ Lee, \emph{The Industrial Control System Cyber Kill Chain}, SANS, 2015; Symantec
+\emph{W32.Stuxnet Dossier}, 2011.\\[2pt]
+\emph{Rubric hint:} full marks require both stages populated and one sentence on the
+defender-leverage point (break Stage~1 cheaply).
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 4.3 -- Recon that won't crash a fragile PLC.}\\[2pt]
+(1)~\emph{Passive first:} ARP/LLDP/CDP listening to enumerate devices and topology; 24\,h passive
+Zeek/SPAN capture to learn protocols, polling cadence and the legitimate master(s); read-only HTTP
+GET of any web UI banner. These reveal \emph{who talks to whom and how}, but \emph{not} closed ports
+or precise firmware -- and they send the target nothing, so they cannot trip it.\\
+(2)~\emph{Active, lowest-risk:} a TCP \emph{connect} scan (\texttt{nmap -sT -Pn}) with
+\texttt{--max-rate 5 --scan-delay 200ms} on a short, known ICS port list. Connect-scan completes the
+handshake and tears down cleanly, which fragile stacks tolerate far better than half-open SYN
+floods or UDP storms that leave dangling state. Then a \emph{single}, vendor-safe NSE identity
+script (e.g.\ \texttt{modbus-discover}) at one request, observed, before deciding on anything deeper.\\
+(3)~\emph{Refuse:} (a)~malformed-packet / fuzzing NSE scripts -- legacy ICS stacks can hang or fault
+on out-of-spec frames; (b)~broadcast / mass UDP enumeration -- can saturate a fragile device and
+trip a watchdog. A write-based ``identify'' probe is likewise off-limits: any write can change
+process state.\\
+(4)~\emph{Health check between steps:} confirm the PLC still answers a benign read (e.g.\ a single
+FC3 holding-register read) and that the legitimate master's poll cadence in \texttt{conn.log} is
+unchanged before escalating. \emph{Source:} CISA recommended practices; NIST SP~800-115 (rate-limit
+active testing on fragile targets).
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 4.4 -- Five offensive actions to ATT\&CK for ICS.}\\[2pt]
+\par\begin{tabular}{@{}p{6.4cm}p{3.6cm}p{3.8cm}@{}}
+\toprule
+\textbf{Action} & \textbf{Technique ID} & \textbf{Tactic} \\
+\midrule
+Enumerate hosts / open ICS ports & T0846 Remote System Discovery & Discovery \\
+Unauthenticated Modbus write coil & T0855 Unauthorized Command Message & Impair Process Control \\
+Replay telemetry / false HMI view & T0856 Spoof Reporting Message & Inhibit Response Function \\
+Stop the S7 CPU & T0858 \emph{(Change Operating Mode)} \textbar{} T0816 Device Restart/Shutdown & Inhibit Resp.\ / Impair \\
+\texttt{RUN}\,$\to$\,\texttt{PROGRAM} to load logic & T0858 Change Operating Mode (then T0843 Program Download) & Inhibit Resp.\ / Lateral / Exec. \\
+\bottomrule
+\end{tabular}\\[3pt]
+\emph{Notes on the ambiguous rows:} a CPU stop can be argued as T0858 (mode change to halt scan) or
+T0816 (device shutdown) -- accept either with justification; T0814 Denial of Service is acceptable
+if the candidate frames it as availability loss. The replay action is T0856 (spoofed reporting); if
+the candidate stresses the operator's blinded view, T0832 Manipulation of View is also defensible.
+Loading logic pairs T0858 (enter PROGRAM) with T0843 Program Download.\\[2pt]
+\emph{Rubric hint:} mark on correct tactic column + defensible ID; penalise putting protocol-write
+sabotage under ``Impact'' when ``Impair Process Control'' is the precise column. \emph{Source:}
+MITRE ATT\&CK for ICS.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 4.5 -- TRITON-style SIS-disable scenario (paper only).}\\[2pt]
+(1)~\emph{Two-part attack:} the SIS step must \emph{neutralise the trip} -- alter the safety logic
+or set-points so a real demand (e.g.\ over-temperature on the fired heater) no longer trips the
+plant to safe state. The separate BPCS step must then \emph{create the dangerous condition} (drive
+fuel/temperature past the safe envelope). Only the combination is lethal: the SIS exists precisely
+to catch a BPCS excursion, so the attacker must blind the last-resort layer \emph{and} drive the
+process.\\
+(2)~\emph{Safe-state implication:} on a valid demand the SIS is engineered to fail to a defined safe
+state (de-energise to trip, close fuel, shut the unit down). That ``fail-safe'' bias is exactly what
+the attacker must defeat \emph{silently} -- a noisy attempt makes the SIS trip, which stops the
+process and reveals the intrusion.\\
+(3)~\emph{Why TRITON was found:} a flaw in the attacker's payload caused the Triconex to fail-safe
+trip, shutting the plant down and triggering an investigation that surfaced the implant. That makes
+a \emph{quiet} SIS attack extremely hard: the safe-state design means any mistake announces you, so
+the attacker needs near-perfect knowledge of the controller internals.\\
+(4)~\emph{ATT\&CK:} T0880 Loss of Safety (and T0858 Change Operating Mode / T0889 Modify Program for
+the logic change); T0843 Program Download if logic is reflashed. \emph{Source:} Dragos
+\emph{TRISIS} 2017; Mandiant \emph{TRITON} 2017/2018.\\[2pt]
+\emph{Rubric hint:} full marks require the SIS/BPCS \emph{layering}, the safe-state property, and
+why \emph{quiet} is the hard part.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 4.6 -- Detection mapping (answer key).}\\[2pt]
+\par\begin{tabular}{@{}p{5.2cm}p{2.4cm}p{6.0cm}@{}}
+\toprule
+\textbf{Action} & \textbf{Verdict} & \textbf{Why} \\
+\midrule
+Passive sniff / baseline & Miss & sends nothing; the sensor sees no new flow from you. \\
+Low-rate connect scan & Partial & no notice fires, but a burst of short flows from one source is
+visible in \texttt{conn.log} to anyone who looks. \\
+Read-only FC~1--4 enumeration & Miss & rule fires only on write FCs; reads log to
+\texttt{modbus.log} with no notice. \\
+Unauthorised \texttt{WRITE\_SINGLE\_COIL} & Detect & FC5 from a non-eng host raises
+\texttt{Unsolicited\_Write}. \\
+30\,s interlock-defeat write storm & Detect (loud) & continuous FC5 floods \texttt{notice.log} --
+the opposite of stealthy. \\
+HMI replay using only reads & Miss & all read PDUs; nothing for a write-only rule to match. \\
+\bottomrule
+\end{tabular}\\[3pt]
+\emph{Gap-closing class:} \emph{behavioural / analytics} detection, not signatures. Concrete signals
+it would track: per-source write-rate and \emph{new-master} detection (a host that never wrote
+suddenly writing), and transaction-ID / payload-replay detection for the read-only replay case --
+plus a baseline-deviation alert on the scan's flow burst.\\[2pt]
+\emph{Rubric hint:} the read-only enumeration and the read-only replay are the two students most
+often get wrong -- both are \emph{missed} by a write-only rule. Full marks require naming
+behavioural detection \emph{and} one concrete signal.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 4.7 -- ``Impact'' section (model).}\\[2pt]
+\emph{Model narrative.} Any host on the control VLAN can command the conveyor PLC directly: with no
+authentication and no write allow-list, a single unauthenticated Modbus write sets or clears the
+motor output, overriding the operator and the control logic. The immediate process consequence is
+uncommanded actuator motion -- the conveyor can start or stop on an attacker's timing, independent
+of the start/stop and guard interlocks as seen at the protocol layer. The worst credible outcome is
+motion while a guard should hold the line stopped (maintenance, a cleared jam), creating an
+entrapment or crush hazard; a sustained write storm can hold the output against the interlock for as
+long as the attacker is on the wire. The safety dimension is therefore real: this finding can place
+a demand on the protective function and, in the worst case, contribute to personal injury, so it is
+a safety-relevant finding, not merely an availability one. Likelihood is high \emph{given} VLAN
+access -- the action needs only L2 reach and a standard Modbus client, no credentials, no exploit
+and no special knowledge beyond the coil address. We rate the process impact \textbf{High /
+safety-relevant}: low attacker effort, direct actuator control, and a credible path to physical
+harm; the CVSS-E score is secondary to that process-and-safety judgement.\\[2pt]
+\emph{Mark scheme:} must cover process consequence + worst credible outcome, the safety dimension
+(could it injure people), likelihood tied to the access required, and a process-impact rating that
+is \emph{not} just a CVSS number. Including repro steps or recommendations here = deduct (wrong
+section).
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 4.8 -- Ethics / de-confliction essay (rubric, 5 points).}\\[2pt]
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item \textbf{Authorised vs.\ red-team vs.\ unauthorised} (1\,pt). Distinguishes the three on the
+        basis of \emph{signed scope}: a pentest is fully authorised and coordinated; a blind
+        red-team is authorised by leadership but the blue team is not told; unauthorised access is a
+        crime regardless of intent. ``Verbal permission'' is treated as \emph{no} permission.
+  \item \textbf{Necessary-but-not-sufficient} (1\,pt). Argues that owner consent does not cover
+        third-party human safety; process-safety engineers and on-shift operators must be in the
+        loop, and live-plant offensive testing is defensible only when the test cannot place a demand
+        on safety functions (or is restricted to read-only / shadow environments).
+  \item \textbf{De-confliction mechanics} (1\,pt). Concrete: pre-agreed source IPs / a known test
+        window / out-of-band channel to the SOC so the team is not mistaken for a real adversary, and
+        a documented procedure for telling a \emph{real} incident during the window apart from test
+        traffic (e.g.\ the team pauses and the SOC verifies against the test log).
+  \item \textbf{Personal red lines} (1\,pt). Names specific refusals even with a signed contract --
+        e.g.\ no SIS testing on a live unit, no DoS on safety-related networks, no destructive write
+        without a process engineer present and a reviewed safety case -- each tied to a principle
+        (do-no-harm, reversibility, human safety over deliverables).
+  \item \textbf{Writing, structure, citation} (1\,pt). At least one primary source cited (NIST
+        SP~800-115, PTES, ISO/IEC~29147/30111, or relevant law); no invented sources; coherent
+        argument rather than a checklist.
+\end{enumerate}
+\emph{Rubric hint:} an essay that concludes ``a signed contract makes anything fine'' caps at 2/5 --
+the whole point is that human safety can override the contract.
+\end{solutionbox}
 
 \end{document}

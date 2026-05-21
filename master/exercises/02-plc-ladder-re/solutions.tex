@@ -2,32 +2,226 @@
 
 \def\courseTitle{Industrial Security (Master)}
 \def\sectionNumber{02}
-\def\sectionTitle{PLC Ladder Logic Reverse Engineering}
-\def\sheetKind{Solution Sheet}
+\def\sectionTitle{PLC Ladder / Control-Logic Reverse Engineering}
+\def\sheetKind{Solutions}
 
 \input{../../../template/exercise-preamble.tex}
 
 \begin{document}
 \sheetheader
 
-\begin{taskbox}{Exercise 2.1 -- Project vs Runtime (mark scheme)}
-Award marks for: hashes match after a clean download; hashes diverge after the runtime-only modification; written explanation of \emph{which} byte ranges changed and \emph{why} the change is invisible to the engineering tool.
-\end{taskbox}
+\noindent
+\textbf{Note.} Model answers are worked in full so they double as a reference. Where a question is
+open (the essay, the rewrite), the rubric hint states what must be present for full marks. Accept
+defensible alternatives -- mark on reasoning, on whether each claim is anchored to a recovered byte
+or line, and on correct ICS terminology, not on exact wording.
 
-\begin{taskbox}{Exercise 2.2 -- Snap7 (sample)}
-\begin{itemize}
-  \item Block list returns counts for OBCount, FCCount, FBCount, DBCount, SDB, SFC, SFB.
-  \item Raw MC7 typically begins with header bytes \texttt{70 70 ..\ }; the next byte gives block type.
-  \item Code section starts after fixed header + local data declaration.
-\end{itemize}
-\end{taskbox}
+\begin{solutionbox}
+\textbf{Exercise 2.1 -- Reconstruct control intent from ST.}\\[2pt]
+(1)~I/O map, justified by use:
+\par\begin{tabular}{p{2.0cm} p{2.4cm} p{1.6cm} p{6.6cm}}
+\toprule
+\textbf{Address} & \textbf{Name} & \textbf{Dir.} & \textbf{Justification} \\
+\midrule
+\texttt{\%IX0.0} & Start    & in  & only in the \texttt{(Start OR Motor)} latch term -- momentary start. \\
+\texttt{\%IX0.1} & Stop     & in  & ANDed into the latch; dropping it kills the motor (interlock). \\
+\texttt{\%IX0.2} & Guard1   & in  & ANDed interlock, same shape as Stop. \\
+\texttt{\%IX0.3} & Guard2   & in  & ANDed interlock, same shape as Stop. \\
+\texttt{\%QX0.0} & Run lamp / fast & out & \texttt{M0 AND T1.Q}: energised only after the 3\,s delay. \\
+\texttt{\%QX0.1} & Start lamp / slow & out & \texttt{M0 AND NOT T1.Q}: energised during the first 3\,s. \\
+\bottomrule
+\end{tabular}\\[3pt]
+(2)~Intent: a motor (e.g.\ a conveyor) seals in on \texttt{Start}, runs while \texttt{Stop} and
+both guards stay closed, and drives a two-phase output -- one coil for the first 3~seconds after
+start, the other thereafter. This is the classic ``soft-start indication / two-speed staging''
+pattern: \texttt{Q0\_1} marks the spin-up window, \texttt{Q0\_0} marks steady run.\\
+(3)~\texttt{T1} is an on-delay timer (TON) driven by \texttt{M0}. While the motor is on but
+\texttt{T1.Q} is still false (first 3\,s) only \texttt{Q0\_1} is true; once \texttt{T1.Q} latches
+true, only \texttt{Q0\_0} is true. They are mutually exclusive because one gates on \texttt{T1.Q}
+and the other on \texttt{NOT T1.Q}; before the motor runs at all, both are false (not exclusive --
+both off).\\[2pt]
+\emph{Rubric hint:} full marks require recognising the TON, the spin-up window, and that the
+mutual exclusivity holds only while \texttt{M0} is true.
+\end{solutionbox}
 
-\begin{taskbox}{Exercise 2.3 -- Logic-Bomb (mark scheme)}
-Pass if the student identifies: (a) the unused input acting as trigger, (b) the time/counter check, (c) the conditional branch that calls the malicious block, (d) the effect (set-point change, write to actuator, suppression of alarm).
-\end{taskbox}
+\begin{solutionbox}
+\textbf{Exercise 2.2 -- Interlocks and the seal-in latch.}\\[2pt]
+(1)~The latch is \texttt{(I0\_0 OR M0)}: \texttt{M0} feeds back into its own input. In scan-cycle
+terms, once \texttt{Start} (\texttt{I0\_0}) is true for one scan, \texttt{M0} is set; on the next
+scan \texttt{Start} may be false, but \texttt{M0} is still true, so \texttt{(I0\_0 OR M0)} stays
+true and the rung re-asserts \texttt{M0}. The output image holds the state across scans -- that is
+the seal-in.\\
+(2)~\texttt{Stop}, \texttt{Guard1}, \texttt{Guard2} default \texttt{TRUE} and are ANDed in, so the
+contact is true when the field device is \emph{healthy}; the logic is wired normally-closed (NC).
+A cut wire (or lost power, or a stuck-open contact) reads as \texttt{FALSE}, which ANDs the latch
+to \texttt{FALSE} and drops the motor. That is fail-safe: any wiring fault stops the machine rather
+than silently disabling the interlock. \texttt{Start} is normally-open (NO): it must go true to
+energise, and a cut wire merely prevents starting.\\
+(3)~Gate the seal-in on all interlocks being healthy, with the AND \emph{outside} the OR:
+\begin{lstlisting}
+Permit := Stop AND Guard1 AND Guard2 ;
+Motor  := (Start OR Motor) AND Permit ;   (* re-arms only via Start *)
+\end{lstlisting}
+This is already the original's behaviour: when \texttt{Permit} drops, \texttt{Motor} goes false; a
+guard re-closing cannot re-energise it because \texttt{Motor} is already false, so a fresh
+\texttt{Start} is required.\\[2pt]
+\emph{Rubric hint:} accept any latch that does not auto-restart; the danger to call out is putting
+an interlock \emph{inside} the OR, which would let the motor self-restart.
+\end{solutionbox}
 
-\begin{taskbox}{Exercise 2.4 -- Defence Pitch (mark scheme)}
-Strong answers explain the \emph{vendor-specific} mechanism (S7-1500 Know-How protection, ControlLogix Source Protection, Logix change detection) and acknowledge the operational cost (downtime windows, training).
-\end{taskbox}
+\begin{solutionbox}
+\textbf{Exercise 2.3 -- IEC 61131-3 cross-representation.}\\[2pt]
+(1)~Ladder Diagram for \texttt{Motor := (Start OR Motor) AND Stop}:
+\begin{lstlisting}
+   Start      Stop        Motor
+ +--| |--+----|/|--... ---( )--+    (Stop drawn NC: -|/|- if NC contact)
+ |       |
+ | Motor |
+ +--| |--+
+\end{lstlisting}
+Two parallel contacts (\texttt{Start}, \texttt{Motor}) form the OR; in series with \texttt{Stop}
+(an NC contact on the fail-safe wiring) they drive the \texttt{Motor} coil.\\
+(2)~Instruction List:
+\begin{lstlisting}
+LD   Start
+OR   Motor
+AND  Stop
+ST   Motor
+\end{lstlisting}
+(3)~FBD: an \texttt{OR} block with inputs \texttt{Start} and \texttt{Motor}; its output and
+\texttt{Stop} feed an \texttt{AND} block; the \texttt{AND} output wires to \texttt{Motor}.\\
+(4)~LD/FBD/SFC are graphical: the source of truth is a layout (rungs, wires, step/transition
+graphs) serialised inside the project container, and the compiler discards the geometry. ST/IL are
+textual and map almost line-for-line onto the compiled accessor calls. Therefore textual languages
+are far easier to lift from a compiled artefact: \texttt{POUS.c} reconstructs ST/IL directly,
+whereas recovering a faithful LD/FBD diagram requires re-rendering the boolean expression and
+inferring a layout that the original tool may not reproduce identically.\\[2pt]
+\emph{Rubric hint:} accept any correct LD/IL/FBD; the load-bearing point is part~(4) -- textual
+lifts cleanly, graphical needs a re-render.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 2.4 -- Spot the logic bomb.}\\[2pt]
+(1)~Branch~A fires when the hidden counter \texttt{n} exceeds \texttt{1500}. \texttt{n} only
+increments on scans where \texttt{Trig} (\texttt{\%IX0.4}) is true, so the trigger condition is:
+\texttt{\%IX0.4} has been high for more than 1500 scans (cumulative, since the counter is not
+reset).\\
+(2)~Stuxnet-style tells: (a)~it keys on an \emph{undocumented input} (\texttt{\%IX0.4}) that the
+process description never mentions -- read but unjustified; (b)~it is \emph{time/counter-gated}, so
+it never fires under normal data and passes a quick functional test; additionally (c)~branch~A
+asserts \texttt{Motor := TRUE} unconditionally, \emph{bypassing} every interlock -- an honest
+feature would never override Stop and the guards.\\
+(3)~At \texttt{T\#20ms} per scan with \texttt{Trig} held high, \texttt{n} increments once per scan,
+so it reaches 1501 after $1501 \times 20\,\text{ms} = 30\,020\,\text{ms} \approx 30\,\text{s}$.
+Branch~A first fires about \textbf{30~seconds} after pulsing begins.\\
+(4)~Branch~A drops \texttt{Stop}, \texttt{Guard1}, \texttt{Guard2} out of the expression entirely
+and forces \texttt{Motor := TRUE}. The motor runs even with an open guard or a pressed stop --
+the safety interlocks are defeated, so the conveyor can run with a guard door open or refuse to
+stop on the E-stop, a personnel-hazard condition.\\[2pt]
+\emph{Rubric hint:} the 30~s figure and ``bypasses interlocks'' are the must-haves; full marks also
+note that the bomb survives a functional test because the trigger is cumulative and undocumented.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 2.5 -- Scan-cycle impact.}\\[2pt]
+(1)~Added cost $= 0.3 + 0.5 + 64 \times 1.1 = 0.8 + 70.4 = 71.2\,\mu$s. New body
+$= 40 + 71.2 = 111.2\,\mu$s. As a fraction of the clean body:
+$71.2/40 = 178\%$ added (the body is now $\approx 2.78\times$ its original cost). As a fraction of
+the 20\,ms period: $111.2\,\mu\text{s} / 20\,000\,\mu\text{s} = 0.56\%$ of the budget
+used (added load alone $= 0.36\%$).\\
+(2)~Overrun risk appears when total scan work (body $+$ I/O update $+$ task overhead) approaches
+the 20\,ms period. Even ignoring overhead, the body would need to grow to $\approx 20\,000\,\mu$s
+-- roughly $500\times$ its clean cost -- before the period is threatened. The attacker's
+$71.2\,\mu$s is nowhere near that; it is invisible at the period scale.\\
+(3)~``Measure the scan time'' is weak because realistic malicious logic adds microseconds against a
+millisecond budget -- a $<1\%$ change lost in normal jitter and easily masked. It only catches gross,
+clumsy additions (heavy loops, blocking calls). A stronger control is \emph{content} integrity:
+continuous block-CRC / hash monitoring of the compiled blocks against a known-good baseline
+(Claroty/Dragos/Nozomi-class), which flags \emph{any} byte change regardless of timing cost.\\[2pt]
+\emph{Rubric hint:} accept small arithmetic rounding; the conceptual must-have is ``timing is a
+weak side-channel; hash the code instead''.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 2.6 -- MatIEC compilation artefacts.}\\[2pt]
+(1)~Strip the accessors: \texttt{\_\_GET\_LOCATED(data\_\_->X,)} reads symbol \texttt{X};
+\texttt{\_\_SET\_LOCATED(data\_\_->,Y,,expr)} assigns \texttt{Y := expr}. The body becomes:
+\begin{lstlisting}
+Motor := (((Start OR Motor) AND Stop) AND Guard1) AND Guard2 ;
+Lamp  := Motor ;
+\end{lstlisting}
+which is the original clean conveyor (left-associated AND, so the parentheses are cosmetic).\\
+(2)~Division of labour: \texttt{LOCATED\_VARIABLES.h} maps symbolic names to physical
+\texttt{\%I}/\texttt{\%Q} addresses and directions (\texttt{START}~$\to$~\texttt{\%IX0.0}, input) --
+it tells you \emph{what each wire is} but nothing about the logic. \texttt{POUS.c} carries the
+boolean law (how the symbols combine) but uses symbolic names, so without the header you cannot tie
+\texttt{START} to a real terminal. You need both: the header for the I/O map, the C body for the
+control law.\\
+(3)~Editing only the linked ELF makes the \emph{binary} disagree with both the \texttt{.st} source
+and \texttt{POUS.c} (which were regenerated from the untouched source). The lab's Step-4 / Step-6
+\emph{integrity} path catches it: \texttt{sha256sum core/openplc} diverges from baseline while the
+source/C hashes (and the engineering project) are unchanged -- proving the divergence is on the
+controller, not in the project. \texttt{nm}/\texttt{strings} on the ELF can then localise the added
+symbol or constant.\\[2pt]
+\emph{Rubric hint:} part~(3) must name that source and C stay clean while the binary diverges, and
+that hashing the runtime artefact (not the project) is what catches it.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 2.7 -- Forensic: what does this block do?}\\[2pt]
+(1)~When the operator's set-point \texttt{Speed\_SP} is in the band \texttt{1064}--\texttt{1410},
+the block stashes the operator value in \texttt{Saved\_SP}, overwrites the \emph{actual} actuator
+command \texttt{Speed\_Cmd} with the fixed value \texttt{1410}, and feeds the HMI echo
+\texttt{Speed\_PV\_Echo} the \emph{saved} (original) value. The operator sees the speed they
+entered, while the drive actually runs at the forced 1410. Outside the band the block is a
+pass-through, so the tamper is invisible unless the set-point is in range.\\
+(2)~A range, not a single value, lets the bomb fire across the entire normal operating window of
+the target process while staying dormant during commissioning, idle, or out-of-band test values.
+It tells you the attacker knew the legitimate set-point range of this specific process -- target
+reconnaissance, not a generic payload (the Stuxnet hallmark of process-specific knowledge).\\
+(3)~Mapping to the Stuxnet pattern: the pristine main loop still runs the normal control
+(\texttt{ELSE} pass-through and the unchanged \texttt{Motor} logic); the \emph{signature check} is
+the \texttt{1064}--\texttt{1410} range test; \emph{record-then-replace} is \texttt{Saved\_SP :=
+Speed\_SP} followed by \texttt{Speed\_Cmd := 1410}; the \emph{HMI lies} step is
+\texttt{Speed\_PV\_Echo := Saved\_SP}, returning the stale value on read-back.\\
+(4)~The highest-value tell is \texttt{Speed\_PV\_Echo := Saved\_SP}: an echo value written from a
+stashed copy rather than from the real process variable -- written-but-decoupled-from-reality is the
+signature of a man-in-the-middle on the operator's view, which is what makes the attack stealthy.
+(The fixed \texttt{1410} and the undocumented \texttt{Saved\_SP} are secondary tells.)\\[2pt]
+\emph{Rubric hint:} full marks require ``HMI shows old value while drive runs forced value'' and the
+mapping onto record-then-replace; recognising the echo write as the key tell earns the top band.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 2.8 -- Essay: why ladder integrity is hard.}\\[2pt]
+\emph{Rubric (5~points).}
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item \textbf{Project-vs-runtime asymmetry (1\,pt).} Must state that the PLC executes compiled
+        blocks (MC7, \texttt{.L5K}, bytecode, or the linked ELF) while the engineering tool renders
+        the project file; an attacker editing only the runtime leaves the project untouched, so the
+        tool reports ``no changes''. Stuxnet is the canonical example (Langner 2013;
+        Falliere et al., \emph{W32.Stuxnet Dossier}, Symantec 2011).
+  \item \textbf{Two technical obstacles (1\,pt each, cap~2).} Any two of: no code-signing / secure
+        boot on older firmware; weak, optional, or absent block CRCs (CRC~$\neq$ cryptographic
+        hash); proprietary, often unauthenticated upload protocols (S7comm, TriStation, PCOM) so
+        read-back tooling is scarce; tight scan-time budgets that forbid heavy on-PLC
+        self-verification; retentive memory and online edits that let logic diverge from any
+        baseline; tag aliasing that hides semantics (Bool15 = ``open\_valve'').
+  \item \textbf{One organisational obstacle (1\,pt).} Downtime windows that make re-validation
+        rare; key-switch left in RUN so downloads need no physical presence; engineering-station
+        hygiene (the EWS is the single point of trust and is often Internet-adjacent); thin or
+        absent vendor support for integrity features on legacy product.
+  \item \textbf{Layered controls + residual risk (1\,pt).} Recommend: key-switch in RUN, signed
+        program download where supported, version-controlled project files with review/CI,
+        continuous block-CRC/hash monitoring against a known-good baseline, and a hardened
+        air-gapped EWS with MFA and application allow-listing. Residual risk to acknowledge: legacy
+        firmware that cannot sign or attest; a compromised EWS can still re-baseline a monitor; CRC
+        is not collision-resistant; and detection still depends on having captured a trustworthy
+        baseline before compromise.
+\end{enumerate}
+\emph{General:} no invented CVEs or advisory IDs; at least one real cited source (Langner 2013;
+Symantec 2011; Beresford, BlackHat 2011; SCADA StrangeLove; CISA CoDe16 advisories 2023;
+IEC~61131-3:2013).
+\end{solutionbox}
 
 \end{document}

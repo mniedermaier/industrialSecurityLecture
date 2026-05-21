@@ -2,28 +2,232 @@
 
 \def\courseTitle{Industrial Security (Master)}
 \def\sectionNumber{08}
-\def\sectionTitle{Research Methods and Seminar Work}
-\def\sheetKind{Solution Sheet}
+\def\sectionTitle{Research Methods}
+\def\sheetKind{Solutions}
 
 \input{../../../template/exercise-preamble.tex}
 
 \begin{document}
 \sheetheader
 
-\begin{taskbox}{Exercise 8.1 -- Mark scheme}
-Strong proposals are testable in one Master-thesis cycle, have a clear evaluation criterion, and an explicit disclosure / ethics path. Deduct for vague ``investigate cybersecurity in ...''.
-\end{taskbox}
+\noindent
+\textit{How to use this sheet:} the solutions are model answers, not the only
+correct ones. Each box ends with a \textbf{Rubric} listing what must appear for
+full marks; a different but defensible answer that covers the rubric is correct.
+Research-methods marking rewards a \emph{narrow, falsifiable, honestly-reported}
+answer over an ambitious vague one.
 
-\begin{taskbox}{Exercise 8.2 -- Mark scheme}
-Award for matching example to method (e.g.\ measurement = a Shodan census; case = TRITON forensic walk-through; design science = a new GOOSE-signature tool).
-\end{taskbox}
+\begin{solutionbox}
+\textbf{Exercise 8.1 -- Vague topic to falsifiable RQ.}
+\textbf{RQ:} ``Does the Modbus/TCP write-coil injection rate (writes/s) change the
+per-minute count of unsolicited-write notices raised by a Zeek monitor on the
+Bachelor OpenPLC stack?'' \textbf{H1:} a higher injection rate increases the
+detection count by a measurable margin. \textbf{H0:} injection rate has no
+measurable effect on the detection count. \textbf{Scope IN:} one protocol
+(Modbus/TCP), one component (OpenPLC + Zeek), one metric (notices/min). \textbf{Scope OUT:}
+all other protocols, real plants, evasion variants.
+\textit{FINER:} \emph{Feasible} --- runs in one session on hardware you own;
+\emph{Interesting} --- detection scaling informs sensor tuning; \emph{Novel} ---
+done on a fully reproducible, pinned testbed rather than a private rig;
+\emph{Ethical} --- testbed-only, no third party; \emph{Relevant} --- write-coil
+injection is a real OT manipulation class.
+\textbf{Rubric:} exactly one RQ, one H1, one H0; H0 is the genuine null (``no
+effect''), not a strawman; scope has both an IN and an OUT line; all five FINER
+criteria addressed and tied to \emph{this} RQ, not generic.
+\end{solutionbox}
 
-\begin{taskbox}{Exercise 8.3 -- Mark scheme}
-Honest assessment beats charitable inflation. Bonus marks for pointing at a fix (the student volunteers a PR or note).
-\end{taskbox}
+\begin{solutionbox}
+\textbf{Exercise 8.2 -- Threats the abstract misses.}
+\textit{Internal:} train and test traffic came from the same one-afternoon
+capture, so the model may have memorised session artefacts (IP/port/timing) rather
+than attack behaviour --- no train/test split by time or run is described.
+\textit{External:} a single testbed (SWaT), one protocol window, one afternoon
+cannot support ``ready for deployment in real plants''; generalisation to other
+vendors/sites is asserted, not shown. \textit{Construct:} ``accuracy'' does not
+measure ``detects injection'' on a class-imbalanced stream --- if 99.7\,\% of
+packets are benign, a model that flags nothing scores $\approx$99.7\,\% accuracy.
+\textit{Statistical/conclusion red flag:} the headline is a single accuracy number
+with no precision/recall/F1, no confusion matrix, no class balance, no variance
+over runs. \textit{Should have reported:} time-disjoint train/test split;
+precision, recall, F1 (or PR-AUC) per class; the base rate / class balance; a
+cross-testbed or held-out-attack evaluation; spread over repeated runs; and a
+claim scoped to the testbed, not to ``real plants''.
+\textbf{Rubric:} one each of internal, external, construct named correctly; the
+imbalanced-accuracy red flag identified; at least one concrete ``report instead''
+fix; ``ready for deployment'' flagged as unsupported.
+\end{solutionbox}
 
-\begin{taskbox}{Exercise 8.4 -- Mark scheme}
-Pass requires a slide on limits + threats to validity, and at least one chart or screenshot from the paper. Bonus: a contrast slide showing where the paper's results have aged poorly.
-\end{taskbox}
+\begin{hintbox}
+For 8.2 and 8.6, the reflex question is always \emph{``compared to what, measured
+how, with what spread, and would it survive a different day/testbed?''} Accuracy on
+imbalanced data and a difference-of-means with no variance are the two classic OT-paper traps.
+\end{hintbox}
+
+\begin{solutionbox}
+\textbf{Exercise 8.3 -- Reproducible experiment design.}
+\vspace{0.5mm}
+{\footnotesize
+\par\begin{tabular}{@{}p{4.0cm}p{11.4cm}@{}}
+\toprule
+\textbf{Element} & \textbf{Choice} \\
+\midrule
+Independent variable & Modbus write-coil rate, levels \{1, 10, 50\} writes/s \\
+Dependent variable & Zeek unsolicited-write notices per minute (count/min) \\
+Controlled variables & stack commit hash, container CPU/mem limits, payload size, MTU, target coil range, capture interface \\
+Baseline / control & idle poll loop only, zero injection \\
+Metric definition & notices/min = \texttt{grep -c} of the notice tag over a fixed 60\,s window \\
+Repetitions \& order & $\geq 5$ runs per level; level order randomised to defeat warm-up bias \\
+Confound 1 + fix & Docker noisy-neighbour CPU contention $\to$ pin CPU set, no other load \\
+Confound 2 + fix & host clock drift across runs $\to$ NTP-sync host; timestamp every command \\
+\bottomrule
+\end{tabular}}
+\vspace{0.5mm}
+\textit{Reject H0 if} the mean notices/min rises monotonically and significantly
+with rate across levels (e.g.\ a trend test, or non-overlapping CIs between 1 and
+50 writes/s); otherwise H0 stands and ``no measurable effect'' is reported as the
+result. \textbf{Rubric:} every table row present; a real baseline (idle, not just
+``low rate''); $\geq 5$ reps and randomised order; at least two confounds each with
+a concrete mitigation; an explicit decision rule for rejecting H0.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 8.4 -- Citation matrix + classification.}
+\vspace{0.5mm}
+{\footnotesize
+\par\begin{tabular}{@{}p{3.1cm}p{2.4cm}p{2.6cm}p{1.8cm}p{3.8cm}@{}}
+\toprule
+\textbf{Paper} & \textbf{Method} & \textbf{Substrate} & \textbf{Artefact?} & \textbf{Gap vs.\ my RQ} \\
+\midrule
+Shodan census '23 & measurement & Internet scan & dataset maybe & no detection, no testbed, no causal claim \\
+TRITON '18 & case study & one real plant & no & single incident; no reproducible metric \\
+GooseHunter '22 & design science & testbed/sim & tool likely & GOOSE not Modbus; reproducibility unstated \\
+Scan-cycle jitter '24 & experiment & controlled testbed & code likely & jitter side channel, not write-injection notices \\
+TTP taxonomy '21 & theory building & campaign reports & no & descriptive; no measurement on a stack \\
+\bottomrule
+\end{tabular}}
+\vspace{0.5mm}
+\textit{Where my contribution sits:} a controlled, fully pinned and re-runnable
+study of Modbus write-injection \emph{detection scaling} on an open testbed --- the
+empty cell across all five rows.
+\textbf{Rubric:} method correctly classified for each (census = measurement, TRITON
+= case study, GooseHunter = design science, jitter = experiment, taxonomy = theory
+building); substrate and artefact columns sensible; the gap column is specific to
+the RQ, not generic; the contribution statement points at the empty cell.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 8.5 -- Ethics / disclosure / dual-use statement.}
+\textit{Scope of harm:} the crash was reproduced only on a spare unit the
+researcher owns, on an isolated bench network; no third-party system, no
+production plant, no Internet-reachable target was touched. \textit{Beneficence vs.\
+maleficence (Menlo):} asset owners and the vendor benefit from a fix before the
+flaw is found independently and weaponised; the harm of disclosure is bounded by
+withholding the working crasher until a patch exists; the balance is positive
+because the same family is widely deployed and a denial-of-service on a controller
+can endanger a physical process. \textit{Coordinated disclosure:} notify the vendor
+PSIRT first with a reproducible report and a proposed timeline, and the
+coordinating CERT (CISA / BSI / JPCERT, per region) in parallel for a CVE and
+tracking. Use an ICS-realistic clock --- ~180~days with a 60-day grace --- rather
+than Project Zero's 90/30, justified by ICS maintenance windows and
+recertification; if the vendor goes silent or refuses, escalate through the CERT
+and disclose on the published deadline. \textit{Dual-use:} publish the trigger
+condition class, the detection signature, and the mitigation (input validation /
+filtering on function-code 90); withhold the turnkey packet and any auto-exploit
+until patch availability. \textit{Standards relied on:} ISO/IEC 29147:2018
+(disclosure), ISO/IEC 30111:2019 (handling), the Menlo Report, CERT/CC policy.
+\textbf{Rubric:} testbed-only scope stated; explicit benefit/harm argument with
+Menlo framing; named recipients (vendor PSIRT + coordinating CERT); an
+ICS-appropriate timeline with deviation justified; clear publish-vs-withhold split;
+at least two real standards cited.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 8.6 -- Results-claim soundness.}
+The claim is unsupported as written. (1)~\emph{Sample size:} $n=5$ is small; with
+high run-to-run variance the means may be statistically indistinguishable.
+(2)~\emph{No spread reported:} 0.91 vs.\ 0.88 means nothing without SD or a
+confidence interval --- if SDs are $\pm 0.04$ the intervals overlap heavily.
+(3)~\emph{No test:} a difference of means must be tested (paired
+$t$-test or a non-parametric Wilcoxon on the paired runs), with the $p$-value and
+the test named. (4)~\emph{Effect size vs.\ significance:} a 0.03 F1 gap may be
+statistically real yet operationally trivial; report the effect size (e.g.\
+Cohen's $d$) and ask whether it matters in deployment. (5)~\emph{Cherry-picking:}
+F1 alone may hide a precision/recall trade-off; check the metric was pre-chosen, not
+selected after seeing results (HARKing), and correct for multiple comparisons if
+several metrics were tried. (6)~``Proves'' is wrong --- evidence \emph{supports}
+or \emph{fails to reject}; nothing is proven. \textit{Would require before
+believing:} per-run paired data, mean $\pm$ CI, a named significance test with its
+$p$-value, an effect size, and the same evaluation protocol for both systems.
+\textbf{Rubric:} at least four of the six points; recognises overlapping
+variance / no test as the core flaw; distinguishes significance from effect size;
+rejects ``proves''; states a concrete bar for belief.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 8.7 -- Reproducibility package outline.}
+\textit{Layout:} \texttt{README.md} (claim + cold-start command block);
+\texttt{scripts/} (data collection + \texttt{plot\_results.py}, no manual edits);
+\texttt{data/} (raw CSV or fetch script, with provenance); \texttt{results/} +
+\texttt{figures/} (regenerated outputs + \texttt{CHECKSUMS}); \texttt{requirements.txt}
+(\texttt{pip freeze}, exact versions); \texttt{docs/env.txt} (Docker + compose
+versions, pinned Bachelor-stack commit hash); \texttt{LICENSE} (permissive).
+\textit{Three ICS reproducibility killers + the pin that defeats each:}
+(1)~unpinned dependencies $\to$ \texttt{requirements.txt} from \texttt{pip freeze}
+and a fixed base image digest; (2)~``works only on the author's testbed'' $\to$
+ship against the public Bachelor Docker stack pinned to a recorded commit hash;
+(3)~moving/closed data $\to$ commit the raw CSV (or a hashed fetch script) with a
+\texttt{CHECKSUMS} file so a re-runner confirms a byte match. \textit{One-command
+path:} \texttt{git clone \dots\ \&\& docker compose up -d \&\& ./scripts/run\_all.sh}
+$\to$ \texttt{figures/result.png}, hash-checked against \texttt{CHECKSUMS}.
+\textbf{Rubric:} maps to ACM Available + Reusable (env pinning + runnable, not just
+posted); names the three killers from the lecture (closed deps, single-site
+equipment, moving data) each with a concrete pin; gives a genuine clone-to-figure
+command path with a checksum verification.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 8.9 -- Method selection.}
+\begin{enumerate}\setlength{\itemsep}{1pt}\small
+  \item IEC~104 endpoint count --- \textbf{measurement}: the question is ``how
+        many'', answered by an Internet/Shodan census. \emph{Threat:} coverage /
+        sampling bias (scanners miss firewalled or rate-limited hosts), so the
+        count is a lower bound.
+  \item Why Maroochy succeeded --- \textbf{case study}: a single rich incident, ``what
+        happened and why'', from forensic and organisational record. \emph{Threat:}
+        external validity --- one disgruntled-insider case does not generalise to
+        all OT.
+  \item GOOSE + MAC latency --- \textbf{experiment}: ``does X cause Y'' with a
+        controlled IV (MAC on/off) and a measured DV (latency). \emph{Threat:}
+        construct/internal --- lab latency may not equal substation-bus latency, and
+        confounds (CPU load) must be controlled.
+  \item S7comm fuzzer --- \textbf{design science}: build an artefact (the fuzzer)
+        and evaluate it by bugs found. \emph{Threat:} the evaluation is only as
+        good as the corpus/oracle --- ``found no bugs'' may mean a weak fuzzer, not
+        a safe stack.
+\end{enumerate}
+\textbf{Rubric:} each method correct (measurement / case study / experiment /
+design science); two-sentence justification ties method to the question form; the
+named threat is the one that method specifically invites.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 8.8 -- Disclosure-timeline essay (grading notes).}
+A strong essay takes a clear position and defends it with the named trade-off, not
+slogans. It must acknowledge that ICS patching genuinely differs from IT ---
+scheduled maintenance windows, safety recertification, heterogeneous fleets, and
+legacy assets that may be \emph{unpatchable} --- which pushes toward a longer clock
+(e.g.\ 180/60) and a coordinating CERT (CISA / BSI / JPCERT) under ISO/IEC
+29147/30111. But it must also concede the cost of an over-long embargo: users sit
+exposed, an independent finder may already hold the bug, and a slow vendor loses all
+pressure to act. The best answers resolve the tension with a \emph{conditional}
+policy: a default ICS window longer than 90/30, mitigations published early even
+when the full patch is slow, a hard deadline regardless of vendor cooperation, and
+an explicit escalation when the vendor goes silent (CERT escalation, then disclose
+on the published date). \textbf{Rubric:} a defensible thesis stated; engages ICS
+patch-rollout reality \emph{and} the over-embargo cost (both sides); names a
+coordinating CERT and at least two standards/policies (ISO/IEC 29147, 30111,
+CERT/CC, Project Zero); states a concrete plan for vendor silence; 250--350 words.
+Deduct for a one-sided ``always wait longer'' with no deadline.
+\end{solutionbox}
 
 \end{document}

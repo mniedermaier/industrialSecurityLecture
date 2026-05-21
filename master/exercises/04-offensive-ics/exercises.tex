@@ -2,7 +2,7 @@
 
 \def\courseTitle{Industrial Security (Master)}
 \def\sectionNumber{04}
-\def\sectionTitle{Offensive ICS in Authorised Labs}
+\def\sectionTitle{Offensive ICS}
 \def\sheetKind{Exercise Sheet}
 
 \input{../../../template/exercise-preamble.tex}
@@ -10,43 +10,143 @@
 \begin{document}
 \sheetheader
 
-\begin{taskbox}{Exercise 4.1 -- Rules of Engagement}
-Draft a Rules of Engagement (ROE) document for a 1-week ICS penetration test of a fictional water utility. Include:
-\begin{itemize}
-  \item Scope (what is in / out), with named devices and IP ranges.
-  \item Timing (windows, holidays excluded, kill-switch).
-  \item Approval chain (operations manager + CISO + safety engineer).
-  \item Communications (start-of-day notice, daily status, end-of-day report).
-  \item Forbidden actions (no DoS on safety systems, no writes to production PLCs).
-\end{itemize}
-\end{taskbox}
-
-\begin{taskbox}{Exercise 4.2 -- Recon Plan}
-For the same utility, write a 1-page \emph{passive-first} recon plan:
-\begin{enumerate}
-  \item What you can learn from the corporate website + LinkedIn.
-  \item What passive network monitoring would reveal in 24 hours.
-  \item Which active probes you would attempt first, and why.
-  \item How to detect when you have triggered an SOC alert.
-\end{enumerate}
-\end{taskbox}
-
-\begin{taskbox}{Exercise 4.3 -- Attack Path}
-Pick one of: Modbus write, S7comm CPU stop, GOOSE spoof, OPC UA anonymous abuse. Document:
-\begin{enumerate}
-  \item Pre-conditions (network access, credentials, equipment knowledge).
-  \item Step-by-step execution against your lab.
-  \item Process impact -- what would a real plant operator see?
-  \item Detection opportunities at each step.
-\end{enumerate}
-\end{taskbox}
-
-\begin{taskbox}{Exercise 4.4 -- Report Writing}
-Take any one finding from Exercise 4.3 and produce a 1-page finding write-up: title, executive summary (3 sentences), CVSS-E, evidence (PCAP excerpt or screenshot), reproduction (numbered), recommendation (this-quarter / this-year).
-\end{taskbox}
+\noindent
+\textbf{Goal.} These exercises take you through the planning, execution-mapping, detection
+reasoning and reporting of an \emph{authorised} offensive ICS engagement. They assume the full
+Bachelor ICS background (protocols, threat landscape, ATT\&CK for ICS, defensive monitoring) and
+build on the Section~04 slides and the companion lab. Every task is framed for a contained lab,
+CTF, or a scoped, signed penetration test. Answers should be concise and concrete (a table, a
+short paragraph, or a numbered list each), grounded in the cited frameworks and incidents, not
+speculation. Use technique IDs in the form \texttt{Txxxx} where asked.
 
 \begin{warnbox}
-Use only your lab. Reuse of lab findings against a real environment without authorisation crosses the line from training to crime.
+\textbf{Authorised use only.} Nothing on this sheet may be pointed at hardware you do not own.
+Unauthenticated writes, protocol fuzzing, and safety-logic defeat are destructive by design and,
+against a live plant, can injure or kill people; against any system you have no signed scope for,
+they are a criminal offence (\S\,202a/\S\,202c StGB, CFAA, Computer Misuse Act). No signed Rules
+of Engagement, no test. Treat ``the lab containers, and nothing else'' as your entire universe.
 \end{warnbox}
+
+\begin{taskbox}{Exercise 4.1 -- Rules of Engagement and Scope}
+Draft the operative core of a Rules-of-Engagement (ROE) document for a one-week OT penetration
+test of a fictional water utility (a SCADA master, three RTU/PLC sites, an engineering
+workstation, a historian). Produce at minimum:
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item \textbf{Scope} -- named devices and IP ranges in-scope and \emph{explicitly} out-of-scope
+        (e.g.\ the SIS, corporate AD, anything Internet-facing).
+  \item \textbf{Timing} -- test windows, exclusion windows (peak demand, maintenance), and a
+        24/7-reachable kill-switch contact.
+  \item \textbf{Approval chain} -- who must counter-sign (operations manager, CISO, process-safety
+        engineer) and what the signature attests to.
+  \item \textbf{Communications} -- start-of-day notice, daily status, immediate-escalation triggers,
+        end-of-engagement evidence handover.
+  \item \textbf{Forbidden actions} -- the hard ``never'' list (no DoS on safety systems, no writes
+        to production controllers, no testing of the SIS).
+\end{enumerate}
+Half a page is enough; favour named, testable clauses over ``best-effort'' language.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 4.2 -- Map a Kill-Chain to the ICS Cyber Kill Chain}
+Assante~\& Lee's \emph{ICS Cyber Kill Chain} (SANS, 2015) splits an ICS intrusion into
+\textbf{Stage~1} (IT/ICS intrusion: recon, weaponisation, delivery, exploitation, install, C2,
+act) and \textbf{Stage~2} (ICS attack development and execution: develop, test, deliver, install/
+modify, execute attack). Take \emph{one} published campaign of your choice -- Stuxnet, Industroyer,
+or TRITON -- and place its observed activities into the two stages. Present a two-column table
+(\emph{Stage~1 activity}, \emph{Stage~2 activity}); for each entry give one sentence of what the
+attacker did. Conclude with one sentence explaining \emph{why} the Stage~1/Stage~2 split matters
+for a defender (where the cheapest place to break the chain is). Cite Assante \& Lee.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 4.3 -- Recon That Will Not Crash a Fragile PLC}
+You have authorised L2 access to a segment hosting an unknown legacy PLC (a model with a
+documented history of falling over on aggressive scans). You must fingerprint the segment without
+risking a process trip. Produce a \emph{recon plan} ordered from lowest to highest risk, and for
+each step justify the safety reasoning:
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item Which \emph{passive} techniques you run first, and exactly what each can and cannot reveal.
+  \item Which \emph{active} probe you attempt next, with the specific rate-limiting / scan-delay
+        flags and why a connect scan beats a SYN/UDP storm here.
+  \item Two recon actions you would \emph{refuse} to run against this target and the failure mode
+        each could trigger (e.g.\ malformed-packet NSE scripts, broadcast enumeration, write-based
+        ``identify'' probes).
+  \item How you would confirm the PLC is still healthy after each active step before proceeding.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 4.4 -- Five Offensive Actions to ATT\&CK for ICS}
+For each of the following five offensive actions, give the single best-fit MITRE \emph{ATT\&CK for
+ICS} technique ID (\texttt{Txxxx}) and name its tactic. Present a three-column table
+(\emph{Action}, \emph{Technique ID}, \emph{Tactic}); add a one-line justification under any choice
+that is genuinely ambiguous.
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item Enumerating live hosts and open ICS ports across a control subnet with a low-rate scan.
+  \item Issuing an unauthenticated Modbus \texttt{WRITE\_SINGLE\_COIL} to flip an actuator.
+  \item Replaying captured ``normal'' telemetry to the HMI so the operator sees a stale, false view.
+  \item Stopping a Siemens S7 CPU via the engineering protocol.
+  \item Changing a controller from \texttt{RUN} to \texttt{PROGRAM} mode to load modified logic.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 4.5 -- Design a TRITON-style SIS-Disable Scenario}
+Working only on paper (this is never executed against a live SIS), design a TRITON/TRISIS-style
+scenario for a fictional fired-heater unit protected by a Triconex-class safety instrumented
+system (SIS) layered under a basic process control system (BPCS).
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item Describe the two-part attack: what the adversary needs the SIS to do, and what the
+        \emph{separate} BPCS manipulation must do, for the combination to cause physical harm.
+  \item State the \emph{safe-state implication}: what the SIS is designed to do on a demand, and
+        why ``fail to a safe state'' is exactly the property the attacker must defeat \emph{silently}.
+  \item Explain, in two sentences, why TRITON was discovered in practice -- i.e.\ how the safe-state
+        design turned a near-miss into a partial defender win -- and what that tells you about the
+        difficulty of a \emph{quiet} SIS attack.
+  \item Map the SIS-disable step to its ATT\&CK for ICS technique(s) (\texttt{Txxxx}).
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 4.6 -- What the OT-IDS Catches, and What It Does Not}
+The lab segment is watched by a Zeek/OT-IDS sensor whose Modbus rule raises a notice on any
+write function code (FC~5/6/15/16) from a non-engineering host, and otherwise logs connection and
+protocol metadata. For each of the six actions below, state whether the sensor \emph{detects},
+\emph{partially detects}, or \emph{misses} it, and give the one-line reason. Present the answer as a
+table (\emph{Action}, \emph{Detection verdict}, \emph{Why}).
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item Passive sniffing of the segment to build a baseline.
+  \item A low-rate connect scan of ICS ports.
+  \item Read-only Modbus function-code enumeration (FC~1--4).
+  \item An unauthenticated \texttt{WRITE\_SINGLE\_COIL}.
+  \item A 30-second interlock-defeat write storm (continuous FC~5).
+  \item An HMI replay that uses only read PDUs to feed the operator a false view.
+\end{enumerate}
+Conclude with one sentence naming the \emph{class} of detection (behavioural / analytics) that
+closes the gap the write-only rule leaves, and one concrete signal it would track.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 4.7 -- Write the ``Impact'' Section of an Engagement Report}
+You found that any host on the control VLAN can issue unauthenticated Modbus writes to a
+production conveyor PLC (no write allow-list, no authentication). Write the \textbf{Impact}
+section of the engagement-report finding -- the part the plant manager and process-safety engineer
+actually read. In 6--10 sentences cover: the \emph{process} consequence (what physically happens,
+and the worst credible outcome), the \emph{safety} dimension (could it injure people or breach a
+safety case), the \emph{likelihood} given the access required, and a process-impact rating that is
+\emph{not} merely a CVSS number. Do \emph{not} include reproduction steps or recommendations here --
+this is the impact narrative only.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 4.8 -- Ethics and De-confliction (Live-Plant Testing)}
+Write a one-page (about 400--600 word) reasoned position on the following: \emph{under what
+conditions, if any, is offensive testing against a live production plant defensible, and how should
+it be de-conflicted?} Your essay must address, with reasons:
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item The line between authorised testing, an authorised (blind) red-team exercise, and
+        unauthorised access -- legally and ethically.
+  \item Why ``the asset owner asked us to'' is necessary but \emph{not sufficient} when human safety
+        is on the line, and who else must be in the loop (process-safety, on-shift operators).
+  \item De-confliction mechanics: how the test team avoids being mistaken for a real adversary by
+        the SOC, and how a real incident during the test window is told apart from your activity.
+  \item Your own red lines -- specific actions you would refuse even with a signed contract, and the
+        principle behind each.
+\end{enumerate}
+Cite at least one primary source (NIST SP~800-115, PTES, ISO/IEC~29147/30111, or relevant law).
+\end{taskbox}
 
 \end{document}

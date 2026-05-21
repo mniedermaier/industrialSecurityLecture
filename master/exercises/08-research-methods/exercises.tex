@@ -2,7 +2,7 @@
 
 \def\courseTitle{Industrial Security (Master)}
 \def\sectionNumber{08}
-\def\sectionTitle{Research Methods and Seminar Work}
+\def\sectionTitle{Research Methods}
 \def\sheetKind{Exercise Sheet}
 
 \input{../../../template/exercise-preamble.tex}
@@ -10,20 +10,126 @@
 \begin{document}
 \sheetheader
 
-\begin{taskbox}{Exercise 8.1 -- Research Proposal}
-Draft a 1-page proposal for a Master-thesis-sized OT-security research project. Cover: research question, prior work (3 citations), method, expected artefact, ethics + disclosure plan, evaluation criteria.
+\noindent
+\textit{Goal of this sheet:} build the research-skills muscle a Master thesis or a
+peer-reviewed OT-security paper demands. You already own the ICS background; here
+you turn that into \emph{defensible} research. Each task asks you to apply a named
+method or standard --- the FINER criteria, threats-to-validity taxonomy (Cook \&
+Campbell), the ACM Artifact Review badges, ISO/IEC 29147/30111 disclosure, the
+Menlo Report --- to a concrete OT situation. The lab (Section~08) walks the same
+arc hands-on; this sheet drills the reasoning on paper. Three to ten sentences (or
+one tight table) per task. Show the trade-off, not the vocabulary.
+
+\begin{taskbox}{Exercise 8.1 -- From Vague Topic to Falsifiable RQ}
+You are handed the topic \emph{``Modbus is insecure --- do something about it.''}
+Turn it into research. Produce, in order: (a) one \textbf{research question} that
+is specific, measurable, and tractable on the Bachelor lab stack in one session;
+(b) one \textbf{falsifiable hypothesis} H1 and its null H0; (c) the explicit
+\textbf{scope} (one line in, one line out). Then justify the RQ against all five
+\textbf{FINER} criteria (Feasible, Interesting, Novel, Ethical, Relevant), one
+sentence each. A hypothesis you cannot imagine being wrong does not count.
 \end{taskbox}
 
-\begin{taskbox}{Exercise 8.2 -- Method Selection}
-For three classes of question (case, measurement, design science), give one OT-security example each that you would tackle with that method. Justify the choice in 3 lines per example.
+\begin{taskbox}{Exercise 8.2 -- Critique an Abstract for Threats to Validity}
+Read this verbatim abstract and find what it misses:
+
+\begin{quote}\small\itshape
+``We show that our deep-learning IDS detects Modbus injection attacks with
+99.7\,\% accuracy. We trained and tested on traffic captured from our SWaT
+testbed over one afternoon. Our model outperforms prior work and is ready for
+deployment in real plants.''
+\end{quote}
+
+Name at least one \textbf{internal}, one \textbf{external}, and one
+\textbf{construct} threat to validity this abstract ignores, plus the one
+\textbf{statistical/conclusion} red flag in the headline number. For each, say in
+one sentence what the authors should have reported instead. (Hint: ask what a
+99.7\,\% accuracy hides on an imbalanced dataset.)
 \end{taskbox}
 
-\begin{taskbox}{Exercise 8.3 -- Reproducibility Audit}
-Pick one published ICS-security paper of your choice. Score its artefacts on a 0--5 scale across: code availability, data availability, container, README clarity, dependency pinning. Submit the score plus 1 paragraph commentary.
+\begin{taskbox}{Exercise 8.3 -- Design a Reproducible Experiment}
+Design --- on paper, before touching the stack --- a controlled experiment to
+answer \emph{``Does increasing the Modbus write-coil injection rate increase the
+rate at which a Zeek-based monitor flags unsolicited writes?''} on the Bachelor
+Docker stack. Present a single design table with rows for: independent
+variable(s) and levels, dependent variable(s) + unit, controlled variables,
+baseline / control condition, metric definition, repetitions and order
+(randomisation), and at least two named \textbf{confounds with a mitigation}
+each. State what result would let you reject H0.
 \end{taskbox}
 
-\begin{taskbox}{Exercise 8.4 -- Mock Seminar Talk}
-Prepare a 10-minute talk on an ICS-security paper of your choice. Slides limit: 8. Include: problem, gap, method, headline result, limits, next step. Be ready for hostile questions.
+\begin{taskbox}{Exercise 8.4 -- Citation Matrix + Methodology Classification}
+Build a citation matrix from the five (lightly fictionalised) titles below. For
+each row record: \textbf{method} (case study / measurement / experiment / design
+science / theory building), \textbf{evaluation substrate} (real plant / testbed /
+public dataset / simulation), whether an \textbf{artefact} is plausibly shipped,
+and the \textbf{gap} versus an RQ on \emph{reproducible PLC-injection detection}.
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item ``A 47-day Shodan census of Internet-exposed Modbus/TCP endpoints'' (2023).
+  \item ``TRITON: anatomy of the first safety-system malware'' (2018).
+  \item ``GooseHunter: a design-science GOOSE intrusion-detection rule set'' (2022).
+  \item ``Scan-cycle jitter as a side channel for PLC tampering: a controlled study'' (2024).
+  \item ``A taxonomy of ICS threat-actor TTPs across 14 campaigns'' (2021).
+\end{enumerate}
+Then state, in one sentence, where your contribution would sit.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 8.5 -- Ethics, Disclosure, and Dual-Use Statement}
+You have found a way to crash a widely deployed PLC family with a malformed
+function-code 90 packet, reproduced on a spare unit you own. Write the
+\textbf{research-ethics + coordinated-disclosure + dual-use statement} that would
+survive a programme committee and an IRB. Cover, in plain language: scope of harm
+(what you touched); the \textbf{beneficence-vs-maleficence} argument (Menlo
+Report framing); the \textbf{coordinated-disclosure plan} (who you notify ---
+vendor PSIRT, coordinating CERT --- and on what timeline, justifying any
+deviation from 90/30); and the \textbf{dual-use} line --- what you publish (the
+detection / mitigation) versus what you withhold (the turnkey crasher) and why
+the balance is positive. Cite the standards you rely on.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 8.6 -- Is the Results Claim Sound?}
+A draft reports: \emph{``Our IDS is better: it scored mean F1 0.91 vs.\ the
+baseline's 0.88 across 5 runs. The difference proves our approach is superior.''}
+Critique the \textbf{statistical and effect-size soundness} of this claim. Address
+at least four of: sample size and variance (is $n=5$ enough?); the absence of a
+reported spread (SD / CI); whether a difference of means was tested for
+significance and with what test; effect size vs.\ statistical significance; the
+multiple-comparisons / cherry-picked-metric risk; and why ``proves'' is the wrong
+word. State what you would require before believing the claim.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 8.7 -- Outline a Reproducibility Package}
+Outline the contents of a reproducibility package for the Exercise~8.3 experiment
+that targets the ACM \textbf{Artifacts Available + Evaluated (Reusable)} badges.
+List the directories/files and, for each, its one-line purpose. Then name the
+\textbf{three things that most often break ICS reproducibility} (drawn from the
+lecture) and, for each, the concrete pinning step in your package that defeats it.
+Finish with the one-command path a stranger runs from clone to figure.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 8.8 -- Essay: Responsible-Disclosure Timelines for ICS}
+Write a structured argument (roughly 250--350 words) on the question: \emph{``Is
+Google Project Zero's 90+30-day disclosure clock appropriate for ICS
+vulnerabilities, or should ICS use a longer window?''} Take a defensible position.
+You must engage with: why ICS patch rollouts differ from IT (maintenance windows,
+recertification, fleet heterogeneity, legacy unpatchable assets); the cost of an
+\emph{over}-long embargo (users left exposed, no pressure on a slow vendor); the
+role of ISO/IEC 29147/30111 and a coordinating CERT (CISA/BSI/JPCERT); and what
+you would do when a vendor goes silent. Cite at least two of the standards/policies
+from the lecture.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 8.9 -- Method Selection (Map Question to Method)}
+For each of the four OT-security questions below, name the single best-fit research
+method (case study / measurement / experiment / design science / theory building),
+justify the choice in two sentences, and name the chief threat to validity that
+method invites here.
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item ``How many IEC~104 endpoints in Europe answer an unauthenticated read?''
+  \item ``Why did the Maroochy Shire sewage attack succeed despite alarms?''
+  \item ``Does adding a per-message MAC to GOOSE add unacceptable latency?''
+  \item ``Can we build a fuzzer that finds parsing bugs in S7comm stacks?''
+\end{enumerate}
 \end{taskbox}
 
 \end{document}

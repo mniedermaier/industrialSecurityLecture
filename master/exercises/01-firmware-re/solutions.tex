@@ -3,44 +3,261 @@
 \def\courseTitle{Industrial Security (Master)}
 \def\sectionNumber{01}
 \def\sectionTitle{Firmware Reverse Engineering}
-\def\sheetKind{Solution Sheet}
+\def\sheetKind{Solutions}
 
 \input{../../../template/exercise-preamble.tex}
 
 \begin{document}
 \sheetheader
 
-\begin{taskbox}{Exercise 1.1 -- Source and Verify}
-Award marks for: clear chain-of-custody (where, when, who), reproducible hash, and a defensible legal basis (open licence, vendor partner agreement, ownership). Bonus: noting whether the vendor publishes a detached signature, not just a hash.
-\end{taskbox}
+\noindent
+\textbf{Note.} Model answers are deliberately concise. Where a question is open (the disclosure
+email, the SBOM essay) the rubric hint states what must be present for full marks. Students may
+give defensible alternatives to the CWEs, controls, and timelines below; mark on reasoning,
+correct CWE \emph{class}, and source hygiene -- not on exact identifier matches.
 
-\begin{taskbox}{Exercise 1.2 -- Triage}
-Expected artefacts:
-\begin{itemize}
-  \item Architecture line from \texttt{binwalk -A} (e.g.\ \texttt{ARM, EABI5 version 1 (SYSV)}).
-  \item Offsets for uImage / kernel / squashfs / cpio sections.
-  \item Mounted root-FS listing key files (\texttt{/etc/passwd}, \texttt{/etc/rc.d/}, \texttt{/usr/sbin}).
+\begin{solutionbox}
+\textbf{Exercise 1.1 -- Lawful sourcing and chain of custody.}\\[2pt]
+(a)~Contract download: lawful -- security testing and interoperability RE is broadly permitted
+(EU Directive 2009/24/EC; CRA research provisions), and a maintenance contract gives explicit
+entitlement. (b)~Own-device SPI dump: lawful -- you own the hardware; note DMCA \S1201
+security-research exemption (US) and that in Germany StGB \S202a/202c concern \emph{unauthorised}
+access, which does not apply to your own device. (c)~Forwarded ``from a customer site'': do
+\emph{not} analyse -- no provenance, no entitlement; a finding from it is contaminated and no
+PSIRT or CERT channel will accept it.\\[2pt]
+Minimum chain-of-custody metadata: source URL or physical origin, download/read date-time in
+UTC, vendor-published hash, your computed hash, and the entitlement basis. A missing element
+(e.g.\ no recorded source) means you cannot prove the image is the genuine shipping artefact, so
+the vendor can dismiss the report as ``not our firmware''.\\[2pt]
+A \emph{hash} only proves the file matches a value the vendor also published on the same
+(possibly compromised) channel -- it detects truncation/corruption, not a coordinated mirror
+swap. A detached \emph{signature} (vendor private key) proves \emph{authenticity}: a tampered
+mirror cannot forge it without the key. The signature defends against the tampered mirror.\\[2pt]
+\emph{Rubric hint:} full marks require rejecting (c), and the hash-vs-signature distinction
+(integrity vs.\ authenticity).
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 1.2 -- Architecture and endianness triage.}\\[2pt]
+(1)~Opcode-frequency scanners (\texttt{binwalk -A}, \texttt{cpu\_rec}) hit the wrong ISA because
+many byte patterns are valid-looking instructions in several encodings; data, strings, and
+compressed regions also produce spurious matches. Decide by \emph{density and locality}: the
+real ISA shows a dense, contiguous run over the code section, not a thin scatter. Cross-checks:
+(i)~read the \texttt{uImage}/\texttt{vmlinux} header CPU field if present; (ii)~inspect the
+physical chip marking on the board; (iii)~look at the ELF \texttt{e\_machine} of carved
+user-space binaries; any two agreeing is decisive.\\[2pt]
+(2)~Wrong \emph{endianness} swaps every multi-byte field: instructions decode but operands,
+immediates, and branch targets are nonsense, and ASCII strings appear byte-reversed in groups of
+four -- a tell-tale ``\texttt{toor}'' for ``\texttt{root}''. Wrong \emph{load/base address} lets
+instructions decode correctly but every absolute reference (string xrefs, jump tables, function
+pointers) lands in unmapped space, so the listing looks locally sane but all cross-references are
+broken. Symptom split: garbled strings $\Rightarrow$ endianness; clean strings but dead xrefs
+$\Rightarrow$ base address.\\[2pt]
+(3)~The load/base address. With it wrong, Ghidra's absolute references and the entire
+cross-reference graph point nowhere, so no auth/parser analysis is trustworthy. (Endianness is
+also fatal but is usually fixed by selecting the right language ID at import.)\\[2pt]
+\emph{Rubric hint:} accept either base address or endianness for (3) if the reasoning ties to
+cross-reference integrity.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 1.3 -- Reading an entropy curve.}\\[2pt]
+(1)~\textbf{A} ($\approx0.45$, flat): low entropy = plaintext code/strings or a sparsely-used
+filesystem region -- structured, repetitive bytes. \textbf{B} ($\approx0.92$, ramping, flagged
+LZMA): high but not maximal, with a recognised compression signature = the compressed kernel or
+filesystem. \textbf{C} ($\approx0.99$, flat-maximal, square edges, \emph{no} signature):
+near-uniform byte distribution with hard boundaries = encrypted or independently-packed blob.\\[2pt]
+(2)~Both good compression and good encryption produce near-uniform output, so Shannon entropy is
+indistinguishable between them by construction. The tie-breaker is \emph{structure}: a
+compression format leaves a recognisable header/magic and a decompressor can consume it; an
+encrypted region has no valid magic and no decompressor accepts it. The absence of a parseable
+header at C's offset, plus the square edges, points to encryption/packing.\\[2pt]
+(3)~Pivot to the bootloader (or the early init code): something on the device must decrypt C at
+boot, so the key and the decryption routine live in a lower-entropy region you \emph{can} read.
+Fighting the blob directly (brute force, statistical attack) is the wrong move -- the plaintext
+recovery path is to recover the key/algorithm from the code that already holds it.\\[2pt]
+\emph{Rubric hint:} the key insight is ``entropy cannot separate compressed from encrypted; the
+header/decompressor does'', plus the bootloader pivot.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 1.4 -- Hard-coded secret, no patch.}\\[2pt]
+CWEs: (i)~MD5-crypt root hash in \texttt{passwd} -- \textbf{CWE-916} (use of password hash with
+insufficient computational effort) compounded by \textbf{CWE-798} if the credential is shared
+across units; (ii)~shared device-wide PEM private key -- \textbf{CWE-321} (use of hard-coded
+cryptographic key); (iii)~\texttt{SUPER\_PASS=Zte521} compiled in -- \textbf{CWE-798}
+(hard-coded credentials), the classic router web-backdoor pattern.\\[2pt]
+Compensating controls without a patch:
+\begin{itemize}\setlength{\itemsep}{0pt}
+  \item (i)~Crackable root hash: deny network access to the management interfaces (SSH/Telnet
+        ACL to a jump host on a dedicated management VLAN), and alert on any successful root
+        login via syslog forwarding -- the offline crack is unavoidable, so remove the network
+        path to use it.
+  \item (ii)~Shared TLS key: terminate TLS at a reverse proxy in front of the HMI with a
+        per-site certificate and a fresh key, so the shipped key never faces the network;
+        monitor for the known fingerprint elsewhere on the segment.
+  \item (iii)~Compiled-in master password: a WAF/proxy rule that blocks any request carrying
+        that \texttt{Authorization} header or query parameter, plus an IDS signature alerting on
+        the literal across the OT segment.
 \end{itemize}
-\end{taskbox}
+Residual-risk ranking (highest first): (iii)~the master password is directly remotely usable and
+WAF rules can be evaded by encoding, so residual risk stays highest; (ii)~the shared key still
+permits impersonation/MITM if an attacker bypasses the proxy; (i)~the root hash is least, because
+once the network path is removed the offline crack has no live target.\\[2pt]
+\emph{Rubric hint:} full marks require concrete, named controls (reverse-proxy TLS, WAF
+header rule, management-VLAN ACL), not ``segment the network''.
+\end{solutionbox}
 
-\begin{taskbox}{Exercise 1.3 -- Strings to Findings (sample answers)}
-\begin{itemize}
-  \item \texttt{TELNETD\_PASS=admin123} in \texttt{/etc/rc.d/S50telnet} -- mitigation: disable Telnet at firewall, ACL the management VLAN.
-  \item PEM private key in \texttt{/etc/ssl/private/server.key} that is byte-identical to the one shipped in firmware v1.4 (long-known): mitigation: replace certificate via vendor tool or rotate at HTTPS reverse proxy.
-  \item Backdoor account \texttt{factory:Fact0ry} hard-coded in \texttt{/sbin/lighttpd}: mitigation: WAF rule to block requests with that Authorization header, monitor for usage.
-\end{itemize}
-\end{taskbox}
+\begin{solutionbox}
+\textbf{Exercise 1.5 -- Reading a Ghidra decompilation.}\\[2pt]
+(1)~Line~(1): \texttt{sprintf(path,"/tmp/\%s",basename\_of(url))} into a 64-byte
+\texttt{path} with an attacker-influenced URL -- \textbf{CWE-787 / CWE-121} (stack buffer
+overflow from unbounded \texttt{sprintf}); the same line also enables \textbf{CWE-22} path
+traversal if \texttt{basename\_of} is weak. Line~(2): the update is accepted on a \emph{CRC-32}
+match against a value taken from the same attacker-supplied header -- \textbf{CWE-345 /
+CWE-347} (missing/improper verification of update authenticity; CRC is an integrity checksum,
+not a signature, and the attacker controls both the file and its CRC).\\[2pt]
+(2)~The CRC-only update check (line~2/3) is more severe for an Internet-exposed gateway. The
+attacker's required position is merely ``reach the update endpoint''; they craft a malicious
+firmware, compute its CRC-32 (a public algorithm), put it in the header, and \texttt{flash\_write}
+runs it -- full persistent code execution with no key. The \texttt{sprintf} overflow needs a
+crash to be turned into reliable RCE and may be mitigated by ASLR/stack canaries; the unsigned
+update is a deterministic, position-independent compromise of the whole device.\\[2pt]
+(3)~Patch: replace the CRC check in \texttt{apply\_update} with an \emph{asymmetric signature
+verification} -- e.g.\ \texttt{verify\_signature("/tmp/fw.bin", sig\_hdr, vendor\_pubkey)} using
+an Ed25519/RSA public key baked into the bootloader, verified \emph{before} \texttt{flash\_write},
+and enforce a monotonic version floor to block downgrade. CRC stays only as a transport-integrity
+check, never as the authenticity gate.\\[2pt]
+\emph{Rubric hint:} both CWE classes must appear; the severity argument must turn on
+``attacker needs no key, CRC is forgeable'', and the patch must name signature verification +
+the bootloader-resident public key, not ``add validation''.
+\end{solutionbox}
 
-\begin{taskbox}{Exercise 1.4 -- Ghidra Mini-Reverse (mark scheme)}
-\begin{itemize}
-  \item Symbol identification (login, parser, OTA verifier).
-  \item Correct CWE classification (CWE-798 hard-coded, CWE-22 path traversal, CWE-787 OOB write).
-  \item Patch proposal that is more than ``add input validation'' -- name the function and the check.
-\end{itemize}
-\end{taskbox}
+\begin{solutionbox}
+\textbf{Exercise 1.6 -- Static vs.\ emulation.}\\[2pt]
+(1)~\textbf{\texttt{qemu-user}}: a statically-linked CGI driven only by environment and stdin has
+no hardware or kernel-image dependency, so user-mode CPU emulation runs it transparently -- the
+forcing property is ``no device I/O, self-contained binary''.\\[2pt]
+(2)~\textbf{\texttt{qemu-user} with the NVRAM read stubbed}, or full-system if stubbing fails.
+The forcing property is the \texttt{ioctl} on \texttt{/dev/mtd3}: \texttt{qemu-user} emulates the
+CPU only, so the missing device aborts the daemon. Two ways past it without the device: (i)~create
+a fake \texttt{/dev/mtd3} / preload a shim library (\texttt{LD\_PRELOAD}) that intercepts the
+\texttt{ioctl}/\texttt{open} and returns plausible model/serial bytes; (ii)~patch the binary (NOP
+the read or force its return value in Ghidra and re-run) so the start-up check passes. Populating
+a faux NVRAM file or using \texttt{QEMU\_LD\_PREFIX} with a stub \texttt{/dev} are accepted
+variants.\\[2pt]
+(3)~\textbf{Hardware-in-the-loop (Avatar$^2$)} or careful full-system with peripheral models. The
+forcing property is the memory-mapped peripheral the auth routine polls: a bare-metal RTOS image
+has no OS to host syscall translation, and the peripheral's behaviour (status bits the loop waits
+on) cannot be guessed, so you forward those MMIO accesses to the real chip (or a precise model)
+while emulating the CPU.\\[2pt]
+\emph{Rubric hint:} each answer must name the \emph{one} property (self-contained / device I/O /
+MMIO peripheral) that forces the tool, and case~(2) needs two concrete bypasses.
+\end{solutionbox}
 
-\begin{taskbox}{Exercise 1.5 -- Disclosure Letter (mark scheme)}
-A passing letter is short, specific, factual, and contains: product + version + hash, minimal repro, requested timeline, contact, optional PGP. It does not include exploit code or threats.
-\end{taskbox}
+\begin{solutionbox}
+\textbf{Exercise 1.7 -- Version diff and the silent fix.}\\[2pt]
+(1)~A two-file delta where the only code change removes a \texttt{strcmp} against a literal
+password, with the second file being just \texttt{/etc/version}, is a surgical change confined to
+one auth function -- not the broad churn of a feature release or toolchain bump. Removing a
+hard-coded credential branch is precisely a security fix; the ``stability improvements''
+changelog is the silent-fix tell.\\[2pt]
+(2)~The v1.4 backdoor is reportable. First route is still the (now-fixed) vendor PSIRT, because
+they must publish an advisory and assign/clear a CVE so v1.4 users know to upgrade; in parallel,
+request a CVE from a CNA (vendor-as-CNA, or MITRE/a national CERT as the root). Public disclosure
+follows the coordinated timeline, not before. If the vendor refuses a CVE, escalate to the
+national CERT (e.g.\ CISA, CERT/CC, BSI/CERT-Bund) which can act as a coordinating CNA and assign
+one over the vendor's objection; you may then publish on the CERT's timeline.\\[2pt]
+(3)~It is an \emph{n-day}: the fix exists publicly (in v1.5), so the vulnerability is known and a
+patch is available -- by definition not a 0-day. For an asset owner this raises priority: an
+n-day with a shipped fix means attackers can diff the patch and weaponise it quickly, so devices
+still on v1.4 are at \emph{higher} near-term exploitation risk and the upgrade should be expedited
+rather than deferred.\\[2pt]
+\emph{Rubric hint:} full marks require the PSIRT-first-then-CERT escalation path and the
+n-day/0-day distinction tied to ``patch exists $\Rightarrow$ patch-diffing accelerates attacks''.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 1.8 -- Coordinated-disclosure email (model answer).}\\[2pt]
+\begin{lstlisting}
+To: psirt@acme-industrial.example
+Subject: [Security] Acme IG-200 v3.1 - unauthenticated firmware update (CRC-only)
+
+Hello Acme PSIRT,
+
+I am a security researcher reporting a vulnerability found during authorised
+analysis of firmware I am entitled to possess. No third-party or production
+device was involved; my proof-of-concept is held privately.
+
+Affected product : Acme IG-200 industrial gateway
+Firmware version : v3.1
+Image SHA-256    : 3f9a...c21e
+
+Summary: apply_update() accepts a new image when a CRC-32 over the downloaded
+file equals a value taken from the attacker-supplied update header. CRC-32 is
+an integrity checksum, not an authenticity check, so a crafted image with a
+matching CRC is flashed and executed. An adjacent unbounded sprintf into a
+64-byte stack buffer is a secondary issue.
+
+CWE: CWE-345/CWE-347 (improper verification of update authenticity);
+     CWE-787/CWE-121 (stack buffer overflow).
+
+Minimal reproduction (no exploit code): point the update URL at any image,
+set the header CRC to that image's CRC-32; the device flashes it. Details and
+PoC available privately on request.
+
+Suggested remediation: verify an asymmetric signature (vendor public key in
+the bootloader) before flash_write; enforce a monotonic version floor.
+
+Proposed timeline: 90 days for vendor remediation, +90 for ICS rollout
+(180 total), with national-CERT (CISA/CERT-Bund) coordination from day 0;
+public advisory on patch availability or at day 180, whichever is first.
+
+Contact: <name>, <email>; PGP fingerprint <ABCD 1234 ... 7890>.
+Authorised use only - analysed on owned hardware; PoC remains private.
+
+Regards, <name>
+\end{lstlisting}
+\emph{Rubric hint:} must contain product+version+hash, factual summary, minimal repro with
+\emph{no} weaponised code, ICS-appropriate timeline (180-ish days, CERT in the loop), CWE,
+remediation, contact + PGP, and an authorised-use line. Deduct for ultimatums, threats, exploit
+code, or unsupported claims.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 1.9 -- Supply chain and SBOM (essay rubric).}\\[2pt]
+\emph{Rubric (5~points).}
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item \textbf{What an SBOM enables} (1~pt): on CVE-day, the asset owner queries their SBOM
+        inventory and immediately answers ``which of my devices contain Boa / CODESYS runtime
+        version X?'' -- turning a multi-week per-vendor enquiry into a lookup, and driving
+        prioritised mitigation. Without an SBOM that mapping is opaque.
+  \item \textbf{Two hard limits} (2~pts): (i)~SBOMs commonly stop at the top dependency tier and
+        miss \emph{transitive} or statically-linked components; (ii)~most shipped firmware
+        carries \emph{no} SBOM at all, and a declared version can diverge from the actual binary
+        (back-ported patches, vendor forks, dead code). Hence firmware RE remains necessary to
+        confirm what is \emph{really} in the image -- the SBOM is a claim, the binary is ground
+        truth.
+  \item \textbf{Regulatory driver + a vendor obligation} (1~pt): US EO~14028 with the NTIA
+        ``minimum elements'' for an SBOM, or the EU Cyber Resilience Act. A concrete vendor
+        obligation: under the CRA, manufacturers must provide an SBOM, handle vulnerabilities
+        across the support lifetime, and report actively-exploited vulnerabilities (to ENISA)
+        within tight deadlines; under EO~14028, suppliers to the US government must provide an
+        SBOM.
+  \item \textbf{Writing, structure, no invented sources} (1~pt).
+\end{enumerate}
+A strong essay explicitly states that an SBOM shifts the asset owner from reactive
+vendor-by-vendor enquiry to proactive inventory-driven response, while conceding that RE is the
+verification backstop because SBOMs are self-declared and incomplete.\\[2pt]
+\emph{Sources:} Microsoft Boa report, 2022; CISA/CODESYS \emph{Code16} advisories, 2023; US
+EO~14028 (2021) + NTIA SBOM minimum elements; Regulation (EU) 2024/2847 (Cyber Resilience Act).
+\end{solutionbox}
+
+\begin{hintbox}
+Across the sheet, the recurring distinction is \emph{integrity vs.\ authenticity}: a hash or CRC
+proves bytes are unchanged; only a signature proves \emph{who} produced them. Most firmware
+findings -- tampered mirrors (1.1), CRC-only updates (1.5), silent fixes (1.7) -- collapse onto
+that one axis. State it explicitly wherever it applies.
+\end{hintbox}
 
 \end{document}

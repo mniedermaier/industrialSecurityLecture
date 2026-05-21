@@ -2,7 +2,7 @@
 
 \def\courseTitle{Industrial Security (Master)}
 \def\sectionNumber{02}
-\def\sectionTitle{PLC Ladder Logic Reverse Engineering}
+\def\sectionTitle{PLC Ladder / Control-Logic Reverse Engineering}
 \def\sheetKind{Exercise Sheet}
 
 \input{../../../template/exercise-preamble.tex}
@@ -10,41 +10,181 @@
 \begin{document}
 \sheetheader
 
-\begin{taskbox}{Exercise 2.1 -- Project vs Runtime}
-On a PLC you own (OpenPLC, or a spare hardware unit):
-\begin{enumerate}
-  \item Write and download a small program (motor seal-in).
-  \item Save the project file and compute its SHA-256.
-  \item Upload the program blocks back from the PLC; compute SHA-256.
-  \item Modify one rung directly on the runtime (without changing the project file). Re-upload. Compare hashes. Document what changed.
+\noindent
+\textbf{Goal.} These exercises take you from a \emph{compiled} or \emph{exported} control
+artefact back to \emph{control intent}, the same direction the lab works in. You are assumed
+to know the scan cycle, the seal-in latch, the difference between \texttt{\%IX}/\texttt{\%QX}
+addressing, and what a normally-closed fail-safe input is. The running example is the conveyor
+program from the lab stack; some questions re-use its I/O so they compose into one coherent RE
+narrative. Answers should be concise and anchored to a byte or a line you can point at, not to
+the engineering project file -- because the project file is exactly what an attacker leaves
+untouched. Where a question asks for a boolean law, write it in ST form (\texttt{:=}, \texttt{AND},
+\texttt{OR}, \texttt{NOT}).
+
+\begin{taskbox}{Exercise 2.1 -- Reconstruct Control Intent from ST}
+You recovered the following Structured Text body from a controller's filesystem. The variable
+declarations were \emph{not} recovered; only the body and the located-variable map below survived.
+\begin{lstlisting}
+M0 := (I0_0 OR M0) AND I0_1 AND I0_2 AND I0_3 ;
+T1(IN := M0, PT := T#3s) ;
+Q0_0 := M0 AND T1.Q ;
+Q0_1 := M0 AND NOT T1.Q ;
+\end{lstlisting}
+\begin{lstlisting}
+(* LOCATED_VARIABLES.h excerpt -- the authoritative I/O map *)
+__LOCATED_VAR(BOOL,__IX0_0,I,X,0,0)   __LOCATED_VAR(BOOL,__IX0_1,I,X,0,1)
+__LOCATED_VAR(BOOL,__IX0_2,I,X,0,2)   __LOCATED_VAR(BOOL,__IX0_3,I,X,0,3)
+__LOCATED_VAR(BOOL,__QX0_0,Q,X,0,0)   __LOCATED_VAR(BOOL,__QX0_1,Q,X,0,1)
+\end{lstlisting}
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item Produce the I/O map: for each \texttt{\%IX}/\texttt{\%QX} point give a plausible
+        engineering name (Start, Stop, \ldots), its direction, and one sentence of justification
+        drawn from how the bit is \emph{used} in the body.
+  \item State the control intent in one or two sentences. What real device does this control?
+  \item What is the role of \texttt{Q0\_0} versus \texttt{Q0\_1}? Why are they mutually exclusive
+        only after the timer elapses?
 \end{enumerate}
 \end{taskbox}
 
-\begin{taskbox}{Exercise 2.2 -- Snap7 Inspection}
-Using \texttt{python-snap7}:
-\begin{enumerate}
-  \item List all blocks on the PLC.
-  \item Upload OB1 and one DB; dump the raw MC7 bytes.
-  \item Identify the block header, local data size, and the code section by hand.
+\begin{taskbox}{Exercise 2.2 -- Interlocks and the Seal-In Latch}
+Using the program from Exercise~2.1:
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item Identify the seal-in latch term and explain, in scan-cycle terms, why the motor keeps
+        running after the operator releases the start button.
+  \item \texttt{I0\_1}, \texttt{I0\_2}, \texttt{I0\_3} are ANDed into the latch every cycle. The
+        recovered init code (not shown) sets them to default \texttt{TRUE}. Classify each as
+        normally-open or normally-closed, and explain what a \emph{cut wire} does to the motor.
+        Why is that the safe choice?
+  \item Rewrite the latch so that it cannot re-energise on its own after a guard re-closes
+        (i.e.\ require a fresh \texttt{Start} press after any interlock trip). Give the ST.
 \end{enumerate}
 \end{taskbox}
 
-\begin{taskbox}{Exercise 2.3 -- Logic-Bomb Hunt}
-Given a project file from the instructor:
-\begin{enumerate}
-  \item Identify all unused inputs and all time-/counter-based branches.
-  \item For each suspicious branch, infer the condition under which it fires.
-  \item Write a 1-page memo describing the hidden behaviour and its consequences.
+\begin{taskbox}{Exercise 2.3 -- IEC 61131-3 Cross-Representation}
+The seal-in rung \texttt{Motor := (Start OR Motor) AND Stop} is one logical statement expressible
+in several IEC~61131-3 languages.
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item Draw the equivalent \textbf{Ladder Diagram (LD)} rung (ASCII art is fine: contacts
+        \texttt{-| |-}, normally-closed \texttt{-|/|-}, coil \texttt{-( )-}). Label every contact.
+  \item Write the equivalent \textbf{Instruction List (IL)} for the same rung. Use \texttt{LD},
+        \texttt{OR}, \texttt{AND}, \texttt{ST}.
+  \item Sketch the equivalent \textbf{Function Block Diagram (FBD)}: name the boolean blocks and
+        their wiring.
+  \item State one reverse-engineering consequence of the fact that LD/FBD/SFC are \emph{graphical}
+        while ST/IL are \emph{textual}: which is easier to lift from a compiled artefact, and why?
 \end{enumerate}
 \end{taskbox}
 
-\begin{taskbox}{Exercise 2.4 -- Defence Pitch}
-Pick one of the defensive controls from the slides (signed downloads, key-switch, checksum monitoring, version-controlled projects). In 1 page:
-\begin{itemize}
-  \item Sketch how to implement it on Siemens S7-1500 \emph{and} Rockwell ControlLogix.
-  \item Identify the trade-off (operational cost, vendor support, downtime).
-  \item Recommend a 12-month rollout plan.
-\end{itemize}
+\begin{taskbox}{Exercise 2.4 -- Spot the Logic Bomb}
+A maintenance engineer downloaded the rung below to the conveyor PLC ``to test a sensor''. The
+documented program is exactly the clean conveyor (\texttt{Motor := (Start OR Motor) AND Stop AND
+Guard1 AND Guard2}).
+\begin{lstlisting}
+VAR  Trig AT %IX0.4 : BOOL;  n : INT := 0;  END_VAR  (* IX0.4 undocumented *)
+IF Trig THEN n := n + 1; END_IF;
+IF n > 1500 THEN
+  Motor := TRUE;                          (* branch A *)
+ELSE
+  Motor := (Start OR Motor) AND Stop AND Guard1 AND Guard2;   (* branch B *)
+END_IF;
+Lamp := Motor;
+\end{lstlisting}
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item State the exact trigger condition under which branch~A fires, in terms of the input
+        \texttt{\%IX0.4} and the scan count.
+  \item Why is this a \emph{Stuxnet-style} logic bomb rather than an honest feature? Name two
+        structural tells.
+  \item The task period is \texttt{T\#20ms} and \texttt{Trig} is held high. How long after the
+        attacker starts pulsing \texttt{\%IX0.4} does branch~A first fire? Show the arithmetic.
+  \item What does branch~A do to the safety interlocks, and what is the physical consequence?
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 2.5 -- Scan-Cycle Impact of Added Logic}
+A cyclic task runs at \texttt{T\#20ms} (50~Hz). The clean conveyor body costs about
+$40\,\mu$s per scan. An attacker adds: a counter increment ($0.3\,\mu$s),
+an \texttt{IF} comparison ($0.5\,\mu$s), and a 64-iteration obfuscation loop that
+costs $1.1\,\mu$s per iteration.
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item Compute the new per-scan execution time and the added load as a percentage of the clean
+        body, and as a percentage of the \texttt{20\,ms} task period.
+  \item At what added per-scan cost would the task period be at risk of \emph{overrun} (cycle
+        time exceeding \texttt{20\,ms})? Is the attacker's addition anywhere near that?
+  \item Explain why ``measure the scan time'' is a \emph{weak} integrity control against this
+        class of modification, and name a stronger one.
+\end{enumerate}
+\begin{hintbox}
+``Added load as a percentage of the clean body'' and ``as a percentage of the period'' are two
+different denominators -- compute both. For overrun, compare total scan work against the full
+\texttt{20\,ms} budget, not against the body alone.
+\end{hintbox}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 2.6 -- MatIEC Compilation Artefacts}
+OpenPLC compiles IEC~61131-3 source to C with MatIEC (\texttt{iec2c}) and statically links it.
+The lifted body of the clean conveyor appears in \texttt{POUS.c} as:
+\begin{lstlisting}
+void MAIN_body__(MAIN *data__) {
+  __SET_LOCATED(data__->,MOTOR,,
+    ((((__GET_LOCATED(data__->START,) || __GET_LOCATED(data__->MOTOR,))
+       && __GET_LOCATED(data__->STOP,)) && __GET_LOCATED(data__->GUARD1,))
+       && __GET_LOCATED(data__->GUARD2,)));
+  __SET_LOCATED(data__->,LAMP,,__GET_LOCATED(data__->MOTOR,));
+}
+\end{lstlisting}
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item De-sugar the \texttt{\_\_GET\_LOCATED}/\texttt{\_\_SET\_LOCATED} accessors and rewrite the
+        body as the original boolean ST. Show your work.
+  \item \texttt{LOCATED\_VARIABLES.h} is described as ``authoritative'' while \texttt{POUS.c}
+        carries the law. Explain the division of labour: what does each file let you recover that
+        the other does not?
+  \item An attacker edits only the linked \texttt{openplc} ELF, not the \texttt{.st} source and
+        not \texttt{POUS.c}. Which of the three artefacts (source, C, binary) now disagree, and
+        which detection in the lab would catch it?
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 2.7 -- Forensic: What Does This Block Do?}
+During an incident you recover this attacker-added function from \texttt{POUS.c} (accessor noise
+removed for readability). It is called once per scan from the main body, \emph{after} the normal
+\texttt{Motor} assignment.
+\begin{lstlisting}
+(* recovered block: STEALTH *)
+IF (Speed_SP >= 1064) AND (Speed_SP <= 1410) THEN
+  Saved_SP := Speed_SP ;       (* stash the operator value *)
+  Speed_Cmd := 1410 ;          (* drive the real actuator *)
+  Speed_PV_Echo := Saved_SP ;  (* feed the HMI the old value *)
+ELSE
+  Speed_Cmd := Speed_SP ;
+  Speed_PV_Echo := Speed_SP ;
+END_IF;
+\end{lstlisting}
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item In one paragraph, state precisely what this block does and what the operator sees on the
+        HMI while it is active.
+  \item Why does the block test a \emph{range} (\texttt{1064}--\texttt{1410}) rather than a single
+        value? What does the range tell you about the attacker's target knowledge?
+  \item Map this block onto the four steps of the Stuxnet pattern from the slides
+        (pristine main loop $\to$ signature check $\to$ record-then-replace $\to$ HMI lies).
+  \item Which symbol in this block is the highest-value forensic tell, and why?
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 2.8 -- Essay: Why Ladder Integrity is Hard on Classic PLCs}
+In about 400--600 words, argue why verifying the integrity of running control logic is
+structurally harder on a classic PLC (S7-300/400, ControlLogix, CODESYS soft-PLC) than verifying
+a file on a modern server. Your essay must address, with at least one cited source:
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item The project-vs-runtime asymmetry (the PLC runs compiled blocks; the tool shows the
+        project) and why the engineering station can show ``no changes''.
+  \item At least two technical obstacles to continuous verification on classic hardware: e.g.\
+        no code-signing / no secure boot on older firmware, weak or absent block CRCs, proprietary
+        upload protocols, scan-time budgets that forbid heavy self-checks, retentive memory that
+        survives a re-download.
+  \item One organisational obstacle (downtime windows, vendor support, key-switch left in RUN,
+        engineering-station hygiene).
+  \item Your recommended layered control set and an honest statement of its residual risk.
+\end{enumerate}
 \end{taskbox}
 
 \end{document}

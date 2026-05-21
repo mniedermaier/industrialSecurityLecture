@@ -10,45 +10,180 @@
 \begin{document}
 \sheetheader
 
-\begin{taskbox}{Exercise 3.1 -- S7commPlus Handshake}
-Set up a Siemens TIA Portal connection to an S7-1200 / 1500 (simulator is fine). Capture the handshake:
+\noindent\textbf{Goal.}
+This sheet works at the byte level. You already know the Bachelor ICS
+stack, so there are no warm-up questions: every task assumes you can read a
+hex dump, walk an ASN.1/TLV structure, and reason about a keyed integrity
+construct. The companion lab (\texttt{master/labs/03-advanced-protocols})
+covers the hands-on capture/replay; here you decode supplied bytes and argue
+about the cryptographic and detection properties. Every answer must name a
+concrete field, offset, or value -- not a generic ``add authentication''.
+
+\vspace{0.4em}
+
+\begin{taskbox}{Exercise 3.1 -- Locate the S7commPlus Anti-Replay/Integrity Field}
+A protected S7commPlus v3 data PDU (S7-1500) is captured. The bytes below
+start at the first S7P byte (i.e.\ after the 4-byte TPKT and 3-byte COTP DT
+header). The frame is a write-request body followed by its trailer:
+\begin{lstlisting}[language={}]
+72 03 00 1f  31 00 00 00 ec a5  ...  00 00 a1 00 21 1f a3 c2
+^P ^V ^^Len ^opcode ^seqno(2B)         ^null ^integrity TLV
+\end{lstlisting}
+The closing object is \texttt{00 00}; immediately after it sits the trailer
+\texttt{a1 00 21} followed by a \texttt{0x1f}-byte digest (here truncated).
 \begin{enumerate}
-  \item Identify the version (S7commPlus v1, v2, v3).
-  \item Locate the client and server challenges in the first frames.
-  \item Read a public reverse-engineering paper (Gordeychik 2017, Lei 2020) and reproduce the key derivation in Python for the captured session.
-  \item Decrypt one read-request and verify against the variable you actually requested.
+  \item Name the byte at offset 0 and the byte at offset 1; state which
+        S7commPlus variant (v1/v2/v3) this is and how the offset-1 value
+        proves it.
+  \item Identify the two-byte field at offsets 8--9 (\texttt{ec a5}) and the
+        digest block after \texttt{a1 00}. Which one provides anti-replay and
+        which provides integrity, and how do they combine?
+  \item In one paragraph, explain the weakness: why does the protection
+        \emph{not} stop an on-path attacker who has the public KDF, and what
+        does it \emph{still} stop?
 \end{enumerate}
 \end{taskbox}
 
-\begin{taskbox}{Exercise 3.2 -- GOOSE Spoof in the Lab}
-On an authorised IEC 61850 lab (open-source: \texttt{libiec61850}):
+\begin{taskbox}{Exercise 3.2 -- GOOSE stNum/sqNum Spoofing Window}
+A GOOSE publisher (EtherType \texttt{0x88B8}) emits, at steady state, a
+heartbeat every \texttt{maxTime}~$=1000$\,ms; on an event it bursts with a
+retransmission schedule \texttt{minTime}~$=4$\,ms doubling up to
+\texttt{maxTime}. The \texttt{goosePdu} carries:
+\begin{lstlisting}[language={}]
+85 01 07   stNum = 7
+86 01 00   sqNum = 0
+84 04 00 00 03 e8   timeAllowedtoLive = 1000 ms
+\end{lstlisting}
 \begin{enumerate}
-  \item Capture a normal GOOSE multicast stream.
-  \item Use \texttt{libiec61850} or Scapy to craft a frame with \texttt{stNum} one higher than the latest seen.
-  \item Inject onto the lab L2; observe the subscriber's reaction.
-  \item Document the only effective mitigation that worked.
+  \item The subscriber's acceptance rule is: accept a frame whose
+        \texttt{stNum} exceeds the last seen. Using that rule, define the
+        \emph{spoofing window} -- the interval during which an injected
+        \texttt{stNum := 8} frame is guaranteed accepted -- and explain why
+        the heartbeat period bounds it.
+  \item Give the three field edits (with the encoded bytes) that turn the
+        frame above into a valid spoof that flips the breaker-trip boolean.
+  \item Name the two standardised mitigations (R-GOOSE and IEC 62351-6) and
+        state, for each, the field it adds and the latency objection a
+        protection engineer raises against it.
 \end{enumerate}
 \end{taskbox}
 
-\begin{taskbox}{Exercise 3.3 -- Scapy Dissector}
-Pick a niche protocol of your choice (HART-IP, OPC DA over DCOM, ADS Twincat, IEC 60870-5-104).
+\begin{taskbox}{Exercise 3.3 -- Decode an IEC 61850 MMS Report-Control Structure}
+The following is the MMS payload of an \texttt{informationReport}
+(unconfirmed PDU, tag \texttt{0xa3}) pushed by an IED to an HMI, shown as
+ASN.1 BER TLV bytes:
+\begin{lstlisting}[language={}]
+a3 81 86
+  a0 81 83
+    a1 14  VisibleString "LD0/LLN0$RP$urcb01"   (RptID)
+    84 01 03                                     (bitstring: SqNum present)
+    85 04 00 00 00 2a                            (SqNum = 42)
+    86 04 00 00 00 01                            (ConfRev = 1)
+    a2 5e  <SEQUENCE OF AccessResult>
+      83 01 ff      AccessResult[3] BOOLEAN = TRUE
+      84 03 03 00 00  AccessResult[4] BITSTRING (quality)
+      91 08 ...       AccessResult[17] UtcTime
+\end{lstlisting}
 \begin{enumerate}
-  \item Build a minimal Scapy layer (header + length + 2-3 fields).
-  \item Replay a captured exchange against a test client; verify it accepts the spoof.
-  \item Submit the Scapy module + 5 lines on its limits.
+  \item Map each member to its IEC 61850 report semantics: \texttt{RptID},
+        \texttt{SqNum}, \texttt{ConfRev}, and the \texttt{AccessResult}
+        list. What is the operational meaning of the \texttt{BOOLEAN = TRUE}?
+  \item The IED holds an RCB (report-control block). Distinguish a buffered
+        (BRCB) from an unbuffered (URCB) report and say which one this is,
+        citing the \texttt{urcb01} name and the absence of an EntryID.
+  \item In the default MMS profile, what authenticates this report? Explain
+        the replay/forgery consequence and what IEC 62351-4 changes.
 \end{enumerate}
 \end{taskbox}
 
-\begin{taskbox}{Exercise 3.4 -- Fuzz Harness}
-Wire up \texttt{boofuzz} against a soft-PLC or sandboxed device:
+\begin{taskbox}{Exercise 3.4 -- DLMS/COSEM Access-Control Reasoning}
+A smart meter answers an association request (AARQ) with the AARE below; the
+\texttt{acse-requirements} and \texttt{mechanism-name} OID tail are shown:
+\begin{lstlisting}[language={}]
+60 ...                          AARQ from client
+  8a 02 07 80                   sender-acse-requirements (authentication)
+  8b 07 60 85 74 05 08 02 03    mechanism-name OID  ...02.03  (HLS, GMAC)
+  ac 0a 80 08 <8-byte CtoS>     calling-authentication-value (challenge)
+61 ...                          AARE from meter (response)
+  88 02 07 80                   responder-acse-requirements
+  89 07 60 85 74 05 08 02 03    mechanism-name (echoes ...02.03)
+  aa 12 80 10 <16-byte StoC>    responding-authentication-value
+\end{lstlisting}
 \begin{enumerate}
-  \item Define one Modbus PDU with mutators on length and function code.
-  \item Run 5 minutes; document any crash, hang, or bus reset.
-  \item Map the crash to a CWE class.
+  \item Read the \texttt{mechanism-name} OID tail and state which DLMS
+        authentication level (0 none / 1 low / 2 high-MD5 / 3 high-GMAC /
+        higher HLS variants) the meter demanded. Justify from the
+        \texttt{...02.03} suffix.
+  \item This is a mutual challenge: explain how CtoS and StoC defeat replay,
+        and what an attacker who records one full AARQ/AARE pair can and
+        cannot do afterwards.
+  \item BSI TR-03109 mandates a specific level and channel for the German
+        Smart Meter Gateway. State it and explain why low-level
+        (shared-password) association is forbidden there.
 \end{enumerate}
-\begin{warnbox}
-Bench-isolated PLC only. Real plants \emph{will} trip on malformed input.
-\end{warnbox}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 3.5 -- Identify the Protocol and Function from a Hex Dump}
+Three captured payloads (transport headers stripped) are shown. For each:
+name the protocol, the function/service, and the one field that gates a
+write or state change.
+\begin{lstlisting}[language={}]
+A:  68 0e 68  53 01 00 00 06 00 65 01 06 00 00 00 ... 16
+B:  05 64 0b 44 0a 00 01 00 e2 1d  c0 c1 81 00 00 ...
+C:  03 00 00 16 11 e0 00 00 00 04 00 c1 02 01 00 c2 02 01 02 c0 01 0a
+\end{lstlisting}
+\begin{enumerate}
+  \item Payload A starts \texttt{68 .. 68 .. 16}. Which protocol family uses
+        the \texttt{0x68} start/stop framing, and what is the \texttt{0x65}
+        type identifier doing here?
+  \item Payload B starts \texttt{05 64}. Name the protocol, decode the
+        length/control octet pair, and read the direction from the control
+        field.
+  \item Payload C starts \texttt{03 00 .. e0}. Name the framing
+        (\texttt{0x03 00} = TPKT) and the COTP PDU type \texttt{0xe0}; what
+        connection phase is this and which TSAPs does it negotiate?
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 3.6 -- Design a Passive Detection Rule}
+Pick \emph{one} attack from this sheet (S7commPlus replay, GOOSE
+high-\texttt{stNum} injection, or MMS report replay) and design a passive
+detection rule that runs on a span-port IDS (Zeek or Suricata).
+\begin{enumerate}
+  \item State the observable invariant the legitimate protocol maintains
+        (e.g.\ monotonic counter, single publisher per \texttt{goID},
+        per-session integrity-id increment).
+  \item Write the rule as pseudocode or a Suricata/Zeek signature sketch.
+        Name the exact field(s) keyed and the stateful condition that fires.
+  \item State one false-positive source and one evasion the attacker has
+        even against a correct rule.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 3.7 -- Authentication Across Four Stacks (Table)}
+Build a comparison table, one row per dimension and one column per protocol.
+Rows: \emph{Auth mechanism}, \emph{Anti-replay field}, \emph{Integrity
+primitive}, \emph{Confidentiality}, \emph{Default-on?}. Columns:
+\emph{S7commPlus v3}, \emph{GOOSE (62351-6)}, \emph{DNP3-SAv5},
+\emph{OPC UA (\texttt{Basic256Sha256})}. Fill every cell with the concrete
+mechanism (e.g.\ \texttt{HMAC-SHA256}, \texttt{stNum/sqNum}, \texttt{CSQ},
+\texttt{X.509 mutual}, \texttt{session nonce}). Below the table, write four
+to six sentences on which stack offers the strongest \emph{default}
+guarantee and why ``default-on'' matters more than peak capability in OT.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 3.8 -- Essay: Why Bump-in-the-Wire Crypto Is the Common Retrofit}
+Most of the protocols on this sheet bolted security on, and in the field the
+dominant retrofit is not in-protocol crypto but a bump-in-the-wire (BITW)
+device -- an inline gateway that wraps the legacy frame in TLS/IPsec or
+adds a MAC. In 350--500 words, argue why BITW wins over in-protocol upgrades
+in brownfield ICS. Cover at least: the installed-base / firmware-freeze
+problem; the safety-validation and re-certification cost of touching IED
+firmware; the latency budget for GOOSE/SV vs.\ where BITW can and cannot
+sit; key management at fleet scale; and the residual risk BITW leaves
+(the plaintext segment behind the gateway). Cite at least two concrete
+standards or products (e.g.\ IEC 62351, MACsec/802.1AE, a data-diode or OT
+VPN gateway).
 \end{taskbox}
 
 \end{document}

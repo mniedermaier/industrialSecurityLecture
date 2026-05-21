@@ -10,26 +10,136 @@
 \begin{document}
 \sheetheader
 
-\begin{taskbox}{Exercise 6.1 -- Campaign Brief}
-Pick one active OT-relevant campaign (Volt Typhoon, PIPEDREAM-related, Sandworm Industroyer2, CyberAv3ngers).
-\begin{enumerate}
-  \item One-paragraph adversary profile.
-  \item ATT\&CK for ICS technique mapping (at least 6 techniques).
-  \item Detection ideas (one per technique).
-  \item Sources and their bias.
+\noindent
+\textbf{Goal.} These exercises drill analytic tradecraft, not recall. You will build an
+ATT\&CK-for-ICS profile for a named activity group, run a Diamond Model on a real incident,
+grade intelligence by confidence, translate consequence into Priority Intelligence
+Requirements (PIRs), turn a TTP into a deployable detection, dismantle an over-confident
+attribution, and write a TLP-marked assessment. Assume the full Bachelor ICS background; no
+fundamentals are re-taught here. Cite primary reporting (CISA, Dragos, Mandiant, Microsoft,
+ESET, OASIS) and be explicit about what you do \emph{not} know. The lab (06) builds the
+machine-readable artefacts (Navigator layer, STIX bundle); this sheet builds the reasoning
+behind them -- align with it, do not duplicate it.
+
+\begin{taskbox}{Exercise 6.1 -- ATT\&CK-for-ICS Technique Profile}
+Choose \textbf{one} activity group and carry it through this whole sheet:
+\textbf{ELECTRUM / Sandworm} (GRU Unit 74455), \textbf{CHERNOVITE} (PIPEDREAM /
+INCONTROLLER author), or \textbf{VOLTZITE / Volt Typhoon}.
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item Produce a technique profile of \textbf{at least six} distinct ATT\&CK \emph{for ICS}
+        techniques (\texttt{T0xxx}) your group has demonstrably used. Present as a four-column
+        table: \emph{Tactic, Technique~ID, Technique~name, Evidence sentence} (which report,
+        which incident).
+  \item Many real OT campaigns are \emph{dual-matrix}: enterprise (\texttt{T1xxx}) techniques
+        for the IT intrusion, ICS (\texttt{T0xxx}) techniques for the OT effect. Name the one
+        technique that marks the \textbf{IT$\to$OT pivot} for your group, and say why it is the
+        pivot.
+  \item State one technique you believe the group \emph{could} use but for which you have
+        \textbf{no public evidence}, and mark it explicitly as a hypothesis, not a fact.
 \end{enumerate}
 \end{taskbox}
 
-\begin{taskbox}{Exercise 6.2 -- Diamond Model Sketch}
-For the same campaign, fill the four vertices of the Diamond Model with concrete evidence (adversary, capability, infrastructure, victim). Cite a source for each.
+\begin{taskbox}{Exercise 6.2 -- Diamond Model of One Incident}
+Pick \textbf{one} concrete incident attributed to your Ex.~6.1 group (e.g.\ Industroyer2 at a
+Ukrainian transmission utility, April~2022; the 2015 Ukraine distribution blackout;
+PIPEDREAM's pre-deployment discovery, 2022; VOLTZITE pre-positioning in US comms/electric,
+2023--24). Fill all four vertices with \emph{specific} evidence, plus the meta-features:
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item \textbf{Adversary} -- named group and, if known, sub-cluster or operator signature.
+  \item \textbf{Capability} -- the specific tooling/malware and its ATT\&CK \texttt{Txxxx}
+        IDs (cross-reference Ex.~6.1).
+  \item \textbf{Infrastructure} -- C2 / staging / delivery, classed Type~1 (adversary-owned)
+        vs.\ Type~2 (hijacked third party).
+  \item \textbf{Victim} -- sector, asset class, and the \emph{process consequence} the
+        adversary was reaching for.
+  \item \textbf{Meta} -- timestamp, ICS Cyber Kill Chain stage (Stage~1 vs.\ Stage~2),
+        result, and an explicit confidence rating with one sentence of justification.
+\end{enumerate}
+Cite a source for every vertex. State at least one vertex you had to leave as ``unknown''.
 \end{taskbox}
 
-\begin{taskbox}{Exercise 6.3 -- Hunt Hypothesis}
-Translate one campaign-derived TTP into a concrete hypothesis your SOC could test this week. Write the data sources needed, the query (Splunk / KQL / Elastic / Zeek), and the expected output of a true positive.
+\begin{taskbox}{Exercise 6.3 -- IOC vs.\ TTP vs.\ Strategic Intel, and Confidence}
+You receive four artefacts about your group:
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item A SHA-256 hash of a dropper, from one vendor blog, observed once.
+  \item ``The group uses \texttt{netsh portproxy} to relay traffic through compromised SOHO
+        routers'' -- corroborated by two independent vendors.
+  \item A single forum post claiming the group is ``preparing to hit European LNG this
+        winter''.
+  \item ``This activity is consistent with state-directed pre-positioning for disruptive
+        effect during a crisis'' -- a government assessment.
+\end{enumerate}
+For each: (a)~classify it as IOC / TTP / strategic intel; (b)~place it on the Pyramid of Pain;
+(c)~assign a confidence using \emph{both} the Admiralty (NATO) source-reliability $\times$
+information-credibility grade (A--F / 1--6) \emph{and} a Words of Estimative Probability band
+(e.g.\ ``likely'', ``highly likely''); (d)~justify each grade in one sentence. Present as a
+table.
 \end{taskbox}
 
-\begin{taskbox}{Exercise 6.4 -- STIX Snippet}
-Encode one IOC + one TTP from your campaign as STIX 2.1 JSON. Validate it via an online linter or \texttt{stix2-validator}.
+\begin{taskbox}{Exercise 6.4 -- Consequence-Driven PIRs for a Sector}
+Pick a \emph{named} sub-sector your Ex.~6.1 group threatens (electric \emph{transmission},
+water \emph{treatment}, or \emph{LNG} export). Write \textbf{five} ranked Priority
+Intelligence Requirements. PIRs are \emph{questions}, not statements, and must be
+consequence-driven: anchor each to a process consequence the operator fears (loss of view,
+loss of control, equipment damage, safety trip), never a generic IT outcome. For each PIR
+give: the question; the consequence it protects against; the collection source that would
+answer it; and the trigger / threshold that escalates it. Then, in two sentences, justify your
+\textbf{ranking} -- why is PIR-1 above PIR-5?
+\end{taskbox}
+
+\begin{taskbox}{Exercise 6.5 -- Map a TTP to a Detection}
+Take one ICS-protocol or LotL technique from your Ex.~6.1 profile and turn it into a
+\emph{deployable} detection. Either a \textbf{Sigma} rule (for an IT/log-based TTP) or a
+\textbf{Zeek} script/notice (for an OT-protocol TTP). Your answer must include:
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item the \texttt{Txxxx} ID the rule covers, embedded so the rule self-documents its mapping;
+  \item the telemetry source it needs and the exact logic (field, condition, threshold/window);
+  \item one realistic false-positive condition and a one-line tuning note that suppresses it
+        without blinding the rule.
+\end{enumerate}
+Place any rule body in a \texttt{lstlisting}. State where this detection sits on the Pyramid of
+Pain and what the adversary must do to evade it.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 6.6 -- Critique an Over-Attribution Claim}
+A junior analyst circulates this line in a draft report:
+
+\begin{quote}\itshape
+``We observed Modbus write bursts to a PLC on TCP/502 from an internal host, plus a
+\texttt{netsh portproxy} command on a jump box. This is Volt Typhoon. Notify the board that a
+PRC state actor is inside our OT network.''
+\end{quote}
+
+Identify \textbf{four} distinct analytic errors in this claim (e.g.\ base-rate / shared-TTP
+problems, the Pyramid of Pain level used, missing the IT$\to$OT distinction, confidence
+language, consumer fit). For each, state the error and the correction. Then rewrite the claim
+into one defensible sentence that an analyst could actually stand behind, using calibrated
+estimative language.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 6.7 -- TLP-Marked One-Paragraph Assessment}
+Synthesise your work into a single \textbf{TLP-marked} assessment paragraph (5--8 sentences)
+that a SOC lead can read in under a minute. It must contain: a calibrated bottom-line-up-front
+judgement (with estimative language and a confidence level); the one or two TTPs that matter
+most this week; a named, prioritised recommended action tied to a consequence; and the correct
+\textbf{TLP} marking for a product synthesised from public (TLP:CLEAR) reporting but intended
+only for your internal cohort. Justify your TLP choice in one separate sentence after the
+paragraph.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 6.8 -- Essay: The Limits of IOC-Based Detection for LotL Actors}
+Write a one-page (about 400--600~word) analytic essay on why indicator-based detection
+structurally fails against a living-off-the-land actor such as VOLTZITE / Volt Typhoon, and
+what replaces it. Your essay should: (i)~explain, using the Pyramid of Pain, \emph{why} the
+indicators these actors leave are exactly the cheapest layer to change, and why their tooling
+(signed Windows binaries, hijacked SOHO routers as Type-2 infrastructure) defeats hash- and
+IP-based feeds; (ii)~name the detection classes that \emph{do} work (behavioural / parent--child
+process analytics, identity / UEBA, OT-protocol baselining) and give one concrete example each;
+(iii)~address the OT-specific twist -- why the IT-side LotL detections do not directly transfer
+to a Purdue Level~1/2 network and what telemetry you would need there; (iv)~conclude with one
+honest limitation of the behavioural approach (e.g.\ baseline cost, false-positive load,
+detection latency). Cite at least one primary source (CISA \emph{AA24-038A}, Microsoft 2023, or
+Dragos VOLTZITE reporting).
 \end{taskbox}
 
 \end{document}

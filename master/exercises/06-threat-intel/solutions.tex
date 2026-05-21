@@ -10,20 +10,245 @@
 \begin{document}
 \sheetheader
 
-\begin{taskbox}{Exercise 6.1 -- Mark scheme}
-Strong briefs cite a primary source (CISA / Dragos / Microsoft) plus a secondary, and avoid copying threat-actor marketing names without context. ATT\&CK mapping must point at specific technique IDs, not just tactic names.
-\end{taskbox}
+\noindent
+\textbf{Note.} Model answers below use \textbf{ELECTRUM / Sandworm} as the worked example so
+the technique IDs are concrete; an answer built on CHERNOVITE or VOLTZITE earns the same marks
+if it is internally consistent and sourced. Mark on tradecraft -- evidence at each step,
+calibrated confidence, explicit unknowns -- not on exact ID matches. Real \texttt{T0xxx} IDs
+are from MITRE ATT\&CK for ICS; verify against \url{https://attack.mitre.org/matrices/ics/}.
 
-\begin{taskbox}{Exercise 6.2 -- Mark scheme}
-Award marks for: evidence at each vertex, source citation, and acknowledging unknowns explicitly (rather than guessing).
-\end{taskbox}
+\begin{hintbox}
+Two recurring full-marks discriminators across this sheet: (1)~the student names what they
+do \emph{not} know and how a single new data point would move the judgement; (2)~confidence
+language is \emph{calibrated} (estimative words + a stated level), never bare assertion.
+\end{hintbox}
 
-\begin{taskbox}{Exercise 6.3 -- Mark scheme}
-A pass hypothesis is testable in the team's actual telemetry within a week. Bonus: the query distinguishes the TTP from baseline admin activity.
-\end{taskbox}
+\begin{solutionbox}
+\textbf{Exercise 6.1 -- ATT\&CK-for-ICS profile (ELECTRUM / Sandworm).}\\[2pt]
+\par\begin{tabular}{p{3.0cm} p{1.4cm} p{4.0cm} p{5.6cm}}
+\toprule
+\textbf{Tactic} & \textbf{ID} & \textbf{Technique} & \textbf{Evidence} \\
+\midrule
+Initial Access & T0883 & Internet-Accessible Device & Exposed/edge access into the IT estate
+  preceding the OT push (ESET/Dragos Industroyer2, 2022). \\
+Initial Access & T0822 & External Remote Services & Reuse of legitimate remote access into the
+  OT environment (Industroyer family). \\
+Execution & T0823 & Graphical User Interface & Operator-tool / HMI session abuse in the 2015
+  distribution attack (SANS/E-ISAC 2016). \\
+Inhibit Resp.\ Fn. & T0816 & Device Restart/Shutdown & SIPROTEC DoS (CVE-2015-5374) in 2016
+  CrashOverride (Dragos 2017). \\
+Impair Process Ctrl. & T0855 & Unauthorized Command Message & IEC 60870-5-104 / IEC~61850 MMS
+  breaker-open commands, Industroyer/Industroyer2 (ESET 2017, 2022). \\
+Impact & T0826 & Loss of Availability & De-energised substations; loss of power delivery
+  (ICS-CERT IR-ALERT-H-16-056-01). \\
+\bottomrule
+\end{tabular}\\[3pt]
+\textbf{(2)~IT$\to$OT pivot:} \texttt{T0822 External Remote Services}. The intrusion lived in
+enterprise techniques (spear-phish, valid accounts, lateral movement) until the actor reused a
+legitimate remote-access path into the OT segment; that hop is where enterprise tradecraft
+becomes ICS effect. \textbf{(3)~Hypothesis, not fact:} the group \emph{could} use
+\texttt{T0857 System Firmware} against grid relays, but no public report confirms firmware
+implants in the Ukraine cases -- flag as analyst hypothesis pending evidence.\\[2pt]
+\emph{Sources:} ESET \emph{Industroyer} 2017 and \emph{Industroyer2} 2022; Dragos
+\emph{CRASHOVERRIDE} 2017; SANS/E-ISAC 2016; ICS-CERT IR-ALERT-H-16-056-01.
+\end{solutionbox}
 
-\begin{taskbox}{Exercise 6.4 -- Mark scheme}
-Lint-clean STIX 2.1 JSON with at least an indicator + attack-pattern + relationship objects. The student should comment on what STIX cannot express well (process-context, OT-specific impact).
-\end{taskbox}
+\begin{solutionbox}
+\textbf{Exercise 6.2 -- Diamond Model (Industroyer2, April~2022).}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Adversary:} Sandworm / ELECTRUM (GRU Unit~74455), the cluster behind the
+        Industroyer lineage; same lineage as 2016 CrashOverride.
+  \item \textbf{Capability:} Industroyer2 -- a single statically-configured IEC~60870-5-104
+        payload (vs.\ the modular 2016 build) deployed alongside CaddyWiper for cleanup;
+        techniques \texttt{T0855}, \texttt{T0816}, \texttt{T0826} from Ex.~6.1.
+  \item \textbf{Infrastructure:} adversary tooling staged on internal hosts inside the
+        victim's own environment (largely \emph{Type~2}: living off victim infrastructure)
+        rather than chatty external C2; minimal external footprint by design.
+  \item \textbf{Victim:} a Ukrainian \emph{electric transmission} utility; asset class =
+        substation RTUs/relays; the consequence reached for = \emph{loss of control} of
+        breakers and \emph{loss of availability} (de-energisation) of high-voltage substations.
+  \item \textbf{Meta:} April~2022; scheduled execution attempt thwarted before mass impact;
+        ICS Cyber Kill Chain \textbf{Stage~2} (the actor already had OT access and was acting on
+        the physical process). \textbf{Confidence: high} on capability and victim (vendor
+        forensic samples + named utility via CERT-UA/ESET); \textbf{moderate} on the precise
+        operator sub-cluster -- attribution rests on tooling lineage, which a different
+        operator could in principle reuse.
+\end{itemize}
+\textbf{Left unknown:} the exact \emph{initial-access} vector for this specific 2022 intrusion
+was not fully public at disclosure time; recorded as ``unknown -- likely earlier IT
+compromise''. One new data point (a confirmed initial-access artefact tied to a known Sandworm
+loader) would raise operator-cluster confidence from moderate to high.\\[2pt]
+\emph{Sources:} ESET + CERT-UA \emph{Industroyer2}, April~2022; Dragos ELECTRUM page.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 6.3 -- IOC vs.\ TTP vs.\ strategic, with confidence.}\\[2pt]
+\par\begin{tabular}{p{2.4cm} p{1.7cm} p{2.6cm} p{2.2cm} p{4.0cm}}
+\toprule
+\textbf{Artefact} & \textbf{Class} & \textbf{Pyramid} & \textbf{Grade} & \textbf{Rationale} \\
+\midrule
+SHA-256 dropper, one blog, once & IOC & Hash (base) & F6 / WEP: ``low confidence'' &
+  Single source, uncorroborated; a hash is the cheapest thing to change -- near-zero decision
+  value, deploy but expect short half-life. \\
+\texttt{netsh portproxy} via SOHO routers, 2 vendors & TTP & TTP (apex) + Tools &
+  B2 / WEP: ``highly likely'' & Two independent reliable sources agree; behaviour-level, costly
+  for the actor to abandon -- this is the durable, actionable item. \\
+Forum claim ``will hit EU LNG'' & Strategic (raw) & n/a (claim, not artefact) &
+  F4 / WEP: ``realistic possibility'' & Single anonymous source of unknown reliability;
+  plausible but unverified, possible disinformation -- collect against it, do not act. \\
+Govt ``state-directed pre-positioning'' & Strategic (finished) & n/a (assessment) &
+  B2 / WEP: ``likely'' & Reliable source, but a judgement not a fact; treat as a framing
+  hypothesis that shapes PIRs, not as ground truth. \\
+\bottomrule
+\end{tabular}\\[3pt]
+\emph{Marking:} Admiralty grade must combine \emph{source reliability} (A--F) with
+\emph{information credibility} (1--6); the WEP band must match (``highly likely'' for two
+independent confirmations, ``realistic possibility'' for a single unverified claim). Full marks
+require noting that the TTP -- not the hash -- is the artefact worth building detection on.
+\emph{Source:} NATO/Admiralty grading; ODNI/UK PHIA estimative-probability yardstick;
+Bianco, \emph{Pyramid of Pain}, 2013.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 6.4 -- Consequence-driven PIRs (electric transmission vs.\ ELECTRUM).}\\[2pt]
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item \textbf{PIR-1:} Is ELECTRUM developing or deploying capability against the IEC~104 /
+        IEC~61850 stacks or relay families we operate? \emph{Consequence:} loss of control of
+        breakers. \emph{Source:} CISA/CERT-UA advisories + relay-vendor PSIRT.
+        \emph{Trigger:} any advisory naming our protocol/relay family.
+  \item \textbf{PIR-2:} Are there new External Remote Services / valid-account footholds into
+        our OT segment? \emph{Consequence:} the IT$\to$OT pivot enabling Stage~2.
+        \emph{Source:} OT remote-access logs, EDR on jump hosts. \emph{Trigger:} any OT-segment
+        logon outside the change window.
+  \item \textbf{PIR-3:} Is wiper/cleanup tooling (CaddyWiper-class) co-deployed in current
+        campaigns? \emph{Consequence:} loss of view + impeded recovery. \emph{Source:} Dragos /
+        Mandiant intel + our EDR. \emph{Trigger:} wiper IOCs or destructive-cmd patterns.
+  \item \textbf{PIR-4:} Are our exposed/edge OT-adjacent devices being scanned or accessed?
+        \emph{Consequence:} initial access. \emph{Source:} perimeter and honeypot telemetry.
+        \emph{Trigger:} sustained scanning of our public ranges hitting OT-adjacent services.
+  \item \textbf{PIR-5:} What is the strategic tempo -- does geopolitical escalation correlate
+        with grid targeting? \emph{Consequence:} timing of likely action. \emph{Source:}
+        government/E-ISAC strategic reporting. \emph{Trigger:} sector-wide alerting level rises.
+\end{enumerate}
+\textbf{Ranking justification:} PIRs are ordered by \emph{proximity to irreversible process
+consequence} -- PIR-1/2 sit at loss-of-control and the Stage-2 pivot (highest, most
+time-critical), while PIR-5 is strategic context that shapes posture but does not by itself
+trigger an operational response. \emph{Marking:} each PIR must be a question anchored to a
+\emph{process} consequence; any PIR that drifts to a generic IT outcome (``are we patched?'')
+loses the mark.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 6.5 -- TTP$\to$detection (T0855 Unauthorized Command Message).}\\
+A Zeek-based notice for anomalous IEC~104 / Modbus write/command bursts from a non-EWS host:
+\begin{lstlisting}[language=python]
+# zeek: command-message bursts on OT control protocols (ATT&CK ICS T0855)
+# telemetry: zeek modbus.log / dnp3.log / iec104 analyzer output
+@load base/protocols/conn
+const ews_hosts: set[addr] = { 10.20.0.10 } &redef;  # known engineering WS
+const write_fcodes: set[count] = { 5, 6, 15, 16 };   # Modbus writes
+global cmd_count: table[addr] of count &create_expire = 10sec &default = 0;
+
+event modbus_message(c: connection, hdr: ModbusHeaders, is_orig: bool) {
+  if (is_orig && hdr$function in write_fcodes && c$id$orig_h !in ews_hosts) {
+    cmd_count[c$id$orig_h] += 1;
+    if (cmd_count[c$id$orig_h] > 20)            # >20 writes / 10s window
+      NOTICE([$note=OT::Unauthorized_Command_T0855,
+              $conn=c, $msg="T0855: command burst from non-EWS host"]);
+  }
+}
+\end{lstlisting}
+\textbf{Logic:} count write/command function codes per source over a 10\,s window; alert when a
+\emph{non-engineering} host exceeds 20. \textbf{False positive:} a commissioning/batch write
+from a legitimate HMI or a newly added EWS. \textbf{Tuning:} maintain \texttt{ews\_hosts} as an
+allowlist and suppress during scheduled change windows -- this narrows scope without blinding
+the rule to off-window writes (the actual threat). \textbf{Pyramid of Pain:} this is a
+\emph{TTP-level} detection (apex); to evade it the adversary must avoid command-message bursts
+entirely (slow, single-shot writes) or impersonate an EWS source -- both costly and noisy.
+\emph{Marking:} accept any syntactically plausible Sigma/Zeek rule carrying its \texttt{Txxxx}
+tag, a stated FP, and a tuning note that does not disable the detection.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 6.6 -- Critiquing the over-attribution claim.}\\
+Four distinct errors:
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item \textbf{Shared-TTP / base-rate error.} \texttt{netsh portproxy} and Modbus writes are
+        \emph{generic} -- used by many actors and by legitimate admins. Common TTPs are not
+        identifying. \emph{Correction:} attribution needs distinctive, corroborated tradecraft,
+        not shared techniques.
+  \item \textbf{Wrong Pyramid level for attribution.} Behaviours this low/common cannot carry
+        named-actor attribution; the analyst is over-reading a TTP. \emph{Correction:} treat
+        the TTP as a \emph{detection} signal, not an attribution signal.
+  \item \textbf{Missing IT$\to$OT distinction.} \texttt{portproxy} on a jump box (IT,
+        \texttt{T1090}-class) and a Modbus burst (OT, \texttt{T0855}) are two separate facts;
+        the claim fuses them into one story without showing the pivot. \emph{Correction:}
+        separate the IT and OT observations and state whether a pivot was actually observed.
+  \item \textbf{Uncalibrated confidence + wrong consumer.} ``This is Volt Typhoon... notify the
+        board'' jumps to certainty and escalates raw, single-source observations to the wrong
+        audience. \emph{Correction:} use estimative language, state confidence, and route to the
+        SOC for triage first.
+\end{enumerate}
+\textbf{Defensible rewrite:} ``We observed write-command bursts on TCP/502 from a non-EWS host
+and a \texttt{netsh portproxy} on a jump box; this is anomalous and warrants OT-segment triage,
+but the TTPs are not actor-specific, so attribution to any named group is \emph{unlikely to be
+supportable} without further evidence.''
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 6.7 -- TLP-marked one-paragraph assessment (model answer).}\\
+\textbf{TLP:GREEN.} \emph{Bottom line:} we assess it is \textbf{likely} (moderate confidence)
+that ELECTRUM-class capability against IEC~104 grid devices remains active in our sector,
+based on public ESET/CERT-UA reporting of Industroyer2 and Dragos ELECTRUM tracking. The two
+TTPs that matter most this week are unauthorized command messages on OT control protocols
+(\texttt{T0855}) and reuse of external remote-access into the OT segment (\texttt{T0822}); both
+are detectable with telemetry we already hold. \textbf{Recommended action (priority~1):} deploy
+the non-EWS command-burst notice on our IEC~104/Modbus segments and review all OT-segment
+remote logons against the change calendar, because the consequence we are protecting against is
+loss of control of breakers. Confidence is moderate, not high, because our judgement rests on
+sector-level reporting rather than direct observation in our own estate.\\[3pt]
+\emph{TLP justification:} the inputs are public (TLP:CLEAR), but the synthesis ties named TTPs
+to \emph{our} detections and posture, so it is shared within the cohort/peer community as
+\textbf{TLP:GREEN} -- not posted publicly (that would be CLEAR) and not restricted to named
+recipients only (AMBER/AMBER+STRICT), which the cohort-wide audience does not require.
+\end{solutionbox}
+
+\begin{warnbox}
+\textbf{TLP handling.} The marking is set by the \emph{most restrictive} input plus the
+intended audience -- you cannot downgrade a source. Public reporting is TLP:CLEAR; a
+peer/cohort product is typically TLP:GREEN; anything tying named indicators to a specific
+victim or pulled from an ISAC/paid feed defaults to TLP:AMBER and is \emph{not} redistributable.
+Re-broadcasting AMBER material publicly, or stripping a marking off inherited content, ends your
+access to the source and may breach the originator's caveats. When unsure, mark up
+(AMBER+STRICT), not down.
+\end{warnbox}
+
+\begin{solutionbox}
+\textbf{Exercise 6.8 -- Essay marking rubric (6~points).}
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item \textbf{Pyramid argument} (1~pt). Explains that LotL actors leave hashes/IPs/domains --
+        the cheapest, most volatile layer -- and that signed Windows binaries plus Type-2
+        hijacked SOHO routers defeat hash- and IP-feeds by construction.
+  \item \textbf{Detection classes that work} (1~pt). Names behavioural (parent--child trees,
+        e.g.\ \texttt{w3wp.exe}$\to$\texttt{cmd}$\to$\texttt{ntdsutil}), identity/UEBA
+        (anomalous service-account logons, Kerberoasting), and command-line analytics, with one
+        concrete example each.
+  \item \textbf{OT-specific twist} (1~pt). Recognises that IT-side process/identity analytics do
+        not transfer to Purdue L1/L2, and names the OT telemetry needed there -- protocol
+        baselining (Zeek modbus/iec104), command-message anomaly detection, and asset/flow
+        whitelisting -- because L1/L2 has no EDR.
+  \item \textbf{Honest limitation} (1~pt). Behavioural detection costs a baseline, carries
+        false-positive load, and has latency / tuning burden; a steelmanned drawback, not a
+        throwaway.
+  \item \textbf{Primary source} (1~pt). Cites CISA \emph{AA24-038A} (7~Feb~2024), Microsoft
+        Volt Typhoon (May~2023), or Dragos VOLTZITE reporting -- no invented sources.
+  \item \textbf{Writing, calibration, structure} (1~pt). Estimative language where it makes a
+        judgement; no overclaiming attribution from shared TTPs.
+\end{enumerate}
+\emph{Exemplar thesis:} indicator feeds detect the cheapest layer of an actor whose entire
+design is to operate without that layer; the durable defence climbs the Pyramid to behaviour,
+identity, and -- in OT -- protocol baselining, accepting higher baseline and false-positive cost
+as the price of catching a LotL adversary at all.
+\end{solutionbox}
 
 \end{document}

@@ -10,54 +10,183 @@
 \begin{document}
 \sheetheader
 
-\begin{taskbox}{Exercise 1.1 -- Source and Verify}
-Pick a consumer or industrial router image you can lawfully obtain (e.g.\ OpenWrt, a discontinued home router model, or vendor partner programme). Document:
-\begin{enumerate}
-  \item How you obtained the image.
-  \item Vendor-published hash and your local hash (match?).
-  \item The license / legal basis under which you analyse it.
+\noindent
+\textbf{Goal.} These exercises are pen-and-analysis counterparts to the hands-on lab. They
+assume you can already drive \texttt{binwalk}, a SquashFS/JFFS2 extractor, \texttt{strings},
+Ghidra, and \texttt{qemu-user}; here you \emph{reason} about the artefacts those tools produce
+and about the disclosure and supply-chain process around a finding. Answers should be concise
+(3--10 sentences each unless stated otherwise), grounded in the cited standards, advisories,
+and CWE catalogue, and framed for \emph{authorised} analysis only. Several questions give you a
+realistic artefact (an entropy curve, a decompiler listing, a version diff) and ask you to draw
+the conclusion a PSIRT or red-team analyst would draw.
+
+\begin{taskbox}{Exercise 1.1 -- Lawful Sourcing and Chain of Custody}
+You receive a firmware image three ways: (a)~a vendor support-portal download you are entitled
+to under a maintenance contract, (b)~a SPI-flash dump you read from a device you own, and
+(c)~an image a colleague forwarded ``from a customer site''. For each:
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item State whether you may lawfully analyse it, and on what legal basis (cite the relevant
+        EU and German/US provisions from the slides).
+  \item List the minimum chain-of-custody metadata you must record before any analysis, and
+        explain in one sentence why a missing element makes a later disclosure worthless.
+  \item Explain the difference between a vendor-published \emph{hash} and a detached
+        \emph{signature}, and which one actually defends against a tampered download mirror.
 \end{enumerate}
 \end{taskbox}
 
-\begin{taskbox}{Exercise 1.2 -- Triage}
-On the same image, run \texttt{binwalk -e} and then:
-\begin{itemize}
-  \item Identify CPU architecture and endianness (use \texttt{binwalk -A}, \texttt{file}).
-  \item List bootloader, kernel, root filesystem (with offsets).
-  \item Mount the root filesystem and dump \texttt{/etc/passwd}, \texttt{/etc/shadow}, and any \texttt{init} scripts of interest.
+\begin{taskbox}{Exercise 1.2 -- Architecture and Endianness Triage}
+\texttt{binwalk -A} on an unknown image reports a dense cluster of \texttt{MIPS instructions}
+hits but also a thinner scatter of \texttt{ARM} and \texttt{PPC} hits; \texttt{file} on the
+carved \texttt{vmlinux} says nothing useful; the \texttt{uImage} header is absent (the carve
+started mid-image).
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item Explain why an opcode-frequency scanner produces \emph{some} hits for the wrong ISA,
+        and how you decide which architecture is real. Name two independent cross-checks.
+  \item You suspect MIPS but disassembly is garbage. How do endianness (MIPS BE vs.\ LE) and
+        a wrong load/base address each corrupt the listing, and how do you tell the two
+        failure modes apart from the symptoms?
+  \item Given the architecture, what is the \emph{single} most consequential parameter you must
+        set correctly before Ghidra cross-references become trustworthy, and why?
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 1.3 -- Reading an Entropy Curve}
+\texttt{binwalk -E} produces the entropy plot sketched below (Shannon entropy on $y\in[0,1]$
+against file offset). Region~A sits flat at $\approx 0.45$; region~B ramps to $\approx 0.92$
+and is flagged by \texttt{binwalk} as \texttt{LZMA compressed data}; region~C sits flat at
+$\approx 0.99$ with \emph{no} compression signature and a sharp square edge at both ends.
+\begin{center}
+\begin{tikzpicture}[x=2.0mm, y=18mm]
+  \draw[->] (0,0) -- (62,0) node[right, font=\tiny]{offset};
+  \draw[->] (0,0) -- (0,1.15) node[above, font=\tiny]{entropy};
+  \draw[thick] (0,0.45) -- (18,0.45);
+  \draw[thick] (18,0.45) -- (24,0.92) -- (40,0.92);
+  \draw[thick] (40,0.92) -- (40,0.99) -- (58,0.99) -- (58,0.30);
+  \node[font=\tiny] at (9,0.55) {A};
+  \node[font=\tiny] at (32,1.02) {B};
+  \node[font=\tiny] at (49,1.08) {C};
+\end{tikzpicture}
+\end{center}
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item Classify each region (plaintext/code, compressed, encrypted or packed) and justify
+        each call from its entropy level \emph{and} its shape.
+  \item Why can entropy alone never distinguish ``compressed'' from ``encrypted'', and what
+        single additional observation breaks the tie for region~C?
+  \item If region~C is genuinely encrypted, where in the image do you pivot to recover the
+        plaintext, and why is fighting the blob directly the wrong move?
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 1.4 -- Hard-coded Secret, No Patch Available}
+Triage of an end-of-life HMI surfaces three secrets: (i)~\texttt{root:\$1\$ab\$...} (an MD5-crypt
+hash) in \texttt{/etc/passwd}; (ii)~a PEM private key in \texttt{/etc/ssl/private/server.key}
+that is byte-identical across every unit of the model; (iii)~a literal
+\texttt{SUPER\_PASS=Zte521} compiled into the web daemon. The vendor is out of business; no
+firmware update will ever ship.
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item Assign the correct CWE to each of the three findings.
+  \item For each, propose a \emph{compensating control} the asset owner can deploy
+        \emph{without} a firmware patch (network, monitoring, or process). Be specific -- name
+        the control, not ``segment the network''.
+  \item Rank the three by residual risk after your controls are in place, and justify the
+        ranking in one sentence.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 1.5 -- Reading a Ghidra Decompilation}
+The decompiler produces the following for the OTA update handler of a routable ICS gateway
+(ARM LE, user-space daemon). Read it as the artefact, not as code you wrote:
+\begin{lstlisting}[language=C]
+int apply_update(char *url, char *sig_hdr) {
+  char path[64];
+  download(url, "/tmp/fw.bin");
+  sprintf(path, "/tmp/%s", basename_of(url));   /* (1) */
+  if (crc32_file("/tmp/fw.bin") == header_crc(sig_hdr))  /* (2) */
+    return flash_write("/tmp/fw.bin");          /* (3) */
+  return -1;
+}
+\end{lstlisting}
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item Identify \emph{two} distinct weaknesses, each with its CWE identifier, and point to the
+        marked line for each.
+  \item Which weakness is more severe for an Internet-exposed gateway, and why? Argue from the
+        attacker's required position, not just impact.
+  \item Sketch the patch for the more severe weakness at the level of ``name the function and
+        the check'' -- vague ``add validation'' earns nothing.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 1.6 -- Static vs.\ Emulation: Choosing the Tool}
+You have confirmed a suspicious compare in Ghidra but want dynamic confirmation. For each of the
+following targets, decide whether \texttt{qemu-user}, full-system \texttt{qemu-system}, or
+hardware-in-the-loop (e.g.\ Avatar$^2$) is the right next step, and state the \emph{one} property
+of the target that forces that choice:
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item A statically-linked CGI binary whose only inputs are environment variables and stdin.
+  \item A web daemon that reads model/serial from an NVRAM \texttt{ioctl} on \texttt{/dev/mtd3}
+        at start-up and refuses to run otherwise.
+  \item A bare-metal VxWorks RTOS image with a memory-mapped peripheral the auth routine polls.
+\end{enumerate}
+For case~(2), name two concrete techniques to get the daemon past the NVRAM read \emph{without}
+the device.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 1.7 -- Version Diff and the Silent Fix}
+A \texttt{diff -rq rootfs.old rootfs.new} between v1.4 and v1.5 of one model returns exactly two
+differing files: \texttt{/usr/sbin/httpd} and \texttt{/etc/version}. A \texttt{radiff2 -C} on
+\texttt{httpd} shows one changed function, \texttt{check\_login}, where a
+\texttt{strcmp(pass,"Zte521")} branch present in v1.4 is gone in v1.5. The vendor's changelog
+says only ``stability improvements''.
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item Explain why this two-file, one-function delta is strong evidence of a deliberately
+        \emph{silent} security fix rather than a routine change.
+  \item Everyone still on v1.4 now has a known-exploitable backdoor. Walk through the ethics:
+        is the v1.4 backdoor a reportable finding, and to whom -- the now-fixed vendor, a CNA,
+        or the public? What changes if the vendor refuses a CVE?
+  \item Why is the silently-fixed branch an \emph{n-day} rather than a 0-day, and why does that
+        distinction matter for an asset owner's patch-prioritisation decision?
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 1.8 -- Draft a Coordinated-Disclosure Email}
+Write the actual email you would send to a vendor PSIRT for the OTA weakness of Exercise~1.5
+(treat the product as ``Acme IG-200 industrial gateway, firmware v3.1,
+SHA-256 \texttt{3f9a...c21e}''). Your email must contain, and only contain:
+\begin{itemize}\setlength{\itemsep}{0pt}
+  \item Affected product, firmware version, and image hash.
+  \item A factual technical summary and \emph{minimal} reproduction -- no working exploit code.
+  \item A proposed disclosure timeline (vendor / national CERT / public) with concrete day
+        counts appropriate to ICS rollouts.
+  \item Your CWE classification and a suggested remediation.
+  \item Contact details and a PGP fingerprint placeholder; an explicit authorised-use statement.
 \end{itemize}
+Keep it under one page. The marker will deduct for threats, deadlines framed as ultimatums,
+exploit code, or any claim you cannot substantiate from the artefact.
 \end{taskbox}
 
-\begin{taskbox}{Exercise 1.3 -- Strings to Findings}
-Run \texttt{strings -n 8} over the image, then:
-\begin{enumerate}
-  \item Search for words like \texttt{admin}, \texttt{password}, \texttt{token}, \texttt{secret}.
-  \item Identify three candidate hard-coded secrets and the binary they live in.
-  \item For each, propose how an asset owner could mitigate without a firmware update.
+\begin{taskbox}{Exercise 1.9 -- Supply Chain and SBOM (Short Essay)}
+The Boa web server (abandoned upstream since 2005) was found embedded in countless ICS HMIs in
+2022; CODESYS runtime CVEs (\emph{Code16}, 2023) cascaded across hundreds of products from many
+vendors. In about 350--500 words, argue how a \emph{Software Bill of Materials} (SBOM) -- e.g.\
+SPDX or CycloneDX -- changes the asset owner's position when such a shared-component flaw drops.
+Your essay must:
+\begin{enumerate}\setlength{\itemsep}{0pt}
+  \item Explain concretely what an SBOM lets an asset owner do on the day a CVE lands in a
+        third-party component that they could \emph{not} do without one.
+  \item Name two hard limits of SBOMs (think: transitive dependencies, firmware that ships no
+        SBOM, version-pinning vs.\ actual binary content) and why firmware RE remains necessary
+        even where SBOMs exist.
+  \item Tie the argument to one regulatory driver (US EO~14028 / NTIA minimum elements, or the
+        EU Cyber Resilience Act) and state one obligation it places on the \emph{vendor}.
 \end{enumerate}
-\end{taskbox}
-
-\begin{taskbox}{Exercise 1.4 -- Ghidra Mini-Reverse}
-Open the most ``interesting'' binary in Ghidra. Pick one symbol (e.g.\ \texttt{login}, \texttt{check\_password}, \texttt{handle\_modbus}) and:
-\begin{enumerate}
-  \item Read the decompiled C.
-  \item Document one weakness (CWE-class) you observe.
-  \item Sketch the patch you would propose to the vendor.
-\end{enumerate}
-\end{taskbox}
-
-\begin{taskbox}{Exercise 1.5 -- Disclosure Letter}
-Write the email you would send to a vendor PSIRT for a finding from Exercise 1.4. Include:
-\begin{itemize}
-  \item Affected product, firmware version, hash.
-  \item Reproduction steps (minimal, no exploit code).
-  \item Proposed disclosure timeline (vendor / CERT / public).
-  \item Your contact details and PGP fingerprint.
-\end{itemize}
 \end{taskbox}
 
 \begin{warnbox}
-Only analyse firmware you have a legal basis to handle. Never test the resulting findings against production devices that are not yours.
+Authorised use only. Every artefact above is hypothetical or drawn from public advisories.
+Analyse only firmware you may lawfully possess, on hardware you own; never run a derived finding
+(credential, backdoor, or exploit) against a device you do not own or are not written-authorised
+to test. Keep all proof-of-concept private until coordinated disclosure with the vendor PSIRT
+and the relevant national CERT is complete.
 \end{warnbox}
 
 \end{document}

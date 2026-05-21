@@ -63,6 +63,11 @@
   tabsize=2
 }
 
+% Last-resort inter-word stretch before TeX reports an Overfull \hbox.
+% Only engages on lines that would otherwise overflow (long \texttt
+% tokens, hex, URLs); never loosens a line that already fits.
+\setlength{\emergencystretch}{3em}
+
 % --- header / footer ------------------------------------------------
 \pagestyle{fancy}
 \fancyhf{}

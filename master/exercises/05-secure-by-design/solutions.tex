@@ -2,28 +2,139 @@
 
 \def\courseTitle{Industrial Security (Master)}
 \def\sectionNumber{05}
-\def\sectionTitle{Secure-by-Design Architectures}
-\def\sheetKind{Solution Sheet}
+\def\sectionTitle{Secure-by-Design Architecture}
+\def\sheetKind{Solutions}
 
 \input{../../../template/exercise-preamble.tex}
 
 \begin{document}
 \sheetheader
 
-\begin{taskbox}{Exercise 5.1 -- Mark scheme}
-Pass requires named zones (e.g.\ Plant, Process Control, Safety, Site IT) each with a justifiable SL-T (typically 3 for control, 4 for safety), per-conduit allowlists, and a defensible diode placement (typically safety$\to$site for telemetry egress).
-\end{taskbox}
+\noindent\textbf{Marking note.} Each solution box gives a defensible model answer plus \emph{rubric hints}: what a strong answer must contain, common mistakes, and the standard parts a student is expected to cite. SL-T values, clause wording, and ports are pedagogical --- accept any defensible alternative the student justifies against consequence, threat actor, and feasibility. The discriminator throughout is whether the student reasons from \emph{worst-case physical consequence} rather than from network exposure or how interesting a zone looks on a diagram.
 
-\begin{taskbox}{Exercise 5.2 -- Mark scheme}
-Strong answers point to IEC 62443-4-1 evidence requirements (process maturity), CycloneDX/SPDX for SBOM, 90-day SLA with reasonable carve-outs, 10+ year support window, and signed downloads with vendor key rotation.
-\end{taskbox}
+\begin{solutionbox}
+\textbf{Exercise 5.1 -- Zones, conduits, SL-T.}
+A defensible six-zone model and its target SLs:
 
-\begin{taskbox}{Exercise 5.3 -- Mark scheme}
-Award marks for: explicit pass/fail per step, traceable artefacts (vendor signature, PCAP, vuln report), and a backup/restore that completes within RTO.
-\end{taskbox}
+\renewcommand{\arraystretch}{1.15}
+\footnotesize
+\par\begin{tabular}{|p{2.4cm}|c|p{9.2cm}|}
+\hline
+\textbf{Zone} & \textbf{SL-T} & \textbf{Justification (worst-case consequence)} \\
+\hline
+Z-SIS (safety) & 3 & Only zone where an integrity attack moves atoms into a hazard (exotherm, toxic release); ICS-literate adversary is realistic; SIL-rated logic solvers can support SL3 if patched. \\
+Z-CTRL (BPCS) & 3 & Compromised PLC/drive can create a physical hazard or batch loss; pivot target for the SIS; commodity PLCs reach SL3 if specified. \\
+Z-SUP (SCADA/HMI) & 3 & A compromised HMI issues real control commands; same actor as Z-CTRL. \\
+Z-MES & 2 & Loss of batch traceability and quality data is severe but not a physical hazard; data-integrity focus. \\
+Z-iDMZ & 3 & High exposure, low consequence \emph{if} segmentation holds; SL-T follows the highest zone it protects. Only replicas/brokers live here. \\
+Z-ENT & --- & Out of the OT trust boundary; gets corporate IT controls, not an OT SL-T. \\
+\hline
+\end{tabular}
 
-\begin{taskbox}{Exercise 5.4 -- Mark scheme}
-Sensible sequencing (visibility before segmentation, segmentation before retirement), named owners, realistic cost bands, and risk reduction stated in process terms (downtime hours, safety events).
-\end{taskbox}
+\par\vspace{2mm}
+\noindent Conduit table (one row per boundary crossing):
+
+\renewcommand{\arraystretch}{1.15}
+\footnotesize
+\par\begin{tabular}{|p{2.9cm}|p{1.4cm}|p{2.6cm}|c|c|c|}
+\hline
+\textbf{Conduit} & \textbf{Proto} & \textbf{Src $\to$ Dst} & \textbf{Port} & \textbf{Dir} & \textbf{SL-T} \\
+\hline
+SIS telemetry & OPC UA & Z-SIS $\to$ Z-SUP & 4840 & one-way & 3 \\
+Control$\to$supervise & OPC UA & Z-CTRL $\leftrightarrow$ Z-SUP & 4840 & bi & 3 \\
+Historian mirror & OPC UA & Z-SUP $\to$ Z-iDMZ & 4840 & one-way & 3 \\
+Batch records & HTTPS & Z-SUP $\to$ Z-MES & 443 & one-way & 2 \\
+MES$\to$ERP & HTTPS & Z-iDMZ $\to$ Z-ENT & 443 & one-way & 2 \\
+Remote access & TLS & Z-ENT $\to$ Z-iDMZ & 443 & brokered & 3 \\
+Patch repo & HTTPS & Z-iDMZ $\to$ Z-CTRL & 443 & pull & 3 \\
+\hline
+\end{tabular}
+
+\par\vspace{2mm}
+\noindent Diode candidates: SIS telemetry and historian mirror (genuinely one-way). \textbf{Rubric.} Full marks require each SL-T tied to consequence + actor + feasibility, the conduit inheriting the higher zone SL-T, and at least one defensible diode placement. Deduct for SL-T set by exposure (e.g.\ SL4 on the iDMZ while leaving Z-CTRL at SL2) and for missing the Z-ENT ``out of OT scope'' point.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 5.2 -- FR/SR selection for Z-CTRL at SL-T\,3.}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{FR1 IAC / SR~1.1, 1.2, 1.5.} Per-user accounts, no shared logins; MFA or hardware token for any engineering change to a control device.
+  \item \textbf{FR2 UC / SR~2.1.} Role-based authorisation: only the \emph{program} role downloads logic; operators only acknowledge.
+  \item \textbf{FR3 SI / SR~3.1, 3.4.} Communication integrity (signed/MAC'd control messages where the protocol allows) and firmware/software integrity verified on load.
+  \item \textbf{FR4 DC / SR~4.1.} Field protocols rarely need confidentiality --- see the documented downgrade below.
+  \item \textbf{FR5 RDF / SR~5.1, 5.2.} Enforced zone boundary protection; only the Exercise~5.1 conduits exist, each filtered deny-by-default.
+  \item \textbf{FR6 TRE / SR~6.1, 6.2.} Continuous monitoring; auditable events forwarded off-zone to a write-once store.
+  \item \textbf{FR7 RA / SR~7.1, 7.3, 7.4.} DoS resistance; backup of control logic; verified restore --- survive ransomware without losing batch traceability.
+\end{itemize}
+\emph{Justified downgrade.} FR4 (confidentiality) is set below SL-T\,3 on the cyclic field bus: deterministic field traffic is non-secret and encryption adds jitter the motion loop cannot tolerate. Compensate at FR5 (boundary protection / micro-segmentation) and FR3 (integrity), and \emph{document} the downgrade --- an undocumented one is a finding. \textbf{Rubric.} One SR per FR with a plant-specific meaning; full marks require the documented, compensated downgrade. Common mistake: claiming SL3 needs full field-bus encryption.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 5.3 -- diode vs.\ firewall.}
+\emph{(a) SIS telemetry $\to$ historian:} \textbf{data diode}. The data requirement is genuinely one-way (export only); a diode guarantees there is no return path into the safety zone, so no remote-control or ACK channel can ever exist. Wrong choice = a firewall whose rule set is later edited to add a ``temporary'' inbound port into the SIS; residual risk accepted: no remote diagnostics into the SIS (acceptable). \emph{(b) historian mirror $\to$ corporate analytics:} \textbf{stateful firewall, deny-by-default}, optionally a diode if the feed is truly export-only. Analytics may legitimately need request/response (queries), so a diode would force an ugly side channel --- the classic failure mode of using a diode where two-way is actually needed. Residual risk: the mirror is a stepping stone, mitigated by terminating/re-originating in the iDMZ. \emph{(c) remote-vendor support $\to$ cell:} \textbf{firewall only} (a diode is impossible --- support is inherently interactive); enforce it through the Exercise~5.5 broker, never a flat tunnel. Residual risk: the broker becomes crown-jewel (see 5.5). \textbf{Rubric.} Choice must follow the directionality of the genuine requirement; full marks require naming the failure mode of the wrong control and the residual risk for each. Common mistake: ``diode everywhere'' --- a diode someone works around is worse than an honest firewall.
+\end{solutionbox}
+
+\begin{hintbox}
+For 5.4, a clause is testable when an inspector can produce a pass/fail on the bench: ``supports per-user accounts'' is weak; ``rejects any unsigned firmware image at boot and logs the rejection (CR~3.4, SL-C\,3)'' is testable. Tie every clause to a CR family and an SL-C, and add the acceptance hook.
+\end{hintbox}
+
+\begin{solutionbox}
+\textbf{Exercise 5.4 -- three procurement clauses for a PLC at SL-C\,3.}
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item \emph{Identity (CR~1.1/1.2/1.5, SL-C\,3).} ``The PLC shall support individual user accounts (no shared or hard-coded credentials) and integrate with the plant identity store or certificate-based authentication; the supplier shall warrant in writing that no undocumented or service accounts exist. Verified on the ATP by attempting login with vendor-default credentials, which must fail.''
+  \item \emph{Integrity (CR~3.4, SL-C\,3).} ``The PLC shall verify the integrity of its own firmware at boot and reject unsigned firmware, and shall accept only signed logic downloads. Verified on the ATP by attempting to load an unsigned image, which must be rejected and logged.''
+  \item \emph{Recovery (CR~7.3/7.4, SL-C\,3).} ``The PLC shall support backup of configuration and control logic and restoration to a known-good state without vendor on-site attendance. Verified on the ATP by a full backup/restore drill completing within the agreed RTO.''
+\end{enumerate}
+\emph{4-1 cross-reference:} ``The supplier shall deliver a machine-readable SBOM (CycloneDX or SPDX) with every release, operate vulnerability handling per ISO/IEC~30111 with a disclosure SLA, and commit to a 20-year support/security-patch window with a named PSIRT contact. A supplier unable to deliver an SBOM today is not eligible for a 20-year capital line.'' \emph{Acceptance hook:} ``Any component failing a clause on the on-site ATP is rejected on arrival.'' \textbf{Rubric.} Three clauses, each testable + CR family + SL-C; one 4-1 lifecycle cross-reference; one acceptance hook. Common mistake: untestable marketing language with no CR mapping.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 5.5 -- brokered remote access.}
+\emph{Flow:} vendor $\to$ internet $\to$ SSO+MFA portal (iDMZ outside) $\to$ policy/PAM broker $\to$ time-boxed jump host (iDMZ inside) $\to$ target asset's micro-zone. No vendor credential ever lands on an OT asset: the broker injects a short-lived credential it owns and revokes at session end; a named operator approves each session; sessions auto-terminate. Least privilege per vendor --- each OEM reaches only its own equipment's micro-zone. A documented dual-control break-glass path exists for when the broker is down, with mandatory after-the-fact review.
+\par\vspace{2mm}
+\emph{Must log:} identity (authenticated user + OEM), target asset and micro-zone, timestamps (start/stop), the approving operator, full keystroke + screen recording to a write-once store, every command issued, files transferred in/out, the broker-issued credential ID, and the break-glass invocation if used. The recording \emph{is} the audit and forensic artefact.
+\par\vspace{2mm}
+\emph{Anti-pattern killed:} the ``vendor VPN straight to the PLC'' --- a flat tunnel that bypasses every zone boundary. The broker enforces FR1/FR2/FR6 (identity, use control, traceability) at one auditable choke point. \emph{Residual risk:} the broker is now a crown-jewel asset; it gets SL-T\,3, its own monitoring, and is never reachable inbound from the control zones. \textbf{Rubric.} Full marks require the no-credential-on-OT mechanism, the complete log list (session recording to WORM), and naming both the killed anti-pattern and the broker-as-crown-jewel residual risk.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 5.6 -- SIS/BPCS coupling anti-pattern.}
+\emph{Why it is wrong.} One workstation that can download both BPCS and SIS logic, plus an HMI that can \emph{write} safety bypasses on a shared L2 network, makes the SIS only as trustworthy as the most-exposed BPCS node. A single compromise of that workstation (phished engineer, malware) defeats both the control \emph{and} the protection layer --- which is precisely the point of an independent protection layer. It violates the IEC~61511 separation principle that the SIS must be independent of the BPCS in logic solver, I/O, and power, so that the initiating event source cannot also disable the safeguard (the same independence rule LOPA relies on when it refuses to credit the BPCS loop as an IPL).
+\par\vspace{2mm}
+\emph{Redesign.} Z-SIS is its own zone at SL-T\,3 with separate logic solvers, separate I/O, and separate power. A shared HMI may \emph{view} SIS state over a read-only path but can never write a safety parameter or bypass. The only conduit out of Z-SIS is a one-way, diode-protected telemetry feed to the historian; there is \emph{no} inbound conduit from the BPCS, the iDMZ, or the remote-access broker. Maintenance overrides (forces/bypasses) require local, key-switched, dual authorisation and raise an alarm --- never settable remotely.
+\par\vspace{2mm}
+\emph{Co-engineering (IEC~TR~63069).} A cyber-security requirements specification feeds the 61511 safety requirements specification: it adds signed safety logic, change logging, and the constraint that no cyber path may defeat a SIF --- ideally engineering the worst consequence out with a hardwired, non-programmable trip (CCE). \textbf{Rubric.} Must name the shared-workstation/shared-HMI coupling, cite the 61511 independence principle, and produce a redesign with separate solvers + view-only HMI + one-way egress + local dual-control overrides. Bonus for the 63069 / CCE hardwired-trip point.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 5.7 -- secure-development + patch lifecycle.}
+\emph{Vendor SDL gate (62443-4-1).} Before contract: evidence of SDL conformance (process maturity), a product threat model reviewed each major release, and a vulnerability-handling process per ISO/IEC~30111 with a disclosure SLA. During contract: an SBOM (CycloneDX/SPDX) with every release and the on-arrival ATP from Exercise~5.4 as a gate.
+\par\vspace{2mm}
+\emph{Asset-owner patch programme (62443-2-3 + 2-1).} Staged pipeline: vendor advisory $\to$ risk triage against the Exercise~5.1 zone model (does this CVE touch a path that matters?) $\to$ test on an offline twin of the affected cell $\to$ scheduled maintenance window $\to$ apply with a documented back-out plan written \emph{before} touching the running plant. \emph{Decision rule for not patching:} skip the patch when the compensating control already in the zone model reduces the risk below tolerance \emph{and} the patch itself risks the process (unplanned trip cost $>$ cyber risk removed) --- recorded and signed off with operations and safety, not decided by IT alone. \emph{Backups:} immutable triad (production / off-site / WORM) with a quarterly tested restore covering control logic, HMI projects, historian, and firewall/switch configs.
+\par\vspace{2mm}
+\textbf{Rubric.} Both processes present and linked (the ATP and SBOM connect the SDL gate to the patch programme); full marks require the explicit not-patch decision rule and the back-out-plan-first discipline. Common mistake: treating OT patching as IT ``patch Tuesday'' with no risk triage against the zone model.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 5.8 -- brownfield vs.\ greenfield (essay).}
+A model answer argues: (1) The cost asymmetry is decisive --- a security decision in the FEED phase costs engineering hours; the same decision after commissioning costs a planned outage and 5--10$\times$ the money (INL CCE case studies). So on greenfield you build it in: zones, conduits, SL-T, signed protocols, and procurement clauses while they are still cheap and contractually bindable. (2) On brownfield you usually \emph{cannot} rebuild now: a 25-year-old PLC whose vendor is gone cannot be made to enforce SL3 cryptographic primitives. Wrapper appliances and network-layer compensations (segmentation, protocol-aware filtering, a brokered jump host, passive monitoring) buy real risk reduction \emph{around} the legacy device, but they cannot give it integrity verification it never had --- so the honest answer is compensating controls plus a roadmap, with most secure-by-design wins arriving in the next capital project. (3) Sequencing constrains the roadmap: you cannot segment what you have not inventoried, nor retire what you have not replaced --- so Y1 visibility, Y2 segment + MFA, then vendor exit, greenfield core, legacy retired. (4) Residual-risk acceptance must be written down, framed as ``if we do X, residual risk is Y, cost is Z'', countersigned by safety + operations + executive, paired with a review date, and re-opened when the threat picture changes. \emph{Decision rule:} rebuild greenfield when a new capital project or an unachievable SL-T on safety-adjacent equipment forces it; otherwise apply compensating controls behind a sequenced, signed-off roadmap. \textbf{Rubric.} Award for the cost asymmetry, the honest limits of wrapper appliances, the inventory-before-segmentation sequencing, and a documented residual-risk acceptance with owner + review date. Reject ``just rip and replace everything'' with no cost or sequencing reasoning.
+\end{solutionbox}
+
+\begin{solutionbox}
+\textbf{Exercise 5.9 -- STRIDE per conduit (stretch).}
+Sample for the three highest-SL conduits (controls $\to$ mapped FR):
+\renewcommand{\arraystretch}{1.15}
+\footnotesize
+\par\begin{tabular}{|p{2.9cm}|p{5.0cm}|p{5.0cm}|}
+\hline
+\textbf{Conduit} & \textbf{Threat $\to$ control} & \textbf{FR} \\
+\hline
+Control$\leftrightarrow$supervise & S/T: spoofed/altered command $\to$ OPC~UA SignAndEncrypt, per-user auth & FR1, FR3 \\
+Remote access (brokered) & E/R: privilege escalation, no audit $\to$ PAM broker, session recording to WORM & FR2, FR6 \\
+SIS telemetry (diode) & T/D: tamper or DoS the egress $\to$ hardware one-way diode; SIS keeps tripping if feed dies & FR3, FR7 \\
+\hline
+\end{tabular}
+\par\vspace{2mm}
+\noindent \emph{Gaps to list:} any threat with no mapped control --- e.g.\ if the historian mirror has no integrity check, Tampering on that conduit is an open gap. \emph{CCE consequence to engineer out:} the dry-room/reactor explosion --- add a hardwired, non-programmable safety trip so that even a fully compromised BPCS cannot cause it. \textbf{Rubric.} Award for an explicit threat$\to$control$\to$FR mapping per conduit, an honest gap list, and one consequence engineered out (not just ``add more controls'').
+\end{solutionbox}
 
 \end{document}

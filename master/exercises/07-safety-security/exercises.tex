@@ -2,7 +2,7 @@
 
 \def\courseTitle{Industrial Security (Master)}
 \def\sectionNumber{07}
-\def\sectionTitle{Safety / Security Co-Engineering}
+\def\sectionTitle{Safety and Security Co-Engineering}
 \def\sheetKind{Exercise Sheet}
 
 \input{../../../template/exercise-preamble.tex}
@@ -10,20 +10,165 @@
 \begin{document}
 \sheetheader
 
-\begin{taskbox}{Exercise 7.1 -- Joint Workshop Plan}
-Plan a 2-day combined Cyber-HAZOP / SECOP workshop for a fictional chemical plant. Deliver: agenda, attendee list (with rationale per role), pre-read pack, deliverables.
+\noindent\textbf{Goal.} Apply functional-safety and cyber-security engineering
+\emph{to the same equipment}. You have the full Bachelor ICS background, so
+there are no scaffolded first rows and no IT analogies. The reference plant is
+the hydrogen furnace \texttt{HF-201} from the Section~07 lab: a
+triple-modular-redundant (TMR) Triconex-class safety logic solver hosts two
+SIFs --
+\textbf{SIF-1} (high $\mathrm{H_2}$ header pressure $\to$ close
+double-block-and-bleed fuel valves, target \textbf{SIL\,2}, demand mode) and
+\textbf{SIF-2} (2oo3 flame-failure $\to$ isolate fuel, target \textbf{SIL\,3}).
+The SIS-EWS is dual-homed (SIS network + plant DMZ), logic downloads are
+unsigned, and the key-switch sits in PROGRAM. Cite the governing standards
+where named: IEC~61508/61511, IEC~61882 (HAZOP), ISA~TR84.00.09,
+IEC~62443-3-2/3-3, AIChE/CCPS LOPA, and the GSN Community Standard. All
+$\mathrm{PFD}$/SIL figures here are pedagogical -- never transplant them into a
+real safety case.
+
+\vspace{0.6em}
+
+\begin{taskbox}{Exercise 7.1 -- Cyber-HAZOP Guide-Word Sweep on SIF-1}
+Run an IEC~61882 guide-word sweep on the \textbf{$\mathrm{H_2}$ header / SIF-1}
+node and pair each deviation with both a safety cause and a cyber cause.
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item Produce at least \textbf{five} fully-worked rows. Each row carries:
+        guide word, parameter, deviation, \textbf{one random/systematic safety
+        cause}, \textbf{one cyber cause}, consequence, existing safeguard, and
+        residual gap. Walk \emph{No, More, Less, Reverse, As~well~as,
+        Part~of, Other~than}.
+  \item At least \textbf{three} rows must have a cyber cause that targets the
+        \emph{SIS itself} (logic solver, EWS, voting), not the BPCS.
+  \item Name a concrete mechanism for every safeguard/gap (signed download,
+        key-switch interlock, write allow-list on the engineering protocol,
+        2oo3 vote-integrity check). ``Add MFA'' earns zero.
+\end{enumerate}
+Cite IEC~61882:2016 for the guide words and ISA~TR84.00.09 for the cyber
+adaptation.
 \end{taskbox}
 
-\begin{taskbox}{Exercise 7.2 -- Worked HAZOP Row}
-For a heat-exchanger node, produce three Cyber-HAZOP rows (guide word + parameter + cyber cause + safeguard + gap). Quality: each row points at a concrete vendor mechanism (not ``add MFA somewhere'').
+\begin{taskbox}{Exercise 7.2 -- Compute $\mathrm{PFD}_{avg}$ and Verify the SIL Band}
+Verify SIF-1's claimed integrity from component data. Use the low-demand
+approximations: simplex (1oo1) $\mathrm{PFD}_{avg}\approx
+\tfrac{1}{2}\,\lambda_{DU}\,T_I$; redundant (1oo2)
+$\mathrm{PFD}_{avg}\approx \tfrac{1}{3}\,(\lambda_{DU}\,T_I)^2 +
+\beta\,\lambda_{DU}\,\tfrac{T_I}{2}$. Sum the subsystem terms:
+$\mathrm{PFD}_{avg}^{SIF}=\mathrm{PFD}_S+\mathrm{PFD}_L+\mathrm{PFD}_{FE}$.
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item Pressure transmitters: 1oo2, $\lambda_{DU}=300\ \mathrm{FIT}$ each,
+        $\beta=10\%$. TMR logic solver: vendor-certified
+        $\mathrm{PFD}_{avg}=2.0\times10^{-4}$. Final element (DBB valve +
+        solenoid): 1oo1, $\lambda_{DU}=600\ \mathrm{FIT}$.
+        $T_I=1\ \mathrm{year}=8760\ \mathrm{h}$; $1\ \mathrm{FIT}=10^{-9}\
+        \mathrm{h^{-1}}$.
+  \item Compute each subsystem term, sum, and state the achieved SIL band and
+        the risk-reduction factor $\mathrm{RRF}=1/\mathrm{PFD}_{avg}$. Recall
+        SIL\,2 spans $10^{-3}\le\mathrm{PFD}_{avg}<10^{-2}$ (RRF $100$--$1000$).
+  \item Identify the \emph{dominant} subsystem term and one realistic change
+        that would push the SIF up to SIL\,3.
+\end{enumerate}
 \end{taskbox}
 
-\begin{taskbox}{Exercise 7.3 -- TRITON Re-engineering}
-Re-imagine the Schneider Triconex set-up the TRITON attackers found. What three design changes would have prevented the attack? Estimate cost and time-to-deploy for each.
+\begin{taskbox}{Exercise 7.3 -- A Cyber Compromise Defeats LOPA Independence}
+LOPA credits SIF-1 only because its protection layers are \emph{independent}.
+The scenario credits three: the SIS (SIF-1), a BPCS high-pressure alarm +
+operator action, and a mechanical relief valve. Initiating-event frequency
+$f_i = 0.1/\mathrm{year}$. Use $\mathrm{PFD}_{SIS}=10^{-2}$ (the SIL\,2 claim),
+$\mathrm{PFD}_{BPCS\text{-}alarm}=10^{-1}$, $\mathrm{PFD}_{PSV}=10^{-2}$.
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item Compute the mitigated frequency
+        $f_{mit}=f_i\cdot\prod_k \mathrm{PFD}_k$ for the clean (uncompromised)
+        case.
+  \item A TRISIS-class adversary reaches the dual-homed SIS-EWS. State which of
+        the three layers the adversary can defeat from that foothold and which
+        two layers \emph{stop being independent} (hint: the flat OT LAN and the
+        shared engineering path reach both the SIS logic and the BPCS).
+  \item A layer the attacker controls gets $\mathrm{PFD}=1$ (no credit).
+        Recompute $f_{mit}$ after the compromise and state the
+        order-of-magnitude loss of protection. Explain why this collapse -- not
+        the
+        malware payload -- is the real finding.
+\end{enumerate}
 \end{taskbox}
 
-\begin{taskbox}{Exercise 7.4 -- Joint Risk Register Template}
-Design the schema for a single Process Hazard \& Cyber-Hazard Register. Columns, owners, review cadence, link to the safety SIL verification file.
+\begin{taskbox}{Exercise 7.4 -- TRITON / TRISIS Kill Chain vs.\ the Triconex SIS}
+Walk the documented TRITON/TRISIS kill chain against \texttt{HF-201}'s SIS and
+analyse the safe-state outcome.
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item Map each stage to \emph{this} architecture: foothold $\to$ dual-homed
+        SIS-EWS; EWS $\to$ controller over the unauthenticated proprietary
+        protocol with the key-switch in PROGRAM; payload appended to the safety
+        application. For each stage, name the one control you own that would
+        have stopped it.
+  \item The real incident \emph{tripped} the plant: a memory-validation
+        mismatch put the TMR controller into a safe fault state. Argue whether
+        the trip was ``luck'' or ``design''. What does fail-safe TMR voting buy
+        you, and what does it \emph{not} buy you?
+  \item State, per stage, the safe-state implication: after a \emph{successful}
+        (bug-free) payload, does the SIS still reach its safe state on a real
+        demand? Justify. This is the analysis a regulator demands after any
+        SIS-touching incident.
+\end{enumerate}
+Cite Dragos \emph{TRISIS Malware Analysis} (2017) and Mandiant/FireEye
+\emph{TRITON} (2017).
+\end{taskbox}
+
+\begin{taskbox}{Exercise 7.5 -- A Control That Does NOT Degrade the Safety Function}
+The cardinal rule of co-engineering: a security control must never degrade,
+delay, or inhibit the safety function.
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item Pick \textbf{two} gaps from your Exercise~7.1 worksheet and propose a
+        non-interfering control for each. For each, state (a) the threat it
+        removes; (b) the argument that it cannot increase $\mathrm{PFD}_{avg}$,
+        add latency \emph{inside} the process safety time, or create a new
+        spurious-trip path; (c) whether it forces re-validation of the SIF
+        under IEC~61511.
+  \item Propose exactly \textbf{one} control you must \emph{reject} because it
+        would touch the safety path (e.g.\ inline IPS on the SIS conduit, host
+        AV on the logic solver). Give the precise interference mechanism.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 7.6 -- Reconcile the IEC 61511 and IEC 62443 Lifecycles}
+Place the IEC~61511 functional-safety lifecycle and the IEC~62443 security
+lifecycle on one timeline.
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item Produce a mapping table: for each safety phase
+        (HAZID/HAZOP $\to$ SIF allocation $\to$ SRS $\to$ design/realisation
+        $\to$ V\&V $\to$ operation/MOC) name the matching IEC~62443 activity
+        (zone/conduit + risk assessment per 62443-3-2 $\to$ SL-T allocation
+        $\to$ security requirements $\to$ secure design / 3-3 SRs $\to$
+        security V\&V $\to$ patch/MOC).
+  \item Identify the \textbf{shared decision gate} where one change-board must
+        sign off both: argue why any modification to the safety application is
+        simultaneously a safety MOC \emph{and} a security change, and why
+        neither standard's process may proceed without the other's sign-off.
+\end{enumerate}
+\end{taskbox}
+
+\begin{taskbox}{Exercise 7.7 -- GSN Assurance-Case Fragment}
+Sketch a Goal Structuring Notation (GSN) fragment whose top goal is
+\emph{``HF-201 SIF-1 achieves SIL\,2 and is not defeatable by a credible cyber
+adversary.''} Decompose into two sub-goals (safety integrity demonstrated by
+$\mathrm{PFD}_{avg}$; integrity of the safety function preserved against the
+threat model), the strategy linking them, the context (threat model,
+proof-test regime), and the solution/evidence nodes (your Exercise~7.2
+calculation, Exercise~7.5 controls, Exercise~7.6 lifecycle gates). Draw it as
+an indented G/S/C/Sn goal tree; a TikZ diagram is welcome but not required.
+Explain in two sentences why the security argument must be \emph{load-bearing
+inside} the safety case rather than a separate annex.
+\end{taskbox}
+
+\begin{taskbox}{Exercise 7.8 -- Essay: ``Security Must Not Compromise Safety''}
+In 250--400 words, defend or qualify the maxim \emph{``security must not
+compromise safety.''} Address: (i) why a security control that can command,
+delay, or spuriously trip the safety output is wrong \emph{by definition};
+(ii) the converse failure -- a safety culture that refuses to patch or zone a
+provably-reachable SIS because ``the certificate forbids change'' -- and how
+the MOC process resolves it; (iii) one concrete case where the two objectives
+genuinely conflict (e.g.\ availability of a recovery tunnel vs.\ attack
+surface) and how you would adjudicate it. Ground the argument in the TRITON
+lesson and at least two named standards.
 \end{taskbox}
 
 \end{document}
