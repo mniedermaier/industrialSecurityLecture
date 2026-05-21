@@ -1,0 +1,189 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\labNumber{03}
+\def\labTitle{Advanced Industrial Protocols -- Solutions}
+\def\labSection{03}
+\def\labTime{3--4 hours}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Lecturer / TA reference for Lab~03. Model answers, the field offsets and
+values students should report, and a grading rubric. Exact byte offsets
+vary by the public PCAP used; the values below are the canonical ones for
+S7-1500 v3 firmware, IEC~61850 edition-2 GOOSE, and standard MMS reports.
+Accept any answer that matches the student's own cited capture.
+\end{goalbox}
+
+\begin{solutionbox}{Step 1 -- Tooling and data}
+Expected: \texttt{tshark -G protocols} lists \texttt{s7comm},
+\texttt{s7comm-plus}, \texttt{goose}, \texttt{mms} (and \texttt{dlms} on
+$\ge$3.6). Scapy GOOSE contrib imports via
+\texttt{load\_contrib("scada.goose")}. Every PCAP must come with a source
+URL and a SHA-256 in \texttt{SHA256SUMS.txt}. \textbf{Common mistake:}
+no provenance recorded -- deduct hygiene points; the authorised-use
+framing requires citing the capture.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 2 -- S7commPlus integrity field}
+\textbf{Model answer.} The S7commPlus payload starts with magic
+\texttt{0x72} at offset~0 (immediately after 4-byte TPKT + 3-byte
+COTP~DT). Byte~1 is the protocol version: \texttt{0x01}/\texttt{0x02} are
+the reproducible-KDF variants, \texttt{0x03} is integrity-protected.
+The \emph{integrity part} is a trailer at the \textbf{end} of the S7P
+payload, after the data and the closing object byte (\texttt{0x00}).
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item Field: \texttt{s7comm-plus.integrity.digest}, preceded by a
+        \texttt{digestlen} byte. Typical digest length is
+        \textbf{32~bytes} on the v3 protected variant (shorter or absent on
+        v1/v2). Accept the length the student's capture actually shows.
+  \item Anti-replay: a per-session monotonic counter
+        (the integrity-id / seqnum) increments by \textbf{1} on each data
+        PDU. Same payload, changing digest + counter across two identical
+        requests is the expected observation in Step~2.3.
+\end{itemize}
+\textbf{Why integrity, not confidentiality:} the command and object bytes
+are plainly readable in tshark; only the trailer changes per frame. That
+is a keyed tag with replay binding, not encryption. Full marks require the
+student to state this distinction explicitly.
+
+\textbf{Common mistakes:} (a) calling S7commPlus ``encrypted'' -- the
+data is dissectable, only the trailer is keyed; (b) reporting the magic
+byte as the integrity field; (c) missing that the v1/v2 KDF is reproducible
+(Section~03), which is what makes the digest re-derivable.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 3 -- GOOSE stNum / sqNum}
+\textbf{Model answer.} GOOSE = EtherType \texttt{0x88B8}, raw L2 multicast,
+no IP. Counters live in the ASN.1 \texttt{goosePdu}:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \texttt{sqNum} increments \texttt{0,1,2,\dots} while the state is
+        stable (retransmits of the same event).
+  \item \texttt{stNum} increments by~1 \emph{only} when a data value
+        changes, and \texttt{sqNum} resets to~0 at that instant.
+  \item Subscriber rule: higher \texttt{stNum} $\Rightarrow$ new event,
+        accept immediately; same \texttt{stNum} + higher \texttt{sqNum}
+        $\Rightarrow$ retransmit.
+\end{itemize}
+\textbf{The spoof, as three edits:} \texttt{stNum := max\_stNum + 1};
+\texttt{sqNum := 0}; flip the boolean data member in \texttt{allData}.
+Students should report the captured max \texttt{stNum}, the value they
+would set, and the offset of the boolean inside \texttt{allData}.
+
+\textbf{Common mistakes:} (a) thinking \texttt{sqNum} guards against the
+attack -- it only counts repeats within one state; (b) forgetting to reset
+\texttt{sqNum} to 0 (a same-state higher \texttt{sqNum} is treated as a
+stale retransmit, not a new event); (c) leaving the boolean unchanged so
+the ``spoof'' asserts the current state.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 4 -- Craft and replay}
+\textbf{GOOSE path.} A correct \texttt{show2()} prints \texttt{stNum} one
+above the captured max and the inverted boolean; the destination MAC is in
+the \texttt{01:0c:cd:01:xx:xx} range and \texttt{appid} matches the
+capture. After \texttt{sendp} on the isolated \texttt{lab0}, the
+libiec61850 subscriber logs the new state instantly -- that immediate
+acceptance is the deliverable evidence.
+
+\textbf{Modbus path (safe default).} The hand-built 12 bytes for Write
+Single Coil~0 $\to$ ON are
+\texttt{00 01 00 00 00 06 01 05 00 00 ff 00} (MBAP TID/Proto/Len/Unit
+then function \texttt{0x05}, address \texttt{0x0000}, value \texttt{0xFF00}).
+A bare Scapy \texttt{send()} is dropped because it skips the TCP
+handshake; the accepted stateful write goes through \texttt{pymodbus}, and
+the read-back shows \texttt{Coil 0: True}. Both prove the frame carries no
+sender identity.
+
+\textbf{Common mistakes:} (a) replaying onto an interface with an uplink
+(safety/legal violation -- auto-fail, see rubric); (b) expecting a raw
+Scapy TCP segment to be accepted by the PLC without a handshake;
+(c) wrong destination multicast MAC so the subscriber filters it out.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 5 -- MMS report-control}
+\textbf{Model answer.} MMS = ISO-on-TCP (RFC~1006) on TCP/102, ACSE
+association then MMS PDUs. Expected flow: \texttt{Initiate} association,
+then confirmed \texttt{getNameList}/\texttt{read}/\texttt{write}, and
+unconfirmed \texttt{informationReport} PDUs for buffered/unbuffered
+reports. In the report the student should identify \texttt{RptID} (report
+identifier), optional sequence number, \texttt{ConfRev} (configuration
+revision), and the list of \texttt{AccessResult} values (the pushed
+measurements/status). Key point: in the default profile none of this is
+authenticated, so a replayed \texttt{informationReport} feeds the HMI
+forged values; \textbf{IEC~62351-4 wraps MMS in TLS} to provide that
+authentication and confidentiality.
+
+\textbf{Common mistakes:} confusing the confirmed \texttt{read} response
+with the unconfirmed \texttt{informationReport}; missing \texttt{ConfRev}
+(the field that detects dataset reconfiguration); not naming the 62351-4
+fix.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 6 -- Dissector stub (stretch)}
+\textbf{Model answer.} A minimal Scapy layer that reads back one field
+correctly. For \texttt{MiniGOOSE} bound to \texttt{Ether type=0x88b8}:
+\texttt{appid}, \texttt{length}, two reserved shorts, then the
+\texttt{pdu} as an opaque \texttt{StrLenField} of \texttt{length - 8}
+bytes. Acceptance test: the parsed \texttt{appid} equals the value tshark
+reported for the same frame. Students must state one limitation -- the
+header is parsed but the ASN.1 \texttt{goosePdu} is left opaque, so
+\texttt{stNum}/\texttt{sqNum} are not yet decoded by the stub. Equivalent
+stubs for the S7commPlus integrity length or MMS \texttt{RptID} are
+acceptable.
+
+\textbf{Common mistakes:} hard-coding the PDU length instead of deriving
+it from the \texttt{length} field; claiming the stub fully parses GOOSE
+when it only reads the L2 header.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 8 -- DLMS auth level (stretch)}
+\textbf{Model answer.} The \texttt{AARQ} (Application Association Request)
+carries the negotiated authentication level: 0~none, 1~low (shared
+password), 2~high (MD5/SHA-1 challenge-response), 3~high-GMAC. The student
+should read the level off the capture and state that a BSI~TR-03109
+gateway mandates the strong profile (X.509 + AES-GCM, i.e.\ the
+high-security/GMAC class), not levels~0--2.
+\end{solutionbox}
+
+\begin{solutionbox}{Final note -- per-protocol replay field}
+Expected half-page summary maps each protocol to the field that gates
+replay and whether the default profile protects it:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{S7commPlus} -- per-session integrity digest + monotonic
+        counter; \emph{protected} on v3 firmware, re-derivable on v1/v2.
+  \item \textbf{GOOSE} -- \texttt{stNum}/\texttt{sqNum} only; \emph{not}
+        protected by default (62351-6 adds signatures).
+  \item \textbf{MMS} -- none in the default profile; 62351-4 (TLS) adds it.
+  \item \textbf{DLMS/COSEM} -- negotiated auth level in the AARQ;
+        protected only at level~3 / TR-03109 gateway profile.
+\end{itemize}
+\end{solutionbox}
+
+\begin{rubricbox}
+Total 20 pts; pass mark 10.
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Provenance \& tooling (2):} PCAP source + SHA-256 recorded
+        (1); dissectors/Scapy contrib confirmed working (1).
+  \item \textbf{S7commPlus (4):} integrity block located with offset+length
+        (2); protocol-version byte read (1); integrity-vs-encryption
+        argument stated (1).
+  \item \textbf{GOOSE analysis (4):} stNum/sqNum table (2); max stNum and
+        the three spoof edits (2).
+  \item \textbf{Craft + replay (4):} crafted frame shown (2); replay
+        evidence -- subscriber log or PLC read-back (2).
+  \item \textbf{MMS (3):} report fields RptID/ConfRev/AccessResult
+        annotated (2); 62351-4 fix named (1).
+  \item \textbf{Stretch (2):} working dissector stub with limitation, and/or
+        DLMS auth-level finding.
+  \item \textbf{Hygiene (1):} isolated-segment discipline, no live uplink.
+\end{itemize}
+\textbf{Auto-fail:} any evidence of crafting/replaying frames against a
+network or device the student does not own, or onto a segment with an
+uplink to production -- re-issue the lab.
+\end{rubricbox}
+
+\end{document}

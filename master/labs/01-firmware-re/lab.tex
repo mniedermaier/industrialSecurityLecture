@@ -4,7 +4,7 @@
 \def\labNumber{01}
 \def\labTitle{Firmware Reverse Engineering -- First Cut}
 \def\labSection{01}
-\def\labTime{2--3 hours}
+\def\labTime{3--4 hours}
 
 \input{../../../template/lab-preamble.tex}
 
@@ -12,63 +12,433 @@
 \labheader
 
 \begin{goalbox}
-End-to-end first cut: take a lawfully-sourced firmware image, identify its architecture and filesystem, find at least one hard-coded credential or weak crypto pattern, and produce a 1-page write-up suitable for a coordinated-disclosure email.
+Take one lawfully-sourced firmware image end to end: verify its
+integrity, fingerprint its architecture and root filesystem, mount the
+filesystem, surface at least one concrete weakness (a hard-coded
+credential, an unauthenticated update path, or a weak crypto pattern),
+confirm it in Ghidra's decompiler, and -- where the binary is
+user-space -- reproduce the behaviour under \texttt{qemu-user}. You
+finish with a one-page write-up carrying a CWE-classified finding and a
+draft coordinated-disclosure email. This mirrors the triage a PSIRT or
+red team runs on a new ICS device before it ever touches a bench.
 \end{goalbox}
 
-\begin{stepbox}{Tooling}
-On a Linux VM (Debian / Ubuntu / Kali):
+\subsection*{Authorised use}
+Everything below assumes you operate on \textbf{your own hardware} and
+on \textbf{firmware you may lawfully possess and analyse} -- an image
+pulled from a device you own, a vendor support download you are
+entitled to, or an open partner-programme artefact. Reverse
+engineering for security research and interoperability is broadly
+permitted (EU Directive 2009/24/EC; the CRA research provisions), but
+the line is jurisdictional: in Germany note StGB \S 202a/202c, in the
+US the DMCA \S 1201 security-research exemption. You do \emph{not} run
+any finding against a third-party device, and any proof-of-concept
+lives in a private repository until a vendor PSIRT and the relevant
+national CERT have closed the disclosure. A finding obtained on
+equipment you are not authorised to test is contaminated and no
+publication channel will take it.
+
+\subsection*{Tooling / setup}
+A Debian, Ubuntu, or Kali host (native or VM), 8\,GB RAM minimum for
+Ghidra. Install the triage and extraction stack first:
+
 \begin{lstlisting}[language=bash]
-sudo apt install -y binwalk squashfs-tools cpio xxd file strings unzip
-# Ghidra: download from https://ghidra-sre.org and install per docs
-pip install --user firmware-mod-kit  # optional
+sudo apt update
+sudo apt install -y binwalk squashfs-tools cpio jefferson \
+  mtd-utils device-tree-compiler u-boot-tools \
+  qemu-user-static binfmt-support \
+  file bsdmainutils xxd unzip git python3-pip openjdk-17-jdk
+# jefferson = JFFS2 extraction; bsdmainutils provides hexdump.
+# qemu-user-static + binfmt-support give transparent foreign-binary exec.
+pip3 install --user binwalk uefi_firmware ubi_reader
 \end{lstlisting}
-\end{stepbox}
 
-\begin{stepbox}{1 -- Source the image}
-Pick one that is safe to handle:
-\begin{itemize}
-  \item OpenWrt for a router model you own.
-  \item Discontinued home-router firmware from the vendor archive.
-  \item Vendor partner programme (Siemens Industry Online, Rockwell PCDC) if you have access.
+Ghidra is a separate download (it is not in apt). Fetch the official
+release, verify it, and launch once to confirm the JDK is found:
+
+\begin{lstlisting}[language=bash]
+cd ~/tools
+# Download the latest release ZIP from the NSA's GitHub releases page:
+#   https://github.com/NationalSecurityAgency/ghidra/releases
+sha256sum ghidra_*_PUBLIC_*.zip   # compare against the checksum on the release page
+unzip ghidra_*_PUBLIC_*.zip
+cd ghidra_*_PUBLIC && ./ghidraRun &
+\end{lstlisting}
+
+\begin{notebox}
+Newer Debian/Ubuntu ship \texttt{binwalk} v3 (the Rust rewrite). Its
+flags differ slightly from the classic Python v2 used in the slides:
+v3 extracts with \texttt{binwalk -e} but the entropy and architecture
+analysis options moved. The \texttt{pip3 install binwalk} line above
+pins the Python v2 CLI as \texttt{\textasciitilde/.local/bin/binwalk}
+so the commands in this sheet behave as written. Put
+\texttt{\textasciitilde/.local/bin} ahead of \texttt{/usr/bin} on your
+\texttt{PATH} if you hit a flag mismatch.
+\end{notebox}
+
+\subsection*{Working tree}
+Keep one directory per image so hashes, extractions, and notes stay
+together:
+
+\begin{lstlisting}[language=bash]
+mkdir -p ~/fwlab/<vendor>-<model>-<version> && cd $_
+# everything for this image -- the .bin, *.extracted, notes.md -- lives here
+\end{lstlisting}
+
+\begin{stepbox}{1 -- Source a lawful image and pin its provenance}
+Choose one image you may lawfully analyse:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item An OpenWrt build, or an end-of-life consumer-router image from
+        the vendor's own download archive (these are the easiest to
+        source and richest for triage practice).
+  \item Firmware read from a device you physically own (vendor
+        updater, JTAG/SPI flash dump).
+  \item An ICS artefact you are entitled to via a partner programme
+        (Siemens Industry Online Support, Rockwell PCDC).
 \end{itemize}
-Record the URL, the published hash, your local hash, and the date.
+Pin provenance immediately -- a finding with no chain of custody is
+worthless in a disclosure.
+
+\begin{lstlisting}[language=bash]
+ls -l firmware.bin
+sha256sum firmware.bin | tee firmware.sha256
+# Record in notes.md: source URL, vendor-published hash, your hash,
+# download date/time (UTC), and how you are entitled to the image.
+\end{lstlisting}
+
+\textbf{Expected output} -- a stable 64-hex-char digest that matches
+the vendor-published value (if one exists):
+
+\begin{lstlisting}
+3f9a...c21e  firmware.bin
+\end{lstlisting}
+
+\textbf{What to look for:} if the vendor publishes a hash, it must
+match. A mismatch means a truncated download or a tampered mirror --
+re-fetch from the canonical source before spending any analysis time.
 \end{stepbox}
 
-\begin{stepbox}{2 -- Triage}
+\begin{stepbox}{2 -- Triage: type, architecture, entropy, layout}
+Before extraction, fingerprint the container. \texttt{file} catches
+the obvious wrappers; \texttt{binwalk -A} scans for opcode signatures
+to guess the ISA; \texttt{binwalk -E} plots Shannon entropy to reveal
+compressed vs.\ encrypted vs.\ plaintext regions.
+
 \begin{lstlisting}[language=bash]
 file firmware.bin
-binwalk -A firmware.bin       # architecture hints
-binwalk -E firmware.bin       # entropy plot
-binwalk -e firmware.bin       # extract everything
+binwalk firmware.bin            # signature scan: headers, FS, offsets
+binwalk -A firmware.bin         # architecture / opcode fingerprint
+binwalk -E firmware.bin         # entropy plot -> firmware.bin.png
 \end{lstlisting}
-Note bootloader / kernel / filesystem offsets.
+
+\textbf{Expected output} -- a signature scan resembling:
+
+\begin{lstlisting}
+DECIMAL    HEXADECIMAL   DESCRIPTION
+0          0x0           uImage header, ... CPU: ARM, ... OS: Linux
+64         0x40          LZMA compressed data
+1310720    0x140000      Squashfs filesystem, little endian, version 4.0,
+                         compression: xz, size: 6291456 bytes
+\end{lstlisting}
+
+\textbf{What to look for:}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item The \texttt{uImage}/\texttt{vmlinux} header names the CPU and
+        OS -- that is your Ghidra language ID later (e.g.\ ARM LE,
+        MIPS BE).
+  \item Entropy near \texttt{1.0} that is \emph{not} flagged as a known
+        compression format is a red flag for encryption or a packed
+        blob -- note its offset and length.
+  \item A recognised filesystem (SquashFS, JFFS2, UBIFS, CramFS, ext)
+        with a clean offset is your extraction target in Step 3.
+  \item No filesystem signature at all usually means a monolithic
+        RTOS image (VxWorks, FreeRTOS, bare-metal). Record this -- it
+        changes the whole workflow (skip Step 3, load the raw blob
+        straight into Ghidra at its load address).
+\end{itemize}
 \end{stepbox}
 
-\begin{stepbox}{3 -- Filesystem mount}
+\begin{stepbox}{3 -- Extract and mount the root filesystem}
+Carve everything, then handle the filesystem explicitly. Auto-extract
+is convenient but the filesystem-specific tools give cleaner trees and
+better error messages.
+
 \begin{lstlisting}[language=bash]
+binwalk -e firmware.bin        # carve all recognised objects
 cd _firmware.bin.extracted
-unsquashfs *.squashfs       # or use the existing extraction
-cat squashfs-root/etc/passwd
-ls squashfs-root/usr/sbin
+ls -la                         # note the *.squashfs / *.jffs2 carve
+
+# SquashFS (most common):
+unsquashfs -d rootfs *.squashfs
+# JFFS2:    jefferson  <offset>.jffs2 -d rootfs
+# UBIFS:    ubireader_extract_files <offset>.ubi
+
+ls rootfs                      # sanity: bin etc lib sbin usr var www ...
+cat rootfs/etc/passwd
+cat rootfs/etc/shadow 2>/dev/null
+find rootfs -name '*.conf' | head
 \end{lstlisting}
+
+\textbf{Expected output} -- a recognisable Linux root tree and a
+\texttt{passwd} file:
+
+\begin{lstlisting}
+$ ls rootfs
+bin  dev  etc  lib  mnt  proc  sbin  sys  tmp  usr  var  www
+$ cat rootfs/etc/passwd
+root:$1$abcd$Xy...:0:0:root:/root:/bin/sh
+admin:x:1000:1000:admin:/home/admin:/bin/sh
+\end{lstlisting}
+
+\textbf{What to look for:} a \texttt{root} entry with a populated
+password hash field (not \texttt{x}, not \texttt{*}) means the hash is
+embedded in the image and crackable offline -- that is finding number
+one for many devices. Note startup scripts in \texttt{etc/init.d} and
+\texttt{etc/rc*}; they reveal which network services launch at boot.
 \end{stepbox}
 
-\begin{stepbox}{4 -- Strings hunt}
+\begin{stepbox}{4 -- Surface secrets: strings and credential hunt}
+Exhaust the cheap signals before touching a disassembler. Grep the
+config and binary directories, then \texttt{strings} the most
+interesting daemons.
+
 \begin{lstlisting}[language=bash]
-grep -rIE 'password|secret|token|admin' squashfs-root/etc squashfs-root/usr/sbin
-strings -n 8 squashfs-root/usr/sbin/lighttpd | grep -iE 'pass|key'
+# Config-side secrets:
+grep -rinE 'password|passwd|secret|token|api[_-]?key|priv' \
+  rootfs/etc rootfs/www 2>/dev/null | head -40
+
+# Embedded keys / certs:
+find rootfs -name '*.pem' -o -name '*.key' -o -name 'authorized_keys'
+
+# Binary-side secrets in the web/admin daemon:
+strings -n 8 rootfs/usr/sbin/httpd | grep -iE 'pass|key|auth|admin|backdoor'
+
+# Crack any embedded hash offline (your own image only):
+# john --wordlist=rockyou.txt rootfs/etc/passwd
 \end{lstlisting}
+
+\textbf{Expected output} -- a config-side hit and a suspicious binary
+string:
+
+\begin{lstlisting}
+rootfs/etc/config/system: option password 'admin'
+rootfs/www/cgi-bin/login.cgi: SUPER_PASS=Zte521
+strings httpd: /cgi-bin/;telnetd -l/bin/sh -p 9999
+\end{lstlisting}
+
+\textbf{What to look for:}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item Default or hard-coded credentials in plaintext config
+        (CWE-798).
+  \item A private key shipped in the image -- the same key across every
+        device of a model means anyone can impersonate the device or
+        the update server (CWE-321).
+  \item Strings that launch a shell or \texttt{telnetd} on a fixed
+        port from a web handler -- a classic vendor backdoor.
+  \item Magic strings like a fixed comparison value used as a master
+        password are worth following into Ghidra in Step 5.
+\end{itemize}
 \end{stepbox}
 
-\begin{stepbox}{5 -- One Ghidra dive}
-Open the most interesting binary in Ghidra. Auto-analyse. Find one symbol that looks like authentication or update verification. Read the decompiled C and document one weakness.
+\begin{stepbox}{5 -- Ghidra: confirm an auth or update-verification weakness}
+Pick the binary your Step 4 strings implicated -- usually the web
+admin (\texttt{httpd}/\texttt{lighttpd}/a CGI), the update handler, or
+the auth library. Import it into Ghidra with the correct language ID
+(from Step 2), run auto-analysis, and read the decompiler.
+
+\begin{lstlisting}[language=bash]
+# Headless triage (optional) -- batch import + auto-analyse:
+~/tools/ghidra_*/support/analyzeHeadless \
+  ~/fwlab/proj fwproj -import rootfs/usr/sbin/httpd \
+  -processor ARM:LE:32:v8 -postScript GetFunctionXrefs.java
+\end{lstlisting}
+
+In the GUI, drive the decompiler at the weakness:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Symbol Tree / Defined Strings} -- jump to the string
+        you found (e.g.\ the master-password constant), then
+        \emph{References to} it.
+  \item \textbf{Auth check:} look for \texttt{strcmp}/\texttt{memcmp}
+        of a user-supplied buffer against a fixed string, or a
+        comparison that is bypassed when an attacker-controlled length
+        is zero.
+  \item \textbf{Update verification:} find the OTA/upgrade routine and
+        check whether it verifies a signature at all, or only a CRC /
+        MD5 (CWE-345, CWE-347). A downgrade with no version floor is
+        equally reportable.
+\end{itemize}
+
+\textbf{Expected decompiler shape} -- a constant-time-less compare
+against an embedded secret:
+
+\begin{lstlisting}[language=C]
+int check_login(char *user, char *pass) {
+  if (strcmp(user, "admin") == 0)
+    if (strcmp(pass, "Zte521") == 0)   /* hard-coded master password */
+      return 1;                        /* CWE-798 */
+  return verify_user(user, pass);
+}
+\end{lstlisting}
+
+\textbf{What to look for:} a decompiled path that returns
+``authenticated'' for an embedded constant regardless of the
+provisioned password, or an update path with \texttt{system()} fed an
+attacker-controlled filename, or a signature check that is never
+called. Screenshot the decompiler view and note the function address
+-- that is your reproduction evidence.
 \end{stepbox}
+
+\begin{stepbox}{6 -- Emulate a user-space binary with qemu-user}
+Confirm the behaviour dynamically without the physical device. With
+\texttt{qemu-user-static} + \texttt{binfmt} registered (from setup),
+a foreign-ISA binary runs transparently inside a chroot of the root
+filesystem.
+
+\begin{lstlisting}[language=bash]
+sudo cp $(which qemu-arm-static) rootfs/usr/bin/   # match your ISA
+sudo chroot rootfs /usr/bin/qemu-arm-static /bin/busybox | head
+# Run the implicated daemon in the foreground:
+sudo chroot rootfs /usr/bin/qemu-arm-static /usr/sbin/httpd -f -p 8080 &
+# From the host, exercise the suspected auth bypass:
+curl -s -u admin:Zte521 http://127.0.0.1:8080/cgi-bin/admin.cgi | head
+\end{lstlisting}
+
+\textbf{Expected output} -- the daemon serves, and the hard-coded
+credential is accepted where the provisioned one would be rejected:
+
+\begin{lstlisting}
+$ curl -su admin:Zte521 http://127.0.0.1:8080/cgi-bin/admin.cgi
+<html><title>Device Admin</title> ... Status: authenticated ...
+\end{lstlisting}
+
+\textbf{What to look for:} a \texttt{200} with admin content for the
+embedded credential confirms the static finding dynamically. Many ICS
+daemons \texttt{ioctl} real hardware and will abort under
+\texttt{qemu-user} -- if so, you have still proven the auth path up to
+the hardware call, which is enough for the report. Note that
+\texttt{qemu-user} emulates the CPU only: missing \texttt{/dev} nodes,
+NVRAM reads, and watchdog pokes are the usual reasons a daemon exits
+early.
+\end{stepbox}
+
+\begin{stepbox}{7 -- (Stretch) Diff two firmware versions for a silent fix}
+Vendors frequently patch without an advisory. Diffing an old and a new
+image of the same model surfaces the silently-fixed bug -- which is
+itself a reportable n-day for everyone still on the old version.
+
+\begin{lstlisting}[language=bash]
+# Extract both versions side by side (rootfs.old, rootfs.new), then:
+diff -rq rootfs.old rootfs.new            # which files changed?
+diff -u rootfs.old/etc/passwd rootfs.new/etc/passwd
+# Binary diff the changed daemon (BinDiff / Diaphora over Ghidra, or:)
+radiff2 -A -C rootfs.old/usr/sbin/httpd rootfs.new/usr/sbin/httpd | head
+\end{lstlisting}
+
+\textbf{Expected output} -- a small, targeted change set pointing at a
+security fix:
+
+\begin{lstlisting}
+Files rootfs.old/usr/sbin/httpd and rootfs.new/usr/sbin/httpd differ
+- if (strcmp(pass, "Zte521") == 0) return 1;   /* removed in new */
+\end{lstlisting}
+
+\textbf{What to look for:} a changed file count in the single digits
+clustered around one daemon, an added bounds check, or a removed
+hard-coded branch. That delta is the silent fix; the older version is
+your n-day finding.
+\end{stepbox}
+
+\subsection*{Troubleshooting}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{\texttt{binwalk -e} produces an empty or partial
+        extraction.} The carve hit a nested or non-default
+        compression. Re-run with \texttt{binwalk -eM} (recursive
+        Matryoshka), or carve the filesystem manually:
+        \texttt{dd if=firmware.bin bs=1 skip=<offset> of=fs.squashfs}
+        then \texttt{unsquashfs}. Missing extractors (lzma, sasquatch)
+        are the other usual cause -- install \texttt{squashfs-tools}
+        and the \texttt{sasquatch} fork for vendor-modified SquashFS.
+  \item \textbf{Unknown / unsupported filesystem.} Re-check the
+        \texttt{file}/\texttt{binwalk} magic. UBIFS needs
+        \texttt{ubi\_reader}; vendor-custom containers may need a
+        manual header parse. If entropy is flat-high with no FS magic,
+        the partition is likely encrypted -- pivot to finding the
+        decryption routine in the bootloader rather than fighting the
+        blob.
+  \item \textbf{Ghidra auto-analysis hangs or eats all RAM.} Disable
+        the \texttt{Decompiler Parameter ID} and aggressive constant
+        analysers for large stripped binaries; raise the JVM heap in
+        \texttt{support/launch.properties}
+        (\texttt{MAXMEM=4G}); or import only the implicated function
+        range rather than the whole image.
+  \item \textbf{Wrong architecture / garbage disassembly.} Re-derive
+        the language ID from the \texttt{uImage} header or
+        \texttt{binwalk -A}; endianness (MIPS BE vs LE) is the most
+        common mistake. Set the correct load/base address for raw
+        blobs or every cross-reference is wrong.
+  \item \textbf{\texttt{qemu-user} binary exits immediately.} Usually a
+        missing shared library (\texttt{QEMU\_LD\_PREFIX=rootfs}) or a
+        hardware \texttt{ioctl}/\texttt{/dev} read. Run under
+        \texttt{strace} via \texttt{qemu-arm-static -strace} to see the
+        last syscall before exit.
+\end{itemize}
+
+\subsection*{Stretch goal}
+Beyond the version diff, take the most interesting daemon under
+\texttt{qemu-user} and fuzz one input surface (e.g.\ a CGI parameter or
+a protocol field) with \texttt{AFL++} in QEMU mode, or feed malformed
+requests with a short Python harness. Triage any crash to a function
+address in Ghidra and classify it (CWE-787 out-of-bounds write,
+CWE-121 stack overflow). Document it the same way as the auth finding.
 
 \begin{deliverbox}
-A 1-page write-up containing: source + hash, architecture, filesystem layout, one finding with reproduction steps, CWE classification, and the disclosure email you would send.
+A single PDF (max 2 pages) containing:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Provenance:} source, vendor hash vs.\ your hash,
+        download date, entitlement basis.
+  \item \textbf{Triage:} architecture, endianness, filesystem type and
+        offset, the boot/kernel/FS layout from Step 2.
+  \item \textbf{Finding:} one concrete weakness with a \textbf{CWE
+        identifier}, the file/function and address, the decompiler
+        screenshot, and step-by-step reproduction (static, plus the
+        \texttt{qemu-user} confirmation if user-space).
+  \item \textbf{Disclosure email:} a draft to the vendor PSIRT --
+        affected model/version, hash, technical summary, suggested
+        remediation, proposed 90/180-day timeline, and a statement
+        that no third-party device was touched and the PoC is private.
+  \item Stretch (bonus): the version-diff delta or a triaged crash.
+\end{itemize}
 \end{deliverbox}
 
+\subsection*{Further reading}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item OWASP, \emph{Firmware Security Testing Methodology (FSTM)},
+        \url{https://github.com/scriptingxss/owasp-fstm} -- the nine
+        stages map almost one-to-one onto this lab's steps.
+  \item A.\ Costin, J.\ Zaddach, A.\ Francillon, D.\ Balzarotti,
+        \emph{A Large-Scale Analysis of the Security of Embedded
+        Firmwares}, USENIX Security 2014 -- the canonical study of
+        hard-coded secrets and shared keys at scale.
+  \item ReFirmLabs, \emph{binwalk documentation},
+        \url{https://github.com/ReFirmLabs/binwalk} -- signature scan,
+        entropy, and extraction flags.
+  \item National Security Agency, \emph{Ghidra documentation},
+        \url{https://ghidra-sre.org} -- loader language IDs, headless
+        analysis, the decompiler.
+  \item J.\ Zaddach et al., \emph{Avatar: A Framework to Support
+        Dynamic Security Analysis of Embedded Systems' Firmwares},
+        NDSS 2014 -- where pure emulation stops and
+        hardware-in-the-loop begins.
+\end{itemize}
+
 \begin{warnbox}
-Do not test findings against any device you do not own. Do not publish exploit code before vendor disclosure. Keep proof-of-concept code in a private repository.
+Authorised use only. Analyse only firmware you may lawfully possess,
+on hardware you own. Do \textbf{not} run any finding -- credential,
+backdoor, or exploit -- against a device you do not own or are not
+written-authorised to test; doing so is a criminal offence in most
+jurisdictions (in Germany StGB \S 202a, 202c, 303b) and can trigger a
+physical safety event. Keep every proof-of-concept in a private
+repository and publish nothing until the vendor PSIRT and the relevant
+national CERT have completed coordinated disclosure.
 \end{warnbox}
 \end{document}

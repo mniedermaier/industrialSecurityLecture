@@ -2,9 +2,9 @@
 
 \def\courseTitle{Industrial Security (Master)}
 \def\labNumber{03}
-\def\labTitle{GOOSE Spoof in a Lab Substation}
+\def\labTitle{Advanced Industrial Protocols on the Wire}
 \def\labSection{03}
-\def\labTime{3 hours}
+\def\labTime{3--4 hours}
 
 \input{../../../template/lab-preamble.tex}
 
@@ -12,38 +12,419 @@
 \labheader
 
 \begin{goalbox}
-Set up a minimal IEC 61850 lab on a single host, exchange GOOSE frames between two virtual IEDs, then spoof a higher-\texttt{stNum} frame and observe the subscriber's reaction. Conclude with the IEC 62351 mitigation.
+Dissect four advanced ICS application protocols at the byte level and
+demonstrate their anti-replay (or lack thereof) by hand. You will:
+locate the S7commPlus integrity/anti-replay field in a captured session;
+decode an IEC~61850 GOOSE stream and reproduce the \texttt{stNum}/\texttt{sqNum}
+spoofing logic on a lab capture; craft and replay a frame with Scapy on an
+isolated lab segment; walk an MMS report-control structure; and (stretch)
+write a Scapy dissector stub for one chosen field. All work is on lab
+captures and lab-owned segments only.
 \end{goalbox}
 
-\begin{stepbox}{1 -- Build the lab}
+\section*{0 -- What you are proving}
+
+This lab is the hands-on counterpart to Section~03. Each protocol bolted
+security on at a different layer, or not at all. Keep the section's claims
+in front of you and turn each into an observation:
+
+\begin{itemize}[leftmargin=*, nosep]
+  \item \textbf{S7commPlus} -- session keying is a reproducible KDF, not
+        real crypto; the per-packet integrity field is a known, parseable
+        construct, not an opaque MAC.
+  \item \textbf{GOOSE} -- no authentication by default; a higher
+        \texttt{stNum} is accepted instantly; \texttt{sqNum} only counts
+        repeats within a state.
+  \item \textbf{MMS} -- named-variable read/write and report control with
+        no auth in the default mode; the report structure is the operator's
+        view of the IED.
+  \item \textbf{DLMS/COSEM} -- authentication is a negotiated level
+        (0..3); the AARQ exposes which level the meter actually demanded.
+\end{itemize}
+
+You are not breaking crypto. You are showing that the bytes that gate
+behaviour are visible and forgeable wherever the protocol left them
+unprotected.
+
+\section*{1 -- Tooling and sample data}
+
+\begin{stepbox}{1.1 -- Host tools}
+Work on a Linux VM (Debian / Ubuntu / Kali) you own. Install the dissector
+and crafting toolchain:
 \begin{lstlisting}[language=bash]
-git clone https://github.com/mz-automation/libiec61850.git
-cd libiec61850 && mkdir build && cd build
-cmake .. && make -j
-# Run the goose example publisher / subscriber on different interfaces
-sudo ./examples/goose_publisher/goose_publisher_example eth0 &
-sudo ./examples/goose_subscriber/goose_subscriber_example eth0 &
+sudo apt update
+sudo apt install -y wireshark tshark python3 python3-pip tcpdump
+# ICS dissectors ship with modern Wireshark: s7comm, s7comm-plus,
+# goose, mms, dlms. Confirm they are present:
+tshark -G protocols | grep -Ei 's7comm|goose|mms|dlms'
 \end{lstlisting}
-Capture with \texttt{tcpdump} or Zeek; confirm baseline GOOSE multicast.
+\emph{Expected:} at least \texttt{s7comm}, \texttt{s7comm-plus},
+\texttt{goose} and \texttt{mms} rows print. \texttt{dlms} appears on
+Wireshark $\ge$ 3.6; if absent, the DLMS step is read-only from the hex.
 \end{stepbox}
 
-\begin{stepbox}{2 -- Capture and analyse}
-Open the PCAP in Wireshark with the IEC 61850 dissector enabled. Identify the GOOSE \texttt{appID}, \texttt{stNum}, \texttt{sqNum} fields. Note the highest \texttt{stNum} seen.
+\begin{stepbox}{1.2 -- Python crafting and parsing libraries}
+\begin{lstlisting}[language=bash]
+pip3 install --user --break-system-packages scapy pyshark python-snap7
+# asyncua (OPC UA client) and pymodbus are already in the lab stack;
+# install here too if you run captures outside the container:
+pip3 install --user --break-system-packages asyncua "pymodbus[serial]"
+\end{lstlisting}
+\emph{Expected:} Scapy imports the contrib GOOSE layer:
+\begin{lstlisting}[language=bash]
+python3 -c 'from scapy.contrib.scada.goose import GOOSE, IEC_GOOSE; print("ok")'
+\end{lstlisting}
+prints \texttt{ok}. If the import path differs by Scapy version, use
+\texttt{from scapy.all import load\_contrib; load\_contrib("scada.goose")}.
 \end{stepbox}
 
-\begin{stepbox}{3 -- Craft the spoof}
-Modify the publisher (or write a Scapy script) to emit a frame with \texttt{stNum} = max+1, signalling the opposite of the current binary state. Inject onto the same L2 segment.
+\begin{stepbox}{1.3 -- Sample PCAPs}
+Two sources, both authorised for study:
+\begin{itemize}[leftmargin=*, nosep]
+  \item \textbf{Public reference captures} -- the Wireshark sample-captures
+        wiki and the ICS PCAP collections curated by the
+        \texttt{automayt/ICS-pcap} and \texttt{ITI/ICS-Security-Tools}
+        repositories carry S7commPlus, GOOSE, MMS and DLMS examples. Cite
+        the exact file you used in your write-up.
+  \item \textbf{Your own lab stack} -- the Bachelor Docker stack
+        (\texttt{bachelor/labs/\_stack}: OpenPLC Modbus + open62541 OPC~UA)
+        gives you a live, owned segment to capture and replay on. Use it
+        for the Scapy replay step where a public PCAP cannot be replayed
+        against a live subscriber.
+\end{itemize}
+Drop the downloaded PCAPs into a working directory, e.g.
+\texttt{\textasciitilde/lab03/pcaps/}, and record source URL + SHA-256 of
+each file before you touch it.
+\begin{lstlisting}[language=bash]
+mkdir -p ~/lab03/pcaps && cd ~/lab03/pcaps
+sha256sum *.pcap *.pcapng 2>/dev/null | tee SHA256SUMS.txt
+\end{lstlisting}
 \end{stepbox}
 
-\begin{stepbox}{4 -- Observe and mitigate}
-Watch the subscriber log: it should immediately accept the higher state. Now enable IEC 62351-6 signed GOOSE in the publisher (libiec61850 supports it via configuration). Re-inject; verify the subscriber rejects the unsigned spoof.
+\begin{notebox}
+Filenames in public collections drift over time. Throughout this sheet,
+\texttt{s7p.pcapng}, \texttt{goose.pcapng}, \texttt{mms.pcapng} and
+\texttt{dlms.pcapng} are placeholders -- substitute the actual file you
+sourced and keep the mapping in your notes.
+\end{notebox}
+
+\section*{2 -- S7commPlus: find the integrity field}
+
+\begin{stepbox}{2.1 -- Confirm the stack and the dissector}
+S7commPlus rides TPKT/COTP over TCP/102, same as classic S7comm. Filter
+for the protocol and confirm Wireshark decoded it:
+\begin{lstlisting}[language=bash]
+tshark -r ~/lab03/pcaps/s7p.pcapng -Y s7comm-plus -T fields \
+  -e frame.number -e s7comm-plus.header.protocolid \
+  -e s7comm-plus.header.type -e s7comm-plus.data.opcode | head -20
+\end{lstlisting}
+\emph{Expected:} a column of frames with \texttt{protocolid = 0x72} (114),
+header \texttt{type} values such as \texttt{0x01} (Request),
+\texttt{0x02} (Response), \texttt{0x07} (Notification). The \texttt{0x72}
+magic is the S7commPlus discriminator at offset~0 of the S7P payload
+(i.e.\ first byte after the 4-byte TPKT + 3-byte COTP DT header).
+\end{stepbox}
+
+\begin{stepbox}{2.2 -- Locate the per-packet integrity / anti-replay field}
+S7commPlus appends a trailing \emph{integrity part} to data frames. From
+firmware that uses the protected variant (S7-1200/1500 v2+), each data
+PDU carries an \texttt{integrity} block holding a sequence-style digest
+that ties the frame to the session and to the running message counter --
+this is the anti-replay/integrity construct. In Wireshark expand the
+S7commPlus tree and look for the \emph{trailer} below the data:
+\begin{lstlisting}[language=bash]
+tshark -r ~/lab03/pcaps/s7p.pcapng -Y s7comm-plus -O s7comm-plus \
+  | grep -A4 -iE 'integrity|digest|seqnum|protocol version'
+\end{lstlisting}
+\emph{What to look for:}
+\begin{itemize}[leftmargin=*, nosep]
+  \item A field named \texttt{Integrity} (or
+        \texttt{s7comm-plus.integrity.digestlen} /
+        \texttt{...digest}) -- the digest length is typically
+        \textbf{32~bytes} (the protected variant) and sits at the very end
+        of the S7P payload, after the data and the closing object.
+  \item The S7P \emph{protocol version} byte right after the \texttt{0x72}
+        magic: \texttt{0x01} / \texttt{0x02} are the early reproducible-KDF
+        variants; \texttt{0x03} is the integrity-protected version.
+  \item A monotonically increasing per-session counter (the
+        \texttt{seqnum}/integrity-id) that increments by one each data PDU
+        -- that monotonicity is exactly the anti-replay property.
+\end{itemize}
+Record the byte offset of the integrity block (count from the first S7P
+byte) and its length for your deliverable.
+\end{stepbox}
+
+\begin{stepbox}{2.3 -- Argue why this is integrity, not confidentiality}
+Diff two consecutive request PDUs of the same type. The command and
+object bytes repeat; the integrity digest and the counter change every
+frame. That pattern -- stable payload, changing trailer keyed to a
+session counter -- is a keyed integrity tag with replay binding, not
+payload encryption. Note in your write-up: an attacker who cannot
+recompute the digest cannot replay a captured PDU into a live session,
+\emph{but} the underlying KDF being reproducible (Section~03) is what makes
+the digest re-derivable for the v1/v2 variants.
+\end{stepbox}
+
+\section*{3 -- GOOSE: stNum / sqNum spoofing on a capture}
+
+\begin{stepbox}{3.1 -- Decode the GOOSE PDU}
+GOOSE is a raw L2 multicast frame, EtherType \texttt{0x88B8}, no IP/TCP.
+The ASN.1 \texttt{goosePdu} carries the security-relevant counters:
+\begin{lstlisting}[language=bash]
+tshark -r ~/lab03/pcaps/goose.pcapng -Y goose -T fields \
+  -e frame.number -e goose.appid \
+  -e goose.stNum -e goose.sqNum -e goose.timeAllowedtoLive \
+  -e goose.goID | head -30
+\end{lstlisting}
+\emph{Expected:} a stream sharing one \texttt{appID} and \texttt{goID},
+with \texttt{sqNum} incrementing \texttt{0,1,2,3,...} while \texttt{stNum}
+holds steady, then \texttt{stNum} jumps by one and \texttt{sqNum} resets to
+\texttt{0} exactly when a data value changes.
+\end{stepbox}
+
+\begin{stepbox}{3.2 -- Read the state machine off the numbers}
+Note the highest \texttt{stNum} in the capture and the data value at that
+state. The subscriber's acceptance rule is simply: \emph{a frame with a
+higher \texttt{stNum} is a new event, accept immediately; a frame with the
+same \texttt{stNum} and higher \texttt{sqNum} is a retransmit of the same
+event}. There is no nonce, no signature in the default profile -- only
+these two counters guard against replay, and only \emph{within} a state.
+\end{stepbox}
+
+\begin{stepbox}{3.3 -- Demonstrate the spoof logic on the capture}
+You will show, on the captured stream, the exact bytes a spoofer would
+change -- no live injection yet. Pull the goosePdu of the last frame and
+identify the \texttt{stNum} and the boolean data member:
+\begin{lstlisting}[language=bash]
+tshark -r ~/lab03/pcaps/goose.pcapng -Y goose -O goose | \
+  grep -iE 'stNum|sqNum|allData|boolean|BitString' | head
+\end{lstlisting}
+A valid spoof is: \texttt{stNum := max\_stNum + 1},
+\texttt{sqNum := 0}, and flip the boolean data member to the opposite
+state. In your notes, write down (a) the current max \texttt{stNum},
+(b) the value you would set, (c) the offset of the boolean inside
+\texttt{allData}. This is the whole attack expressed as three field edits.
+\end{stepbox}
+
+\section*{4 -- Craft and replay a frame with Scapy (isolated segment)}
+
+\begin{warnbox}
+Steps 4.x emit frames onto a live segment. Do this \emph{only} on an
+isolated lab VLAN / Docker bridge with equipment you own. A GOOSE frame
+on a real substation LAN can trip a protection relay. The Modbus variant
+below targets the Bachelor stack's OpenPLC and is the safe default.
+\end{warnbox}
+
+\begin{stepbox}{4.1 -- Build the GOOSE spoof frame in Scapy}
+Construct a higher-\texttt{stNum} frame from the template you decoded.
+Adjust \texttt{appid}, \texttt{gocbRef}, \texttt{datSet}, \texttt{goID} to
+match your capture; set \texttt{stNum} to \texttt{max+1}:
+\begin{lstlisting}[language=Python]
+from scapy.all import Ether, sendp, load_contrib
+load_contrib("scada.goose")
+from scapy.contrib.scada.goose import GOOSE, IEC_GOOSE, GOOSEPDU
+
+frame = ( Ether(dst="01:0c:cd:01:00:01", type=0x88b8)
+        / GOOSE(appid=0x0001, length=None)
+        / IEC_GOOSE(... ) )   # fill gocbRef/datSet/goID from your capture
+# set the counters that define the attack:
+#   stNum = captured_max_stNum + 1 ; sqNum = 0 ; flip the boolean member
+frame.show2()                 # confirm the bytes before sending
+\end{lstlisting}
+\emph{Expected:} \texttt{show2()} prints a GOOSE layer whose \texttt{stNum}
+is one above what you saw in Step~3.2 and whose data boolean is inverted.
+If your Scapy build lacks the GOOSE contrib, fall back to a raw
+\texttt{Ether()/Raw(load=bytes.fromhex(...))} built from the captured
+frame with the two counter bytes and the boolean edited by hand.
+\end{stepbox}
+
+\begin{stepbox}{4.2 -- Replay on the isolated segment}
+Send onto the lab interface (a veth/bridge with no uplink). Either replay
+the original stream with \texttt{tcpreplay} or emit your crafted frame:
+\begin{lstlisting}[language=bash]
+# replay the captured benign stream first, to confirm L2 reaches a subscriber
+sudo tcpreplay -i lab0 ~/lab03/pcaps/goose.pcapng
+# then send the single crafted spoof from Scapy:
+sudo python3 spoof_goose.py        # calls sendp(frame, iface="lab0")
+\end{lstlisting}
+\emph{Expected:} a libiec61850 \texttt{goose\_subscriber\_example} bound to
+\texttt{lab0} logs the new state immediately on the higher \texttt{stNum}.
+That instant acceptance is the vulnerability.
+\end{stepbox}
+
+\begin{stepbox}{4.3 -- Safe Modbus alternative on the Bachelor stack}
+If you do not have a GOOSE subscriber to target, demonstrate the identical
+``craft + replay'' workflow against the owned OpenPLC. Bring the stack up
+(\texttt{cd bachelor/labs/\_stack \&\& docker compose up -d}), capture a
+Write Single Coil, then rebuild and replay it with Scapy:
+\begin{lstlisting}[language=Python]
+from scapy.all import IP, TCP, Raw, send
+# 7-byte MBAP + PDU for Write Single Coil 0 -> ON (function 0x05):
+pdu = bytes.fromhex("0001 0000 0006 01 05 0000 ff00".replace(" ",""))
+pkt = IP(dst="172.28.0.10")/TCP(dport=502, flags="PA", seq=1000)/Raw(pdu)
+send(pkt)   # note: a forged TCP segment needs a real handshake; prefer
+            # a full pymodbus client for stateful replay, Scapy for the frame
+\end{lstlisting}
+\emph{Expected:} you can hand-build the exact 12 bytes; for a stateful
+replay that the PLC accepts, drive it through \texttt{pymodbus} (the frame
+content is identical, the TCP state is handled for you). The point stands:
+nothing in the frame authenticates the sender.
+\end{stepbox}
+
+\section*{5 -- MMS: report-control structures}
+
+\begin{stepbox}{5.1 -- Find the MMS conversation}
+MMS rides ISO-on-TCP (RFC~1006) on TCP/102, ACSE for association then MMS
+PDUs. Decode the association and the service PDUs:
+\begin{lstlisting}[language=bash]
+tshark -r ~/lab03/pcaps/mms.pcapng -Y mms -T fields \
+  -e frame.number -e mms.confirmedServiceRequest \
+  -e mms.confirmedServiceResponse -e mms.unconfirmed | head -30
+\end{lstlisting}
+\emph{Expected:} an \texttt{Initiate} (association) early, then
+\texttt{getNameList} / \texttt{read} / \texttt{write} confirmed services,
+and -- the focus here -- \texttt{informationReport} unconfirmed PDUs
+carrying buffered/unbuffered report data.
+\end{stepbox}
+
+\begin{stepbox}{5.2 -- Walk the report-control block}
+IEC~61850 maps report control blocks (RCB) onto MMS named variables. In a
+report you should be able to read the operator's live view of the IED.
+Expand one \texttt{informationReport}:
+\begin{lstlisting}[language=bash]
+tshark -r ~/lab03/pcaps/mms.pcapng -Y mms -O mms | \
+  grep -iE 'informationReport|VariableList|RptID|SqNum|ConfRev|access' | head
+\end{lstlisting}
+\emph{What to look for:} the report identifier (\texttt{RptID}), an
+optional sequence number, the configuration revision (\texttt{ConfRev}),
+and the list of \texttt{AccessResult} values -- the actual measurements /
+status the IED is pushing. Note that, in the default profile, none of this
+is authenticated: a replayed \texttt{informationReport} would feed the HMI
+stale or forged values. IEC~62351-4 wraps this in TLS to fix it.
+\end{stepbox}
+
+\section*{6 -- Stretch: write a Scapy dissector stub}
+
+\begin{stepbox}{6.1 -- Pick one field and parse it cold}
+Choose one field you located above -- the S7commPlus integrity length, the
+GOOSE \texttt{stNum}, or the MMS \texttt{RptID} -- and write a minimal
+Scapy layer that exposes just that field, then bind it to the right lower
+layer. Skeleton:
+\begin{lstlisting}[language=Python]
+from scapy.all import Packet, XByteField, ShortField, FieldLenField, \
+    StrLenField, bind_layers, Ether
+
+class MiniGOOSE(Packet):
+    name = "MiniGOOSE"
+    fields_desc = [
+        ShortField("appid", 0),
+        FieldLenField("length", None, length_of="pdu", fmt="H"),
+        ShortField("reserved1", 0),
+        ShortField("reserved2", 0),
+        StrLenField("pdu", b"", length_from=lambda p: p.length - 8),
+    ]
+
+bind_layers(Ether, MiniGOOSE, type=0x88b8)
+\end{lstlisting}
+Load a real frame and confirm your field reads back the value tshark
+reported. Document the byte offsets your layer assumes and one limitation
+(e.g.\ you parse the header but treat the ASN.1 \texttt{goosePdu} as an
+opaque blob).
+\end{stepbox}
+
+\section*{7 -- Troubleshooting}
+
+\begin{stepbox}{7.1 -- Common failures}
+\begin{itemize}[leftmargin=*, nosep]
+  \item \textbf{No \texttt{s7comm-plus} / \texttt{goose} rows.} The
+        capture may be on a non-standard port or VLAN-tagged. For S7P add
+        \texttt{-d tcp.port==102,cotp}; for GOOSE strip the 802.1Q tag or
+        filter \texttt{-Y "vlan \&\& goose"}.
+  \item \textbf{GOOSE frames missing in capture.} GOOSE is L2 multicast --
+        you must capture on the same broadcast domain and disable any
+        capture-side filtering that drops non-IP. Use
+        \texttt{tcpdump -i lab0 ether proto 0x88b8 -w goose.pcapng}.
+  \item \textbf{Scapy GOOSE contrib import error.} Version skew; use
+        \texttt{load\_contrib("scada.goose")} or build the frame as raw
+        bytes from the captured hex.
+  \item \textbf{\texttt{tcpreplay} sends but subscriber ignores it.} Wrong
+        interface or the destination multicast MAC does not match the
+        subscriber's filter. Confirm \texttt{goose.appid} and the
+        \texttt{01:0c:cd:01:xx:xx} destination MAC match the live config.
+  \item \textbf{Modbus Scapy frame rejected.} A bare \texttt{send()} skips
+        the TCP handshake; the PLC drops it. Use \texttt{pymodbus} for a
+        stateful write and reserve Scapy for inspecting/forging the frame
+        layout.
+\end{itemize}
+\end{stepbox}
+
+\section*{8 -- Stretch goals}
+
+\begin{stepbox}{8.1 -- Go further}
+\begin{itemize}[leftmargin=*, nosep]
+  \item \textbf{DLMS/COSEM auth level.} Decode \texttt{dlms.pcapng}, find
+        the \texttt{AARQ}, and read which authentication level (0 none,
+        1 low/password, 2 high MD5-SHA1, 3 high-GMAC) the meter demanded.
+        State which one a BSI~TR-03109 gateway would mandate.
+  \item \textbf{Sign the GOOSE.} Build libiec61850 with IEC~62351-6 signed
+        GOOSE enabled, re-run Step~4.2, and confirm the subscriber now
+        rejects the unsigned spoof. Capture both cases.
+  \item \textbf{S7commPlus session re-key.} Across two captures of the same
+        client/server, show whether the integrity counter resets per
+        connection and what that implies for cross-session replay.
+\end{itemize}
 \end{stepbox}
 
 \begin{deliverbox}
-PCAPs (baseline, spoof, signed-mitigation), screenshot of the subscriber log in each case, and a 1-page note covering: why \texttt{stNum} bypass works, why L2 isolation is the typical workaround in production substations, and what IEC 62351-6 fixes.
+Hand in:
+\begin{itemize}[leftmargin=*, nosep]
+  \item \texttt{SHA256SUMS.txt} plus the source URL/citation for every
+        public PCAP used.
+  \item S7commPlus: the byte offset and length of the integrity block, the
+        protocol-version byte value, and a two-line argument that it is
+        integrity-with-replay-binding, not encryption (Steps~2.2--2.3).
+  \item GOOSE: a table of \texttt{frame \# / stNum / sqNum / data value}
+        for the captured stream, the max \texttt{stNum}, and the three
+        field edits that constitute a spoof (Step~3.3).
+  \item The Scapy script(s) you used to craft and replay a frame, plus the
+        subscriber log (GOOSE) or PLC read-back (Modbus) showing the
+        result (Steps~4.1--4.3).
+  \item MMS: an annotated \texttt{informationReport} with \texttt{RptID},
+        \texttt{ConfRev} and one \texttt{AccessResult} value, and one line
+        on what IEC~62351-4 changes (Step~5.2).
+  \item (Stretch) Your dissector stub, the value it parses, and one stated
+        limitation (Step~6.1); and/or the DLMS auth-level finding (8.1).
+  \item A half-page note: for each of the four protocols, name the field
+        that gates replay and whether the default profile protects it.
+\end{itemize}
 \end{deliverbox}
 
+\section*{9 -- Further reading}
+
+\begin{notebox}
+\begin{itemize}[leftmargin=*, nosep]
+  \item IEC~61850 (multipart) -- substation communication; GOOSE in
+        part~8-1, MMS mapping in parts~8-1/7-2.
+  \item IEC~62351 (multipart) -- security for TC~57 protocols; part~4
+        (TLS for MMS), part~6 (signed GOOSE/SV).
+  \item ISO~9506 parts~1\&2 -- Manufacturing Message Specification.
+  \item IEC~62056 (DLMS/COSEM Blue/Green/Yellow/White books); BSI~TR-03109
+        for the German smart-meter gateway profile.
+  \item Lei, He et al. -- S7commPlus reverse-engineering papers,
+        2017--2020 (KDF reproduction, integrity field analysis).
+  \item Wireshark dissector docs for \texttt{s7comm-plus}, \texttt{goose},
+        \texttt{mms}, \texttt{dlms}; Scapy \texttt{contrib.scada.goose}.
+  \item ICS PCAP collections: \texttt{automayt/ICS-pcap},
+        \texttt{ITI/ICS-Security-Tools}, Wireshark sample-captures wiki.
+\end{itemize}
+\end{notebox}
+
 \begin{warnbox}
-Only on an isolated VLAN with equipment you own. GOOSE in a real substation drives protection relays -- a spoof can trip a feeder.
+Everything here runs on lab captures and on segments you own. Crafting and
+replaying GOOSE, S7commPlus or MMS frames against equipment you do not own
+is, depending on jurisdiction, a criminal offence and a safety incident.
+GOOSE in particular drives protection relays -- a single spoofed frame can
+trip a feeder. Keep all replay traffic on an isolated VLAN or Docker
+bridge with no uplink.
 \end{warnbox}
 \end{document}

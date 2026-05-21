@@ -2,9 +2,9 @@
 
 \def\courseTitle{Industrial Security (Master)}
 \def\labNumber{08}
-\def\labTitle{Reproducibility Audit + Mini-Replication}
+\def\labTitle{Research Methods -- Proposal and Reproducible Artefact}
 \def\labSection{08}
-\def\labTime{4 hours}
+\def\labTime{4--5 hours}
 
 \input{../../../template/lab-preamble.tex}
 
@@ -12,30 +12,265 @@
 \labheader
 
 \begin{goalbox}
-Pick a recent ICS-security paper. Audit its reproducibility. Replicate one small experiment from it. Write up the result -- including what could not be replicated and why.
+Turn a vague interest in OT security into a defensible piece of research. By the end you will have produced three artefacts: (1) a one-page \emph{extended abstract} in a real venue format, anchored on a sharp research question and a falsifiable hypothesis; (2) a \emph{reproducibility package} -- scripts, pinned environment, data, and a cold-start README -- that re-runs one small experiment on the Bachelor lab stack; and (3) an \emph{ethics + coordinated-disclosure statement} that would survive a programme-committee reviewer and an institutional review board. This is a research-skills seminar lab, not an exploit lab. The deliverable is a proposal you could actually submit, plus the artefact that backs it.
 \end{goalbox}
 
-\begin{stepbox}{1 -- Pick a paper}
-Recent (\(\leq\) 3 years), peer-reviewed, ICS topic, code/data ideally on GitHub or Zenodo. Suggested venues: USENIX Security, IEEE S\&P, NDSS, CCS, ACSAC.
+\begin{warnbox}
+You are working on a lab testbed only. Every command you run targets the Bachelor Docker stack on your own machine -- never a real plant, never a third party's network, never a live PLC you do not own. The research question you formulate may have dual-use value (an OT attack technique is also an OT defence-evasion finding). Treat that the way the lecture's disclosure section demands: scope it to the testbed, write the disclosure plan \emph{before} you generate findings, and do not publish anything that hands a working plant attack to an adversary ahead of a patch.
+\end{warnbox}
+
+\section*{Setup -- before Step 1}
+
+\begin{stepbox}{0 -- Toolchain, testbed, and the ethics gate}
+Stand up the four things every reproducible study needs, in this order:
+\begin{enumerate}\setlength{\itemsep}{2pt}
+  \item \textbf{Reference manager.} Install Zotero (or JabRef / a shared BibTeX file). Create a collection \texttt{ot-sec-lab08}. You will export it as \texttt{references.bib} into the artefact, so every claim in the abstract is a citation key, not a copy-pasted title.
+  \item \textbf{Testbed + lab notebook.} Bring up the Bachelor lab stack and confirm it is healthy. Open a dated, append-only lab notebook (a Markdown file, a Jupyter notebook, or an org-mode file -- anything timestamped and version-controlled).
+\begin{lstlisting}[language=bash]
+cd bachelor/labs/_stack
+docker compose up -d
+sleep 10
+docker compose ps        # all services Up?
+# start your notebook now -- first entry is the `docker compose ps` output
+git rev-parse HEAD       # record the stack commit you are pinning to
+\end{lstlisting}
+  \item \textbf{Repository skeleton.} Create the artefact layout you will fill in across the lab:
+\begin{lstlisting}[language=bash]
+mkdir -p lab08-artefact/{data,scripts,results,figures,docs}
+cd lab08-artefact
+git init -q
+printf "data/raw/\nresults/*.csv\n*.pdf\n" > .gitignore   # keep raw data out of git; ship it separately
+\end{lstlisting}
+  \item \textbf{Ethics gate.} Before any data collection, fill the four-line pre-flight below into \texttt{docs/ethics.md}. If you cannot answer all four \emph{yes/own-testbed}, stop and re-scope.
+\end{enumerate}
+
+\vspace{1mm}
+{\footnotesize
+\begin{tabular}{@{}p{6.6cm}p{9.0cm}@{}}
+\toprule
+\textbf{Pre-flight question} & \textbf{Required answer to proceed} \\
+\midrule
+Whose system do I touch?            & Only my own lab testbed (the Bachelor Docker stack). \\
+Could a finding harm a real plant?  & If yes, I have a disclosure plan \emph{before} I run the experiment. \\
+Is any data personal / sensitive?   & No PII; if any, anonymised and justified in \texttt{ethics.md}. \\
+Is this dual-use?                    & Documented; benefit-to-harm argument written down. \\
+\bottomrule
+\end{tabular}}
 \end{stepbox}
 
-\begin{stepbox}{2 -- Audit the artefact}
-Score (0--5): code availability, data availability, container, README clarity, dependency pinning. Document what is missing.
+\begin{notebox}
+Why a citation manager and a notebook \emph{before} the science? Because reproducibility is a habit, not a final step. A study that was logged as it happened can be written up honestly; a study reconstructed from memory three weeks later cannot. The Bachelor stack is your apparatus -- pin its commit hash now so ``it worked on my machine'' becomes ``it works on commit \texttt{abc1234}''.
+\end{notebox}
+
+\section*{Part A -- Frame the question}
+
+\begin{stepbox}{1 -- Research question + falsifiable hypothesis}
+A good OT-security research question is \emph{specific}, \emph{measurable}, and \emph{tractable on your testbed in one lab session}. ``Is Modbus insecure?'' is none of those. Apply the FINER test (Feasible, Interesting, Novel, Ethical, Relevant) and the PICO-style scoping below.
+
+\begin{enumerate}\setlength{\itemsep}{2pt}
+  \item Pick a method that matches the question you want to answer (from the lecture's table): \emph{case study}, \emph{measurement}, \emph{experiment}, or \emph{design science}. For a 4-hour lab on the Bachelor stack, an \emph{experiment} (``does X cause Y?'') is usually the right fit.
+  \item Write \textbf{one} research question (RQ) in a single sentence. Then write \textbf{one} falsifiable hypothesis (H1) and its null (H0). A hypothesis you cannot imagine being wrong is not a hypothesis.
+  \item State the scope explicitly: what is in, what is out. ``Modbus/TCP write-coil injection latency on OpenPLC'' is in scope; ``all ICS protocols'' is out.
+\end{enumerate}
+
+\vspace{1mm}
+Template (fill it in your notebook):
+\begin{lstlisting}[language=bash]
+RQ: Does <intervention X> change <observable Y> on <the testbed component>?
+H1: Enabling <X> increases/decreases <Y> by a measurable margin.
+H0: <X> has no measurable effect on <Y>.
+Scope IN : <one protocol, one component, one metric>
+Scope OUT: <everything you will NOT claim>
+\end{lstlisting}
+The deliverbox at the end expects exactly one RQ, one H1, one H0. Resist the urge to ask five questions -- pick the sharpest one.
 \end{stepbox}
 
-\begin{stepbox}{3 -- Replicate one figure}
-Pick one chart or table that should be reproducible. Re-run the code, regenerate the figure. If you cannot, document the blocker (missing dependency, missing data, vendor licence).
+\section*{Part B -- Know the field}
+
+\begin{stepbox}{2 -- Structured literature review + citation matrix}
+You cannot claim novelty against a field you have not read. Run a \emph{structured} search, not a casual Google.
+\begin{enumerate}\setlength{\itemsep}{2pt}
+  \item \textbf{Databases:} IEEE Xplore, ACM Digital Library, Google Scholar (use Scholar for recall, the curated DLs for precision). Record your exact query strings -- they are part of reproducibility.
+  \item \textbf{Venues to prioritise} (OT-relevant): S4, ACSAC, USENIX Security, IEEE S\&P, ESORICS, WOOT, ICS-CSR. A finding accepted at one of these has cleared peer review; a blog post has not.
+  \item \textbf{Search-string discipline.} Build Boolean queries and log them, e.g.\ \texttt{("Modbus" OR "IEC 104") AND ("intrusion detection" OR "injection") AND ("PLC" OR "SCADA")}. Note date filters (last 5 years) and result counts.
+  \item \textbf{Snowballing.} From the 3--5 most relevant hits, follow backward references (who they cite) and forward citations (who cites them). Stop when new papers stop appearing -- that is saturation.
+\end{enumerate}
+
+Now build a \textbf{citation matrix}: rows are papers, columns are the dimensions that matter to \emph{your} RQ. This is the table that lets you say, in one glance, ``no one has done X on a reproducible testbed''. Aim for 8--12 rows.
+
+\vspace{1mm}
+{\footnotesize
+\begin{tabular}{@{}p{3.0cm}p{1.0cm}p{2.4cm}p{2.4cm}p{1.6cm}p{2.6cm}@{}}
+\toprule
+\textbf{Paper (cite key)} & \textbf{Year} & \textbf{Method} & \textbf{Testbed / data} & \textbf{Artefact?} & \textbf{Gap vs.\ my RQ} \\
+\midrule
+\texttt{author24} & 2024 & experiment & SWaT & yes (Zenodo) & no latency metric \\
+\texttt{morris11} & 2011 & measurement & MSU gas pipeline & dataset only & no live PLC \\
+$\dots$ & & & & & \\
+\bottomrule
+\end{tabular}}
+
+\vspace{1mm}
+The last column is the point of the whole exercise: it is where your contribution lives. If every row's gap column is empty, your RQ is not novel -- go back to Step 1.
 \end{stepbox}
 
-\begin{stepbox}{4 -- Write up}
-2-page note: paper citation, audit score, replication outcome, lessons for your own future work.
+\section*{Part C -- Design and run the experiment}
+
+\begin{stepbox}{3 -- Experiment design: variables, controls, metrics}
+Pin down the experiment on paper \emph{before} you touch the stack. Fill this design table -- it is your pre-registration in miniature.
+
+\vspace{1mm}
+{\footnotesize
+\begin{tabular}{@{}p{4.2cm}p{11.6cm}@{}}
+\toprule
+\textbf{Element} & \textbf{Your choice for this study} \\
+\midrule
+Independent variable (what you change) & e.g.\ Modbus write rate: \{1, 10, 50\} writes/s \\
+Dependent variable (what you measure)  & e.g.\ Zeek-detected unsolicited-write count; PLC scan-cycle jitter \\
+Controlled variables (held constant)   & stack commit, container CPU limit, network MTU, payload size \\
+Baseline / control condition           & no injection (idle poll loop only) \\
+Metric + unit                          & detections/min; jitter in ms; precision/recall \\
+Repetitions                            & $\geq$5 runs per condition (for a mean + spread) \\
+Randomisation / order                  & randomise condition order to avoid warm-up bias \\
+Confounds + mitigation                 & Docker noisy-neighbour $\to$ pin CPU; clock drift $\to$ NTP-sync host \\
+\bottomrule
+\end{tabular}}
 \end{stepbox}
+
+\begin{stepbox}{4 -- Run it: baseline first, then the intervention}
+Always measure the \emph{control} before the \emph{treatment} -- a result with no baseline is uninterpretable. Drive the existing stack scripts and capture results as CSV (machine-readable, not screenshots).
+\begin{lstlisting}[language=bash]
+cd bachelor/labs/_stack
+# --- baseline: poll loop only, no injection ---
+docker compose exec -d student python3 /labs/scripts/modbus_poll_loop.py
+sleep 60
+docker compose exec student pkill -f modbus_poll_loop
+# count Zeek detections in the control window (your dependent variable)
+grep -hc "Unsolicited_Write" zeek-logs/notice.log
+# --- treatment: inject at your chosen rate, N repetitions ---
+for run in 1 2 3 4 5; do
+  docker compose exec student python3 /labs/scripts/modbus_inject.py
+  sleep 5
+done
+grep -hc "Unsolicited_Write" zeek-logs/notice.log
+\end{lstlisting}
+Write each run's numbers to \texttt{results/run.csv} as \texttt{condition,run,metric,value} so a script -- not your eyes -- produces the figure. Log every command verbatim in the lab notebook with its timestamp.
+\end{stepbox}
+
+\begin{stepbox}{5 -- Analyse and plot from the data, not the screen}
+Produce one figure that answers the RQ, generated by a committed script so a third party can regenerate it from your CSV.
+\begin{lstlisting}[language=python]
+# scripts/plot_results.py -- regenerates figures/result.png from results/run.csv
+import csv, statistics, matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+rows = list(csv.DictReader(open("results/run.csv")))
+conds = sorted({r["condition"] for r in rows})
+means = [statistics.mean(float(r["value"]) for r in rows if r["condition"]==c) for c in conds]
+plt.bar(conds, means)
+plt.ylabel("detections / min"); plt.xlabel("condition")
+plt.tight_layout(); plt.savefig("figures/result.png", dpi=150)
+\end{lstlisting}
+State plainly whether the data lets you \emph{reject H0} or not. ``No significant effect'' is a real, publishable result -- do not torture the data until it confesses.
+\end{stepbox}
+
+\section*{Part D -- Ethics, disclosure, dual-use}
+
+\begin{stepbox}{6 -- Research ethics + coordinated disclosure + dual-use}
+Write \texttt{docs/ethics.md} (half a page) covering, in plain language:
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item \textbf{Scope of harm.} Only the testbed was touched; no third-party system, no production plant, no real PLC you do not own.
+  \item \textbf{Beneficence vs.\ maleficence} (Menlo Report framing): who benefits from this finding, who could be harmed, and why the balance is positive.
+  \item \textbf{Coordinated disclosure plan.} \emph{If} the finding were a real vulnerability: who you would notify (vendor PSIRT, coordinating CERT -- BSI / CISA / JPCERT), and on what timeline. For ICS, 180/60 is more realistic than Project Zero's 90/30 -- justify any deviation. (Here, on a lab stack, there is no vendor to notify -- say so, and say what you \emph{would} do for a real finding.)
+  \item \textbf{Dual-use statement.} The technique is both attack and defence knowledge. State the benefit-to-harm argument and what you deliberately withhold (e.g.\ a turnkey exploit) versus what you publish (the detection method, the metric).
+  \item \textbf{Respect for persons / data.} No PII; if any data were sensitive, how it was anonymised and why retention is justified.
+\end{itemize}
+\end{stepbox}
+
+\section*{Part E -- Write it up and package it}
+
+\begin{stepbox}{7 -- One-page extended abstract in venue format}
+Write a \emph{one-page} extended abstract as if submitting to ICS-CSR or the WOOT lightning track. Use the canonical structure -- one tight paragraph (or short subsection) each:
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item \textbf{Problem + RQ} (why it matters; the gap from your citation matrix).
+  \item \textbf{Approach} (method, testbed, the one experiment).
+  \item \textbf{Result} (the figure's headline number; H0 rejected or not).
+  \item \textbf{Threats to validity} (internal / external / construct -- name at least one of each).
+  \item \textbf{Reproducibility} (one sentence pointing at the artefact and its pinned environment).
+\end{enumerate}
+Numbers belong in the abstract; jargon does not. Every non-trivial claim carries a citation key from \texttt{references.bib}. Keep it to one A4 page.
+\end{stepbox}
+
+\begin{stepbox}{8 -- Build the reproducibility package}
+Assemble the artefact so a stranger can reproduce your result cold. Aim for ACM ``Artifacts Available + Reusable'' standard.
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item \texttt{README.md}: one-paragraph claim, exact prerequisites, and a copy-paste command block that goes from clone to figure.
+  \item \texttt{scripts/}: the data-collection and \texttt{plot\_results.py} scripts, runnable with no manual edits.
+  \item \texttt{data/}: the raw CSV (or a fetch script if it is large), with provenance noted.
+  \item \texttt{results/}, \texttt{figures/}: regenerated outputs, plus the expected hash so a re-runner can confirm a match.
+  \item \textbf{Environment pinning:} the Bachelor stack commit hash, a \texttt{requirements.txt} with exact versions (\texttt{pip freeze}), and the \texttt{docker compose} versions used.
+\end{itemize}
+\begin{lstlisting}[language=bash]
+cd lab08-artefact
+pip freeze > requirements.txt
+docker --version > docs/env.txt
+docker compose version >> docs/env.txt
+( cd ../bachelor/labs/_stack && git rev-parse HEAD ) >> docs/env.txt
+sha256sum results/run.csv figures/result.png > results/CHECKSUMS
+git add -A && git commit -q -m "lab08 reproducibility package"
+\end{lstlisting}
+\end{stepbox}
+
+\section*{Part F -- Stretch}
+
+\begin{stepbox}{9 -- (Stretch) Pre-register + threats-to-validity deep dive}
+Optional but strongly recommended for the seminar grade:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Pre-registration.} Write the Step-3 design table as a timestamped \texttt{docs/preregistration.md} \emph{committed before} you ran the experiment (check the git log proves the order). This is the single strongest defence against the reviewer accusation of HARKing (hypothesising after results are known).
+  \item \textbf{Threats to validity.} Expand Step 7's one-liner into a full subsection: \emph{internal} (did the cause really cause the effect, or a confound?), \emph{external} (does it generalise beyond OpenPLC / one vendor / one protocol?), \emph{construct} (does ``detections/min'' actually measure ``detectability''?), and \emph{conclusion} (is your sample of 5 runs enough for the claim?).
+  \item \textbf{Power / sample size.} State why 5 repetitions suffice -- or admit they do not and say what N you would need.
+\end{itemize}
+\end{stepbox}
+
+\section*{Troubleshooting}
+
+\begin{notebox}
+\textbf{Scope too broad.} If your RQ needs more than the Bachelor stack and one lab session, you have a thesis, not a lab. Cut until exactly one independent and one dependent variable remain.
+
+\vspace{1mm}
+\textbf{No baseline.} A treatment number with nothing to compare it to means nothing. Always run and record the control condition first (Step 4) -- ``50 detections/min'' is only interesting next to the idle baseline.
+
+\vspace{1mm}
+\textbf{Irreproducible setup.} ``It worked yesterday'' usually means an unpinned dependency moved. If a re-run disagrees with your CHECKSUMS, the cause is almost always an unpinned version, a different stack commit, or uncommitted local edits. Pin everything in Step 8; re-clone into a fresh directory and run the README block to prove it.
+\end{notebox}
 
 \begin{deliverbox}
-The 2-page note + the regenerated figure (or the exact error message that blocked you).
+Hand in, as a single zip (or a repo URL) labelled by author and date:
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item \textbf{Mini research proposal} -- the one-page extended abstract (Step 7) with exactly one RQ, one H1, one H0 (Step 1).
+  \item \textbf{Citation matrix} (Step 2) -- 8--12 rows with the gap column filled.
+  \item \textbf{Experiment design table} (Step 3) and the regenerated figure (Step 5).
+  \item \textbf{Reproducibility package} (Step 8) -- scripts, data, pinned \texttt{requirements.txt} + stack commit, \texttt{README.md}, \texttt{CHECKSUMS}.
+  \item \textbf{Ethics + coordinated-disclosure + dual-use statement} (Step 6), \texttt{docs/ethics.md}.
+  \item \textbf{(Stretch)} pre-registration commit + full threats-to-validity subsection (Step 9).
+\end{enumerate}
+Grading rewards a \emph{narrow, reproducible, honestly-reported} study over an ambitious one that does not re-run. A clean ``H0 not rejected'' with a tight artefact beats a flashy claim with no baseline.
 \end{deliverbox}
 
+\section*{Further reading}
+
+\begin{notebox}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item Wieringa, R. \emph{Design Science Methodology for Information Systems and Software Engineering}, Springer, 2014 -- the research-methods text for build-and-evaluate work.
+  \item ACM. \emph{Artifact Review and Badging} (v1.1, 2020) -- the available / reusable / reproduced criteria your package targets.
+  \item Dittrich, D., Kenneally, E. \emph{The Menlo Report: Ethical Principles Guiding ICT Research}, U.S.\ DHS, 2012 -- beneficence, respect for persons, justice, applied to networked-systems research.
+  \item Runeson, P., Höst, M. ``Guidelines for conducting and reporting case study research in software engineering'', \emph{Empirical Software Engineering}, 2009.
+  \item ISO/IEC 29147:2018 and 30111:2019 -- vulnerability disclosure and handling, for the coordinated-disclosure plan.
+\end{itemize}
+\end{notebox}
+
 \begin{warnbox}
-If a paper's artefact is broken, write to the authors politely. Many will fix it or accept a pull request. Public shaming is unprofessional.
+\textbf{Ethics and dual-use are graded, not optional.} A technically excellent study with no ethics statement, no disclosure plan, or a finding that hands a working plant attack to the public ahead of any patch \emph{fails the lab}. The whole point of OT-security research is that the wrong publication can endanger physical processes and the people near them. Scope to your testbed, write the disclosure plan before the findings, and publish the defence -- not the turnkey weapon.
 \end{warnbox}
+
 \end{document}

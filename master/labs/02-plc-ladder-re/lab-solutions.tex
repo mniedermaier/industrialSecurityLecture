@@ -1,0 +1,221 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\labNumber{02}
+\def\labTitle{PLC Control-Logic Reverse Engineering -- Solutions}
+\def\labSection{02}
+\def\labTime{3--4 hours}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Lecturer / TA reference: model answers for each step, a fully worked
+intent-reconstruction from the \texttt{conveyor.st}-style MatIEC output, the
+common mistakes that cost marks, and a point-by-point grading rubric.
+Numbers (hashes, symbol addresses) are environment-specific --- grade the
+\emph{method}, not the literal value.
+\end{goalbox}
+
+\begin{solutionbox}{Step 1 -- Acquisition baseline}
+Students must capture all \emph{three} representations, not just the ST.
+The expected artefact set is \texttt{st\_files/NNNNNN.st},
+\texttt{core/POUS.c} (plus \texttt{Res0.c}, \texttt{Config0.c}), the I/O
+map \texttt{core/LOCATED\_VARIABLES.h}, the symbol/tick table
+\texttt{core/VARIABLES.csv}, and the linked \texttt{core/openplc} ELF.
+\texttt{file} must report the binary as \emph{not stripped}. The key
+insight to award: the three artefacts can disagree, and a runtime-only
+attacker leaves the project file's hash unchanged. Full marks require three
+recorded SHA-256 values labelled as the baseline.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 2 -- Language and I/O identification}
+Correct answer: \textbf{Structured Text (ST)}, identified by
+\texttt{(* ... *)} comments, \texttt{:=} assignment, and
+\texttt{VAR ... AT \%IX0.0 : BOOL} located declarations. Accept the
+observation that the seal-in is logically a ladder rung and round-trips to
+LD --- that shows real fluency. The I/O map read straight from
+\texttt{LOCATED\_VARIABLES.h}:
+\begin{center}
+\footnotesize
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Symbol} & \textbf{Address} & \textbf{Dir} & \textbf{Default} \\
+\midrule
+Start  & \%IX0.0 & input  & FALSE \\
+Stop   & \%IX0.1 & input  & TRUE (normally closed) \\
+Guard1 & \%IX0.2 & input  & TRUE (normally closed) \\
+Guard2 & \%IX0.3 & input  & TRUE (normally closed) \\
+Motor  & \%QX0.0 & output & FALSE \\
+Lamp   & \%QX0.1 & output & FALSE \\
+\bottomrule
+\end{tabular}
+\end{center}
+The task period is \texttt{20000000}~ns $= 20$~ms (from the tail of
+\texttt{VARIABLES.csv}). Deduct for students who read the period off the ST
+\texttt{CONFIGURATION} block without confirming it in the compiled CSV ---
+the whole lab is about trusting artefacts, not source.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 3 -- Worked lift from POUS.c}
+The MatIEC body the student recovers is:
+\begin{lstlisting}
+__SET_LOCATED(data__->,MOTOR,,
+  ((((__GET_LOCATED(data__->START,) || __GET_LOCATED(data__->MOTOR,))
+     && __GET_LOCATED(data__->STOP,))
+     && __GET_LOCATED(data__->GUARD1,))
+     && __GET_LOCATED(data__->GUARD2,)));
+__SET_LOCATED(data__->,LAMP,,__GET_LOCATED(data__->MOTOR,));
+\end{lstlisting}
+De-sugaring \texttt{\_\_GET\_LOCATED(x)} $\to$ \texttt{x} and
+\texttt{\_\_SET\_LOCATED(,y,,e)} $\to$ \texttt{y := e}, peeling the nested
+left-associative \texttt{\&\&}:
+\begin{lstlisting}
+Motor := (Start OR Motor) AND Stop AND Guard1 AND Guard2 ;
+Lamp  := Motor ;
+\end{lstlisting}
+Model statement of recovered intent:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{I/O mapping:} four boolean inputs (\%IX0.0--0.3), two
+        boolean outputs (\%QX0.0--0.1); cross-referenced to
+        \texttt{LOCATED\_VARIABLES.h}.
+  \item \textbf{Interlocks:} \texttt{Stop AND Guard1 AND Guard2} are ANDed
+        every cycle; each is normally-closed (init \texttt{TRUE} in
+        \texttt{MAIN\_init\_\_}), so a cut wire de-energises the motor ---
+        fail-safe.
+  \item \textbf{Seal-in latch:} \texttt{(Start OR Motor)} holds the output
+        after Start is released.
+  \item \textbf{Set-points:} none; the program is purely boolean. Recording
+        ``no analogue set-points'' is itself a finding, because it makes the
+        later hidden counter \texttt{n} conspicuous.
+\end{itemize}
+Award full marks only when the student states the intent in plain language,
+not just transcribes the boolean expression.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 4 -- Binary confirmation}
+Expected: \texttt{nm core/openplc} shows a single program runner symbol
+(\texttt{RES0\_run\_\_}, mangled \texttt{\_Z10RES0\_run\_\_m}) plus
+\texttt{RES0\_init\_\_}; this is what the cyclic task calls and it
+dispatches \texttt{MAIN\_body\_\_}. The point being assessed: the user logic
+is \emph{statically linked into the runtime}, so editing only the ELF is a
+real attack class, and there must be exactly one runner --- the on-target
+equivalent of confirming there is no hidden cyclic OB35. Accept ``the
+binary is stripped on my build'' \emph{only} if the student fell back to
+\texttt{POUS.c}/\texttt{Res0.c} as the authoritative intermediate.
+\end{solutionbox}
+
+\begin{solutionbox}{Steps 5--6 -- Logic bomb and three detections}
+The planted bomb adds an undocumented input \texttt{Trig (\%IX0.4)}, a
+hidden \texttt{INT} counter \texttt{n}, and a counter-gated override
+(\texttt{IF n > 50 THEN Motor := TRUE}) that bypasses the interlocks. The
+three required detections, each independent:
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item \textbf{Integrity:} \texttt{POUS.c} and \texttt{openplc} hashes both
+        differ from the Step-1 baseline, while the engineering project
+        file's hash does not --- proving on-controller divergence. This is
+        what a continuous block-CRC monitor surfaces in seconds.
+  \item \textbf{Logic:} \texttt{POUS.c} now contains \texttt{n}, an
+        \texttt{IF (... > 50)} branch, and an \emph{unconditional}
+        \texttt{MOTOR := TRUE} ignoring \texttt{Stop/Guard1/Guard2}. Trigger
+        + interlock override = logic bomb.
+  \item \textbf{I/O map:} \texttt{LOCATED\_VARIABLES.h} gains
+        \texttt{\_\_IX0\_4}, an input that is read but documented nowhere ---
+        the strongest single tell.
+\end{enumerate}
+A student who finds only the hash change (and not the logic/I/O evidence)
+gets partial credit: a hash diff proves \emph{change}, not \emph{intent}.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 7 -- Observed firing + function codes}
+Expected observation: after $\sim$50 trigger writes, coil~0
+(\texttt{Motor}) reads \texttt{True} with no Start press and \texttt{Stop}
+still closed. The \texttt{tshark} capture shows the trigger driven by
+\textbf{FC5 (Write Single Coil)} or \textbf{FC15 (Write Multiple Coils)}
+and the observation done with \textbf{FC1 (Read Coils)}. Strong answers note
+that nothing in the Modbus stream is authenticated, so the override is
+indistinguishable on the wire from a legitimate write --- which is why
+detection had to come from the \emph{logic}, not the traffic.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 8 -- Reconciliation, model table}
+Expected deviations, each a separate finding:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item Interlock bypass: \texttt{Stop}/guards no longer gate the motor once
+        \texttt{n > 50} --- a \emph{safety} finding, escalate to the safety
+        engineer.
+  \item Undocumented input \texttt{\%IX0.4} present in the recovered I/O map.
+  \item Hidden state \texttt{n} (an \texttt{INT} counter) absent from the
+        process description.
+\end{itemize}
+The mature point to credit: not every deviation is malice --- undocumented
+vendor diagnostic logic produces the same artefacts, so the report must
+state ``deviation found'' and route to safety + vendor, not ``backdoor
+confirmed''.
+\end{solutionbox}
+
+\begin{solutionbox}{Stretch -- Extractor}
+A correct extractor parses \texttt{LOCATED\_VARIABLES.h} for the I/O map,
+reads the tick-time from \texttt{VARIABLES.csv}, and compares the
+\texttt{\_\_GET\_LOCATED} (read) versus \texttt{\_\_SET\_LOCATED} (written)
+symbol sets in \texttt{POUS.c}. On the clean program every input is read and
+used; on the tampered program the extractor should flag \texttt{\%IX0.4} as
+declared/read but undocumented, and a symbol-set diff between two compiles
+surfaces the added input and counter automatically. Bonus credit for
+emitting the de-sugared boolean expression. Comparing against l5k-parser
+(Rockwell) or the SCADA StrangeLove MC7 parsers (Siemens) shows the student
+understands their toy maps onto real-vendor tooling.
+\end{solutionbox}
+
+\begin{solutionbox}{Common mistakes}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Reading the ST source as the answer.} The whole lab is
+        artefact-driven; conclusions cited from \texttt{conveyor.st} rather
+        than from \texttt{POUS.c}/\texttt{LOCATED\_VARIABLES.h} miss the
+        point and lose marks.
+  \item \textbf{Hash-only detection.} Reporting only the changed CRC without
+        the logic and I/O-map evidence --- proves change, not intent.
+  \item \textbf{Misreading operator precedence} when peeling the nested
+        MatIEC \texttt{\&\&}/\texttt{||}; the seal-in \texttt{(Start OR
+        Motor)} is the inner-most parenthesised term.
+  \item \textbf{Calling a deviation a backdoor} with no consideration that
+        undocumented vendor logic produces identical artefacts.
+  \item \textbf{Editing \texttt{conveyor.st} in place} instead of uploading
+        a separate tampered program --- this destroys the ``project file
+        unchanged'' demonstration that makes the integrity finding
+        meaningful.
+  \item \textbf{Forgetting the period unit:} \texttt{20000000} is
+        nanoseconds (20~ms), not microseconds.
+\end{itemize}
+\end{solutionbox}
+
+\begin{rubricbox}
+Total 20 pts; pass mark 10.
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Acquisition (3 pts):} three representations captured (1),
+        three baseline hashes recorded (1), states the project-vs-runtime
+        asymmetry (1).
+  \item \textbf{Identification (2 pts):} ST identified with evidence (1),
+        I/O map + 20~ms period read from compiled artefacts (1).
+  \item \textbf{Lift from C (4 pts):} de-sugared boolean law (1), I/O
+        mapping (1), interlocks + normally-closed reasoning (1), seal-in +
+        ``no set-points'' noted (1).
+  \item \textbf{Binary confirmation (2 pts):} single runner symbol found
+        (1), articulates static-link / no-hidden-block significance (1).
+  \item \textbf{Logic bomb + detection (5 pts):} bomb planted without
+        touching source (1); each of the three detections --- integrity,
+        logic, I/O map (1 each); FC5/FC15 + FC1 identified in the capture
+        (1).
+  \item \textbf{Reconciliation + disclosure (3 pts):} deviation table with
+        separate findings (1), safety-routing judgement (1), professional
+        disclosure email with no real plant data (1).
+  \item \textbf{Stretch (up to +2 bonus):} working extractor that flags the
+        undocumented input.
+\end{itemize}
+\textbf{Auto-fail:} any artefact, capture, or tooling run against a PLC the
+student does not own --- re-issue the lab.
+\end{rubricbox}
+
+\end{document}

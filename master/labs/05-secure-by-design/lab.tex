@@ -2,9 +2,9 @@
 
 \def\courseTitle{Industrial Security (Master)}
 \def\labNumber{05}
-\def\labTitle{Greenfield Plant Architecture Workshop}
+\def\labTitle{Secure-by-Design Architecture Workshop}
 \def\labSection{05}
-\def\labTime{4 hours, group of 4}
+\def\labTime{4 hours, group of 3--4}
 
 \input{../../../template/lab-preamble.tex}
 
@@ -12,34 +12,436 @@
 \labheader
 
 \begin{goalbox}
-Produce a complete secure-by-design package for a fictional greenfield plant: zones \& conduits, vendor SDL requirements, ATP, and a risk register.
+Take a greenfield plant from a blank FEED-phase sheet to a defensible
+secure-by-design \emph{architecture dossier}. You will derive an IEC
+62443-3-2 zone/conduit model with a target Security Level (SL-T) per
+zone, specify the Foundational and System Requirements at that target,
+draw the network (Purdue + iDMZ + data-diode placement), write a
+component procurement spec against the 62443-4-2 Component Requirements,
+design a brokered secure-remote-access pattern, embed the SIS without
+coupling it to the BPCS, and define the secure-development and
+patch-management lifecycle. This is a \emph{design} lab: you produce
+architecture artefacts, not exploits. Almost no CLI -- the deliverable
+is a dossier an integrator could put out to tender.
 \end{goalbox}
 
-\begin{stepbox}{Scenario}
-A new 50-MW biogas plant. Single site, one DCS, one SIS, one HMI room, one Internet uplink for vendor remote support and a daily energy-trading data export to corporate IT.
+\begin{warnbox}
+Use the fictional plant defined below only. Do not paste a real client's
+IP ranges, asset list, P\&IDs, or vendor names into your dossier, even
+partially -- a greenfield design document is exactly the artefact an
+attacker most wants to steal. Keep the work to the supplied scenario.
+\end{warnbox}
+
+\section*{Scenario -- the greenfield plant}
+
+You are the lead security architect on the FEED (Front-End Engineering
+Design) team for \textbf{NorthCell}, a new 12~GWh/year lithium-iron-phosphate
+(LFP) battery-cell gigafactory. The plant is being designed from
+nothing: there is no legacy equipment, no installed base, no brownfield
+excuse. Whatever you specify now becomes contractually binding in the
+procurement packages, so design decisions made this week cost a few
+engineering hours; the same decisions made after commissioning cost an
+outage and 5--10$\times$ the money (INL CCE case studies).
+
+The process, top to bottom:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Electrode coating + drying} -- a continuous web line with
+    NMP solvent recovery. A safety-instrumented function (SIF) trips the
+    line on solvent-vapour over-concentration (explosion risk).
+  \item \textbf{Calendering, slitting, stacking} -- discrete machine cells,
+    each with its own PLC and robot.
+  \item \textbf{Electrolyte filling + formation} -- the most hazardous
+    area; dry-room and inert-atmosphere control; a dedicated SIS.
+  \item \textbf{Aging + end-of-line test} -- battery cyclers feeding a
+    quality data lake.
+  \item \textbf{Plant-wide} -- a process historian, a MES, an energy
+    management system (the site draws 60~MW and trades flexibility),
+    and a corporate ERP uplink for order/quality data.
+\end{itemize}
+
+Drivers: the plant ships globally and is in scope for NIS2 (EU,
+\emph{Manufacturing}); the insurer requires an IEC 62443 conformance
+statement; the corporate CISO wants a single brokered remote-access
+plane for the 14 OEM vendors who will support equipment for 20 years.
+
+\section*{Pre-flight (optional, 10 min)}
+
+\begin{stepbox}{0 -- Tooling}
+This lab needs only a drawing surface and a text editor. Use
+\texttt{draw.io}, \texttt{excalidraw}, or paper for diagrams; a
+spreadsheet or markdown table for the matrices. If you want a reference
+topology to react against, the shared lab stack stands in for a single
+machine cell:
+\begin{lstlisting}[language=bash]
+cd master/labs/_stack 2>/dev/null || cd ../../bachelor/labs/_stack
+docker compose ps
+\end{lstlisting}
+Treat one running \texttt{openplc}+\texttt{opcua}+\texttt{historian}
+trio as \emph{one} of NorthCell's many machine cells -- it is the unit
+you replicate across the floor, not the whole plant. Everything else
+in this lab is drawn and written, not typed.
 \end{stepbox}
 
-\begin{stepbox}{1 -- Zones \& conduits diagram}
-On a single sheet or in draw.io, draw the architecture. Label every level (Purdue 0--5 + iDMZ at 3.5). Assign target SLs. For every conduit, write source / destination / protocol / port / direction. Mark the data-diode candidates.
+\section*{Step 1 -- Zone \& conduit model + SL-T (IEC 62443-3-2)}
+
+\begin{stepbox}{1 -- Partition the plant and set a target SL per zone}
+Run the 62443-3-2 ZCR workflow at \emph{design} fidelity. Define the
+System under Consideration as the whole plant network, then partition it
+into zones where each zone groups assets that share a threat profile,
+a worst-case consequence, and a change-management cadence. A defensible
+starting set for NorthCell -- refine it, do not just copy it:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Z-SIS} -- the safety-instrumented systems (coating
+    solvent trip, formation/dry-room SIS). Highest consequence: people.
+  \item \textbf{Z-CTRL} -- the BPCS: per-cell PLCs, robots, drives,
+    line controllers (Purdue L1--L2).
+  \item \textbf{Z-SUP} -- supervisory: SCADA/HMI servers, the energy
+    management system, the local historian collector (L2--L3).
+  \item \textbf{Z-MES} -- manufacturing operations: MES, quality data
+    lake, batch records (L3).
+  \item \textbf{Z-iDMZ} -- the industrial DMZ brokering all OT$\leftrightarrow$IT
+    traffic (L3.5): historian mirror, remote-access broker, update
+    repository, reverse proxies.
+  \item \textbf{Z-ENT} -- enterprise: ERP, corporate IT, internet
+    egress (L4--L5). Out of the OT trust boundary.
+\end{itemize}
+For \emph{each} zone assign an SL-T (1--4) and justify it in one
+sentence anchored to the \emph{worst-case physical consequence}, not to
+how interesting the zone looks on a diagram. Then enumerate every
+conduit that crosses a zone boundary, one row per conduit, with: name,
+source zone, destination zone, protocol, L4 port, direction, data
+sensitivity, and the SL-T the conduit must carry (the conduit inherits
+the higher of the two zones it joins). Mark which conduits are
+data-diode candidates (one-way egress only -- historian/telemetry
+export, regulatory feeds).
+
+\medskip
+\noindent\textbf{Worked guidance.} SL-T scales with the SL-vector model
+of -3-2: estimate unmitigated risk per zone (likelihood $\times$
+consequence), compare against the organisation's tolerable risk, and the
+gap sets the target. Z-SIS and the formation/dry-room areas are the only
+zones where an integrity attack moves \emph{atoms} into a hazard, so they
+earn SL-T~3 (a determined, ICS-literate adversary is a realistic threat
+for a globally-shipping plant). Z-CTRL/Z-SUP carry SL-T~2--3 depending
+on whether the cell can create a physical hazard. Z-iDMZ is high-exposure
+but low-consequence-if-breached \emph{provided} segmentation holds, so its
+SL-T follows the highest zone it must protect, typically 3. Z-ENT is out
+of scope for the OT SL-T but still gets corporate IT controls.
 \end{stepbox}
 
-\begin{stepbox}{2 -- Vendor SDL clauses}
-Pick one component (PLC, HMI, historian). Write the 5--10 contractual clauses that the procurement team will paste into the RFQ.
+\section*{Step 2 -- FR/SR specification per zone (IEC 62443-3-3)}
+
+\begin{stepbox}{2 -- Turn each SL-T into concrete system requirements}
+The seven Foundational Requirements (FR1 IAC, FR2 UC, FR3 SI, FR4 DC,
+FR5 RDF, FR6 TRE, FR7 RA) apply to every zone; the SL ladder scales the
+\emph{rigor}. Build the FR-per-zone matrix (zones down, FR1--FR7 across,
+the target SL in each cell). Then, for your \emph{two} highest-SL zones,
+drop one level deeper: pick the System Requirements (SRs) from -3-3 that
+the SL-T pulls in, and write what each means at NorthCell.
+
+\medskip
+\noindent\textbf{Worked guidance.} The SL ladder inside an FR is
+cumulative -- SL3 includes everything in SL1 and SL2 plus the SL3
+enhancements. Examples for Z-SIS / Z-CTRL at SL3:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{FR1 / SR 1.1, 1.2 (IAC).} Per-user accounts, no shared
+    logins; SR~1.5/1.7 enforce hardware-token or MFA for any engineering
+    change to a safety-relevant controller.
+  \item \textbf{FR2 / SR 2.1 (UC).} Role-based authorisation: only
+    \emph{program} role can download logic; operators only acknowledge.
+  \item \textbf{FR3 / SR 3.1, 3.4 (SI).} Communication integrity (signed
+    or MAC'd control messages where the protocol allows) and software/
+    firmware integrity verification on load (SR~3.4).
+  \item \textbf{FR4 (DC).} Field protocols rarely need confidentiality;
+    document the intentional downgrade and compensate at FR5.
+  \item \textbf{FR5 / SR 5.1, 5.2 (RDF).} Enforced zone boundary
+    protection; only the conduits listed in Step~1 exist and each is
+    filtered (deny-by-default).
+  \item \textbf{FR6 / SR 6.1, 6.2 (TRE).} Continuous monitoring;
+    auditable event logging forwarded off the zone to a write-once store.
+  \item \textbf{FR7 / SR 7.1, 7.3, 7.4 (RA).} DoS resistance, backup
+    of control logic, and verified restore -- the cyclers and historian
+    must survive a ransomware event without losing batch traceability.
+\end{itemize}
+Note where you deliberately set an FR below the zone SL-T (e.g.\ FR4 in
+the field): a documented, justified downgrade is good engineering; an
+undocumented one is a finding.
 \end{stepbox}
 
-\begin{stepbox}{3 -- Acceptance Test Procedure}
-For the same component, write the on-arrival ATP. Each step: action, expected result, evidence.
+\section*{Step 3 -- Network design (Purdue, iDMZ, diodes, TSN)}
+
+\begin{stepbox}{3 -- Draw the reference network}
+Produce the plant network diagram. Requirements:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item A clear Purdue stratification (L0 field I/O up to L4/5
+    enterprise) with the iDMZ at L3.5 as the \emph{only} path between OT
+    and IT. No direct L3$\to$L4 conduit may exist.
+  \item The iDMZ hosts brokered services in pairs: an inside-facing and
+    an outside-facing instance of each (historian mirror, patch repo,
+    remote-access broker, reverse proxy). Nothing traverses the iDMZ in
+    a single hop -- every flow terminates and is re-originated.
+  \item Place at least one \textbf{data diode} where the requirement is
+    truly one-way: SIS/safety telemetry and regulatory reporting feeds
+    out to Z-MES/Z-ENT. A diode means there is \emph{no} return path --
+    no remote control, no ACKs -- so use it only where that is acceptable.
+  \item Decide where \textbf{TSN} (Time-Sensitive Networking, IEEE 802.1
+    Qbv/Qcc) is justified: the calendering/slitting motion-control cells
+    and the coating web line need deterministic, low-jitter cyclic
+    traffic. Note that TSN's centralised configuration (CNC/CUC) is
+    itself an asset to protect -- a compromised CNC can reshape the
+    schedule and stall a line. Aging/test and historian flows do
+    \emph{not} need TSN; do not over-specify it.
+  \item Segment each machine cell as a micro-zone behind a cell firewall
+    (deny-by-default, allow-list of function codes / OPC~UA node sets)
+    so a compromised robot cannot reach a neighbouring cell's PLC.
+\end{itemize}
+
+\medskip
+\noindent\textbf{Worked guidance.} The single most common greenfield
+network mistake is a ``flat L2'' control network with one big switch:
+cheap to wire, impossible to contain. Spend the cable. Put management
+interfaces of switches/firewalls on a dedicated out-of-band management
+VLAN reachable only from a hardened jump host -- never in-band on the
+control VLAN.
 \end{stepbox}
 
-\begin{stepbox}{4 -- Risk register seed}
-List ten plausible risks for the plant; score with a simple Lik$\times$Imp matrix; propose owners.
+\section*{Step 4 -- Component SL-C + procurement spec (IEC 62443-4-2)}
+
+\begin{stepbox}{4 -- Specify what you will buy, contractually}
+A zone reaches its SL-T only if its components can support it. For your
+highest-SL zone pick \emph{one} component class (PLC, HMI, or historian)
+and write the procurement security specification the buyer will paste
+into the RFQ. Map each clause to a -4-2 Component Requirement (CR) and
+state the required component capability security level (SL-C).
+
+\medskip
+\noindent\textbf{Worked guidance -- a PLC for Z-CTRL at SL-C~3.}
+Sample clauses, each tied to a CR:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item CR~1.1/1.2 -- supports individual user accounts and either
+    integrates with the plant identity store or supports certificate-based
+    auth; no hard-coded or undocumented accounts (CR~1.5).
+  \item CR~2.1 -- enforces role-based authorisation for configuration vs.\
+    operation; CR~2.8 produces auditable records of every program change.
+  \item CR~3.1/3.4 -- verifies the integrity of its own firmware on boot
+    and rejects unsigned firmware; supports signed logic download.
+  \item CR~3.10 -- supports a secure-by-default configuration delivered
+    with all unused services disabled.
+  \item CR~7.1/7.6 -- documented DoS resilience and the ability to be
+    backed up and restored to a known-good state.
+  \item Lifecycle clauses (cross-ref -4-1): SBOM in CycloneDX or SPDX
+    with every release; vulnerability handling per ISO/IEC 30111 with a
+    disclosure SLA; a 20-year support and security-patch commitment;
+    PSIRT contact named in the contract.
+\end{itemize}
+State explicitly that a vendor unable to deliver an SBOM \emph{today} is
+not eligible for a 20-year capital line. Add a short acceptance hook:
+the component is rejected on arrival if any clause fails the on-site ATP.
+\end{stepbox}
+
+\section*{Step 5 -- Secure remote-access pattern (PAM / jump host)}
+
+\begin{stepbox}{5 -- Design the one brokered access plane}
+Fourteen OEMs need remote support for 20 years. Design a single
+identity-brokered remote-access pattern that lives in the iDMZ and is the
+\emph{only} way any external party touches OT. Specify:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item The flow: vendor $\to$ internet $\to$ SSO+MFA portal (iDMZ
+    outside) $\to$ policy/PAM broker $\to$ time-boxed jump host (iDMZ
+    inside) $\to$ target asset. No vendor credential ever exists on an
+    OT asset; the broker injects a short-lived credential it owns.
+  \item Operator-in-the-loop: a named operator approves each session;
+    sessions are time-boxed and auto-terminate.
+  \item Full session recording (keystroke + screen) to a write-once
+    store; the recording is the audit and forensic artefact.
+  \item Least privilege per vendor: each OEM reaches only its own
+    equipment's micro-zone, never the whole control network.
+  \item Break-glass: a documented, dual-control emergency path for when
+    the broker itself is down, with mandatory after-the-fact review.
+\end{itemize}
+
+\medskip
+\noindent\textbf{Worked guidance.} The anti-pattern this kills is the
+``vendor VPN straight to the PLC'' -- a flat tunnel that bypasses every
+zone boundary you drew in Steps~1--3. The broker enforces FR1/FR2/FR6
+(identity, use control, traceability) at one choke point you can audit.
+Note the residual risk: the broker is now a crown-jewel asset; it gets
+SL-T~3, its own monitoring, and is itself never reachable from the
+control zones inbound.
+\end{stepbox}
+
+\section*{Step 6 -- Embed safety (IEC 61511 SIS) without coupling to BPCS}
+
+\begin{stepbox}{6 -- Keep safety independent of control and of attackers}
+The formation/dry-room and coating areas have safety-instrumented
+functions. Design the SIS so that a compromise of the BPCS -- or of the
+remote-access plane -- cannot defeat the safety function. Specify:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Independence (61511 separation).} The SIS uses separate
+    logic solvers, separate I/O, and separate power from the BPCS.
+    A shared HMI may \emph{view} SIS state but must not be able to
+    \emph{write} a safety parameter or bypass.
+  \item \textbf{No security coupling.} The SIS is its own zone (Z-SIS,
+    SL-T~3). The only conduit out is a one-way, diode-protected telemetry
+    feed to the historian. There is \emph{no} inbound conduit from the
+    BPCS, the iDMZ, or the remote-access broker into Z-SIS.
+  \item \textbf{Bypasses and overrides.} Maintenance overrides
+    (forces/bypasses) require local, key-switched, dual-authorisation
+    and raise an alarm; they can never be set remotely.
+  \item \textbf{Security of the safety lifecycle.} Apply 62443 to the SIS
+    components too: signed safety logic, change logging, and a
+    cyber-security requirements specification feeding the 61511 safety
+    requirements specification (the IEC TR 63069 ``functional safety and
+    security'' co-engineering view).
+\end{itemize}
+
+\medskip
+\noindent\textbf{Worked guidance.} The failure to avoid: an integrated
+``one HMI controls everything'' design where the same engineering
+workstation can download both BPCS logic and SIS logic. That makes the
+SIS only as trustworthy as the most-exposed BPCS node -- which defeats
+the entire point of an independent protection layer. Draw the SIS as a
+visibly separate stack with a single one-way arrow out.
+\end{stepbox}
+
+\section*{Step 7 -- Secure-development \& patch-management lifecycle}
+
+\begin{stepbox}{7 -- Define how the design stays secure for 20 years}
+A secure-by-design plant decays without a lifecycle. Define two
+linked processes:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Vendor SDL gate (IEC 62443-4-1).} What every supplier
+    must evidence before and during the contract: SDL conformance,
+    SBOM per release, product threat model reviewed each major release,
+    vulnerability handling SLA (ISO/IEC 30111), and the on-arrival ATP
+    you hooked in Step~4.
+  \item \textbf{Asset-owner patch \& maintenance programme (IEC 62443-2-3
+    + 2-1).} How NorthCell ingests, tests, and applies patches: a staged
+    pipeline (vendor advisory $\to$ risk triage against the zone model
+    $\to$ test on an offline twin of the affected cell $\to$ scheduled
+    maintenance window $\to$ documented back-out plan). State the
+    decision rule for \emph{not} patching (when the compensating control
+    in the zone model already reduces the risk below tolerance, and the
+    patch risks the process).
+  \item \textbf{Backups \& recovery.} The immutable-backup triad
+    (production / off-site / WORM) with a quarterly tested restore;
+    control logic, HMI projects, historian, and the firewall/switch
+    configs are all in scope.
+\end{itemize}
+
+\medskip
+\noindent\textbf{Worked guidance.} Patch management in OT is not IT's
+``patch Tuesday''. The cost of an unplanned trip can exceed the cyber
+risk a patch removes, so every patch decision is a risk decision against
+the zone model from Step~1, signed off with operations and safety. Write
+the back-out plan \emph{before} you touch the running plant.
+\end{stepbox}
+
+\section*{Troubleshooting -- common design anti-patterns}
+
+\begin{notebox}
+Self-review your dossier against the recurring greenfield mistakes
+before you submit:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Flat L2 control network.} One switch, one broadcast
+    domain -- cheap to build, impossible to contain. Segment per cell.
+  \item \textbf{iDMZ that forwards in one hop.} An iDMZ that lets a flow
+    pass through without terminating and re-originating is just a router
+    with extra steps. Pair every brokered service inside/outside.
+  \item \textbf{Vendor VPN to the PLC.} A flat tunnel bypasses every zone
+    boundary. Force all external access through the Step~5 broker.
+  \item \textbf{SIS sharing the BPCS network or HMI write path.} Couples
+    safety to the most-exposed node; violates 61511 independence.
+  \item \textbf{Data diode used where two-way is actually needed.} A diode
+    that someone ``works around'' with a side channel is worse than an
+    honest firewall. Use diodes only for genuinely one-way flows.
+  \item \textbf{SL-T set by exposure, not consequence.} Hardening the
+    public-facing zone to SL4 while leaving the safety-adjacent control
+    zone at SL2 spends money in the wrong place.
+  \item \textbf{Procurement with no security clauses.} If it is not in the
+    RFQ it does not exist. Capabilities you cannot buy you cannot deploy.
+  \item \textbf{No lifecycle.} A perfect day-one design with no patch or
+    backup programme is insecure by year two.
+\end{itemize}
+\end{notebox}
+
+\section*{Stretch -- threat-model the design (STRIDE / CCE)}
+
+\begin{stepbox}{8 -- Attack your own architecture (stretch)}
+Pick one of two lenses and apply it to your dossier:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{STRIDE per conduit.} For the three highest-SL conduits,
+    enumerate Spoofing, Tampering, Repudiation, Information disclosure,
+    Denial of service, Elevation of privilege. For each applicable
+    threat, name the control in your design that addresses it and the FR
+    it maps to. Any threat with no mapped control is a gap -- list it.
+  \item \textbf{INL CCE (Consequence-driven, Cyber-informed Engineering).}
+    Phase~1: name the one or two consequences NorthCell cannot accept
+    (a dry-room/formation explosion; loss of all batch traceability).
+    Phase~2: map the systems-of-systems path an adversary would use to
+    cause that consequence. Phase~3: identify the attacker's required
+    access. Phase~4: \emph{engineer the consequence out} -- e.g.\ a
+    hardwired, non-programmable safety trip that no cyber path can defeat,
+    so that even a fully-compromised BPCS cannot cause the explosion.
+\end{itemize}
+The CCE mindset is the master-level point: do not just add controls --
+engineer the worst consequence so it is \emph{physically} unreachable
+by any cyber path.
 \end{stepbox}
 
 \begin{deliverbox}
-A single PDF containing: the architecture diagram, conduit rules, SDL clauses, ATP, and the seed risk register.
+Hand in a single PDF -- the \textbf{architecture dossier}:
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item Zone \& conduit model with SL-T per zone and the conduit table,
+    diode candidates marked (Step~1).
+  \item FR-per-zone matrix plus the SR detail for the two highest-SL
+    zones (Step~2).
+  \item The reference network diagram: Purdue, iDMZ pairs, diode
+    placement, TSN scope, per-cell micro-zones (Step~3).
+  \item The component procurement security spec for one component class,
+    each clause mapped to a -4-2 CR and an SL-C (Step~4).
+  \item The brokered remote-access design with the data flow and the
+    break-glass path (Step~5).
+  \item The SIS architecture showing independence from the BPCS and the
+    single one-way egress (Step~6).
+  \item The SDL gate + patch-management + backup lifecycle (Step~7).
+  \item (Stretch) the STRIDE-per-conduit table or the CCE consequence
+    analysis (Step~8).
+\end{enumerate}
+A reviewer should be able to read the dossier in fifteen minutes and
+reach the same SL-T assignments and zone boundaries you did.
 \end{deliverbox}
 
+\section*{Further reading}
+
+\begin{notebox}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item IEC 62443-3-2:2020 -- security risk assessment for system design
+    (the ZCR workflow and SL-T derivation).
+  \item IEC 62443-3-3:2013 -- system security requirements and SLs
+    (FR1--FR7, the SR catalogue).
+  \item IEC 62443-4-1:2018 -- secure product development lifecycle.
+  \item IEC 62443-4-2:2019 -- technical security requirements for IACS
+    components (the CR catalogue and SL-C).
+  \item IEC 62443-2-3:2015 / -2-1 -- patch management and the asset-owner
+    security programme.
+  \item IEC 61511 -- functional safety / SIS lifecycle; IEC TR 63069 --
+    co-engineering of functional safety and security.
+  \item NIST SP 800-82r3:2023 -- guide to OT security.
+  \item INL -- \emph{Countering Cyber Sabotage: Consequence-Driven,
+    Cyber-Informed Engineering (CCE)}, Bochman \& Freeman, 2021.
+  \item OWASP CycloneDX / SPDX -- SBOM formats; ISO/IEC 30111 -- vuln
+    handling.
+\end{itemize}
+\end{notebox}
+
 \begin{warnbox}
-Fictional plant only -- do not reuse a real client's IP ranges or asset list, even partially.
+The SL-T values, risk scores, and clause wording in this lab are
+pedagogical. A real FEED-phase 62443-3-2 assessment uses the operator's
+own risk matrix, the safety classification (SIL) of every SIF, and
+walk-downs with the people who will run the plant. A zone-and-conduit
+drawing signed without the process-safety engineer in the room is not a
+secure-by-design artefact -- it is a liability.
 \end{warnbox}
+
 \end{document}

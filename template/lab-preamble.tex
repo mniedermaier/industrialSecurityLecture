@@ -62,6 +62,12 @@
 
 \setlength{\tabcolsep}{4pt}
 
+% Let TeX add a little extra inter-word stretch as a last resort before
+% it reports an Overfull \hbox. Only kicks in on lines that would
+% otherwise overflow (long \texttt paths, URLs, CIDRs); never loosens a
+% line that already fits. Keeps prose/itemize within the margin.
+\setlength{\emergencystretch}{3em}
+
 \pagestyle{fancy}
 \fancyhf{}
 \renewcommand{\headrulewidth}{0.4pt}

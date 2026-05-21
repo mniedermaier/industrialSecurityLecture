@@ -10,7 +10,6 @@ SECTIONS := \
 
 SECTION_DIRS  := $(addprefix sections/,$(SECTIONS))
 EXERCISE_DIRS := $(addprefix exercises/,$(SECTIONS))
-LAB_DIRS      := $(addprefix labs/,$(SECTIONS))
 
 .PHONY: all slides exercises solutions labs clean distclean
 
@@ -26,10 +25,12 @@ solutions:
 	@for d in $(EXERCISE_DIRS); do $(MAKE) -C $$d solutions || exit 1; done
 
 labs:
-	@for d in $(LAB_DIRS); do $(MAKE) -C $$d all || exit 1; done
+	$(MAKE) -C labs all
 
 clean:
-	@for d in $(SECTION_DIRS) $(EXERCISE_DIRS) $(LAB_DIRS); do $(MAKE) -C $$d clean; done
+	@for d in $(SECTION_DIRS) $(EXERCISE_DIRS); do $(MAKE) -C $$d clean; done
+	$(MAKE) -C labs clean
 
 distclean:
-	@for d in $(SECTION_DIRS) $(EXERCISE_DIRS) $(LAB_DIRS); do $(MAKE) -C $$d distclean; done
+	@for d in $(SECTION_DIRS) $(EXERCISE_DIRS); do $(MAKE) -C $$d distclean; done
+	$(MAKE) -C labs distclean

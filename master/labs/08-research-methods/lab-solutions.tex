@@ -1,0 +1,155 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\labNumber{08}
+\def\labTitle{Research Methods -- Solutions}
+\def\labSection{08}
+\def\labTime{4--5 hours}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Lecturer / TA reference: model research question and hypothesis, a worked
+citation matrix, a complete experiment design with variables and metrics,
+a model ethics + disclosure statement, the common mistakes to watch for,
+and a grading rubric. This is a research-skills lab -- reward defensible
+reasoning and reproducibility over a particular ``right'' answer.
+\end{goalbox}
+
+\begin{solutionbox}{Step 1 -- Model RQ + falsifiable hypothesis}
+A sharp, testbed-tractable example (accept any RQ that is specific,
+measurable, and runnable on the Bachelor stack in one session):
+
+\vspace{1mm}
+\textbf{RQ:} Does increasing the Modbus/TCP write-coil injection rate
+change the per-minute detection count of the stack's Zeek
+\texttt{Unsolicited\_Write} rule?
+
+\textbf{H1:} A higher injection rate yields a measurably higher
+detections/min count (monotonic up to the rule's window saturation).
+
+\textbf{H0:} Injection rate has no measurable effect on detections/min.
+
+\textbf{Scope IN:} one protocol (Modbus/TCP), one component (OpenPLC +
+Zeek), one metric (detections/min). \textbf{Scope OUT:} other protocols,
+real PLCs, evasion techniques.
+
+\vspace{1mm}
+\emph{Grading:} full marks for exactly one RQ, one H1, one H0, all
+falsifiable, with an explicit in/out scope. Deduct for multi-part
+questions, unmeasurable verbs (``understand'', ``explore''), or a
+hypothesis that cannot be wrong.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 2 -- Sample citation matrix}
+A model matrix; the load-bearing column is the rightmost (gap vs.\ the
+student's RQ). Accept 8--12 rows with logged search strings.
+
+\vspace{2pt}
+{\footnotesize
+\begin{tabular}{@{}p{2.7cm}p{0.9cm}p{2.2cm}p{2.4cm}p{1.5cm}p{3.0cm}@{}}
+\toprule
+\textbf{Paper (key)} & \textbf{Year} & \textbf{Method} & \textbf{Testbed/data} & \textbf{Artefact?} & \textbf{Gap vs.\ RQ} \\
+\midrule
+\texttt{goh16}    & 2016 & measurement & SWaT             & dataset    & no detection-rate metric \\
+\texttt{morris11} & 2011 & measurement & MSU gas pipeline & dataset    & no live PLC, no rate sweep \\
+\texttt{ids22}    & 2022 & experiment  & SWaT             & code (git) & single rate, no baseline \\
+\texttt{fuzz20}   & 2020 & design sci. & OpenPLC          & code       & fuzzing, not detection \\
+\texttt{census21} & 2021 & measurement & Shodan           & no         & internet-wide, not testbed \\
+\bottomrule
+\end{tabular}}
+
+\vspace{1mm}
+\emph{Grading:} reward correct method classification, presence of an
+``artefact?'' column (reproducibility awareness), and a non-empty,
+specific gap column. Penalise a matrix that is just a bibliography with
+no analytical columns, or a gap column that says ``none'' for every row
+(then the RQ is not novel -- they must revisit Step 1). Search strings
+and venues (S4, ACSAC, USENIX, IEEE S\&P, ESORICS, WOOT, ICS-CSR) must
+be logged.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 3--5 -- Worked experiment design + analysis}
+Model design for the RQ above:
+
+\vspace{1mm}
+{\footnotesize
+\begin{tabular}{@{}p{4.0cm}p{11.2cm}@{}}
+\toprule
+\textbf{Element} & \textbf{Model value} \\
+\midrule
+Independent variable   & injection rate \{0 (control), 1, 10, 50\} writes/s \\
+Dependent variable     & Zeek \texttt{Unsolicited\_Write} detections per minute \\
+Controlled variables   & stack commit, container CPU limit, MTU, payload size, run window (60\,s) \\
+Baseline / control     & rate 0 = idle poll loop, no injection \\
+Metric + unit          & detections/min; secondary: PLC scan-cycle jitter (ms) \\
+Repetitions            & 5 runs per condition; report mean + spread \\
+Order                  & randomised condition order to remove warm-up bias \\
+Confounds + mitigation & noisy-neighbour $\to$ pin CPU; clock drift $\to$ NTP-sync host \\
+\bottomrule
+\end{tabular}}
+
+\vspace{1mm}
+\textbf{Model outcome.} The control (rate 0) yields $\approx$0
+detections/min; detections rise with rate until the rule's window
+saturates. A defensible write-up rejects H0 with the figure from
+\texttt{plot\_results.py} regenerated from \texttt{results/run.csv}.
+A ``no significant effect'' result is equally acceptable if the data
+support it and the student says so honestly.
+
+\vspace{1mm}
+\emph{Grading:} the control condition must be present and run first;
+the figure must be script-generated from CSV (not a screenshot); the
+H0 decision must follow from the numbers, not from the student's prior.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 6 -- Model ethics + disclosure + dual-use statement}
+A passing \texttt{ethics.md} contains, in plain language:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Scope of harm:} only the local Bachelor testbed touched; no third party, no production plant, no PLC the student does not own.
+  \item \textbf{Beneficence vs.\ maleficence (Menlo):} defenders gain a tuned detection metric; the only ``attack'' is write-coil injection already public since the early Modbus literature, so net benefit is positive.
+  \item \textbf{Coordinated disclosure:} no vendor to notify on a lab stack -- but the student states what they \emph{would} do for a real finding (vendor PSIRT $\to$ coordinating CERT BSI/CISA, ICS-realistic 180/60 timeline, deviation justified).
+  \item \textbf{Dual-use:} publish the detection method and metric; withhold any turnkey exploit; benefit-to-harm argument written out.
+  \item \textbf{Respect for persons / data:} no PII; any sensitive data anonymised with justification.
+\end{itemize}
+\emph{Grading:} all five points present and specific to the study (not a
+boilerplate paste) earns full ethics marks. Missing disclosure plan or
+missing dual-use reasoning is a hard deduction -- see the rubric.
+\end{solutionbox}
+
+\begin{solutionbox}{Common mistakes to flag while grading}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Scope creep:} an RQ that needs more than the testbed and one session -- that is a thesis, not a lab. Tell them to cut to one IV and one DV.
+  \item \textbf{No baseline:} a treatment number with no control. Uninterpretable; send back to Step 4.
+  \item \textbf{HARKing:} a ``hypothesis'' clearly written after seeing the results. The Step-9 pre-registration commit (git timestamp) is the defence; check the log order.
+  \item \textbf{Screenshot science:} a figure pasted from the screen instead of regenerated by a committed script -- not reproducible.
+  \item \textbf{Unpinned environment:} no stack commit hash, no \texttt{requirements.txt}; ``works on my machine''. Re-running from a fresh clone exposes it.
+  \item \textbf{Citation theatre:} a bibliography with no analytical gap column; cannot support a novelty claim.
+  \item \textbf{Ethics as afterthought:} disclosure / dual-use bolted on at the end rather than written before findings.
+\end{itemize}
+\end{solutionbox}
+
+\begin{rubricbox}
+Total 100 pts; pass mark 50.
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Question clarity (15 pts):} one specific RQ (5), falsifiable H1 + H0 (5), explicit in/out scope and matched method (5).
+  \item \textbf{Lit-review coverage (20 pts):} 8--12 paper citation matrix (8), correct method/artefact columns (4), logged search strings + named venues (4), non-empty specific gap column establishing novelty (4).
+  \item \textbf{Experimental rigour + reproducibility (35 pts):} variables + controls + metric defined (8), baseline run first (5), $\geq$5 reps + confound mitigation (5), script-generated figure from CSV (5), pinned environment -- stack commit + \texttt{requirements.txt} + CHECKSUMS (7), README that re-runs cold (5).
+  \item \textbf{Ethics handling (20 pts):} scope-of-harm + Menlo beneficence (6), coordinated-disclosure plan with ICS-realistic timeline (7), dual-use statement with benefit-to-harm + what is withheld (7).
+  \item \textbf{Writing quality (10 pts):} one-page abstract in venue structure (4), numbers-in-abstract + every claim cited (3), threats-to-validity named -- internal/external/construct (3).
+\end{itemize}
+\textbf{Auto-fail:} any evidence the student ran the experiment against a
+real plant, a third party's network, or a PLC they do not own; or a
+published finding that hands a working plant attack to the public ahead
+of any patch. Re-issue the lab with a written ethics warning.
+
+\vspace{1mm}
+\textbf{Bonus (up to +5):} a genuine Step-9 pre-registration committed
+before the run (git log proves order) and a full threats-to-validity
+subsection with a sample-size / power justification.
+\end{rubricbox}
+
+\end{document}

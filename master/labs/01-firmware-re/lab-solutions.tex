@@ -1,0 +1,197 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\labNumber{01}
+\def\labTitle{Firmware Reverse Engineering -- First Cut -- Solutions}
+\def\labSection{01}
+\def\labTime{45 min}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Lecturer / TA reference: model answers, a realistic worked finding
+(hard-coded master password in a known consumer-router firmware,
+CWE-798), expected tool output per step, the common mistakes to watch
+for, and a grading rubric. Students will use different images, so grade
+on \emph{method and evidence}, not on matching this exact image.
+\end{goalbox}
+
+\begin{solutionbox}{Step 1 -- Sourcing and provenance}
+A full mark requires four pinned facts: source URL/origin, the
+vendor-published hash (or an explicit ``none published''), the
+student's own \texttt{sha256sum}, and a UTC timestamp plus entitlement
+basis. Acceptable sources: an EOL consumer-router image from the
+vendor archive, an OpenWrt build, a self-owned device dump, or a
+partner-programme artefact.
+
+\textbf{Common mistakes:} no hash at all; quoting the vendor hash but
+never computing their own; sourcing from a random mirror with no
+provenance; using an image they have no right to. Any image obtained
+from a third-party device the student does not own is an auto-fail
+(see rubric).
+\end{solutionbox}
+
+\begin{solutionbox}{Step 2 -- Triage accuracy}
+The student must report architecture, endianness, filesystem type, and
+the offset layout. For a typical MIPS/ARM Linux router image, expected
+\texttt{binwalk} output:
+
+\begin{lstlisting}
+DECIMAL    HEXADECIMAL   DESCRIPTION
+0          0x0           uImage header, ... CPU: MIPS, OS: Linux
+64         0x40          LZMA compressed data
+1310720    0x140000      Squashfs filesystem, little endian, v4.0, xz
+\end{lstlisting}
+
+Award triage points for: correct ISA + endianness (the most-missed
+detail), correct FS identification, and recognising any non-compressed
+high-entropy region as a candidate encrypted/packed blob rather than
+ignoring it.
+
+\textbf{Common mistakes:} reporting ``ARM'' without endianness;
+calling a SquashFS ``unknown'' because v3-binwalk extracted it
+silently; treating an entropy plateau as ``just compression'' without
+checking the binwalk signature line. A monolithic RTOS image (no FS
+magic) is a valid result -- the correct response is to load the raw
+blob into Ghidra at its base address, not to declare failure.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 3 -- Filesystem extraction and mount}
+Expected: a clean root tree and a readable \texttt{etc/passwd}.
+
+\begin{lstlisting}
+$ unsquashfs -d rootfs *.squashfs && ls rootfs
+bin dev etc lib mnt proc sbin sys tmp usr var www
+$ cat rootfs/etc/passwd
+root:$1$abcd$Xy....:0:0:root:/root:/bin/sh
+\end{lstlisting}
+
+Full marks for a mounted tree plus identification of the boot-time
+network services from \texttt{etc/init.d}/\texttt{rc*} (telnetd,
+httpd, dropbear, custom daemons). A populated \texttt{root} hash field
+(not \texttt{x}/\texttt{*}) should be flagged as an embedded,
+offline-crackable credential.
+
+\textbf{Common mistakes:} stopping at \texttt{binwalk -e} without
+verifying the carve mounted; missing a vendor-modified SquashFS that
+needs \texttt{sasquatch}; not inspecting \texttt{init.d} so they never
+learn which services are exposed.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 4 -- Credential / secret hunt}
+Expected hits combine a config-side secret and a binary-side string:
+
+\begin{lstlisting}
+rootfs/etc/config/system: option password 'admin'
+strings httpd: SUPER_PASS  ... /cgi-bin/;telnetd -l/bin/sh -p 9999
+\end{lstlisting}
+
+Full marks for at least one verifiable secret with its file path and a
+provisional CWE: hard-coded credential = CWE-798; embedded private key
+shared across devices = CWE-321; backdoor shell launcher = note for
+Step 5 confirmation.
+
+\textbf{Common mistakes:} grepping only \texttt{etc} and missing
+secrets baked into \texttt{www}/CGI binaries; reporting the
+\texttt{root} hash as ``the password'' without acknowledging it must
+still be cracked; flagging a per-device random secret (e.g.\ a
+generated TLS cert) as hard-coded -- it is not, unless it repeats
+across images.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 5 -- Worked finding (Ghidra confirmation)}
+\textbf{Sample finding -- hard-coded master password (CWE-798).} In
+the web-admin binary, the login routine compares the supplied password
+against an embedded constant before consulting the provisioned
+credential store:
+
+\begin{lstlisting}[language=C]
+int check_login(char *user, char *pass) {
+  if (strcmp(user, "admin") == 0 && strcmp(pass, "Zte521") == 0)
+    return 1;                 /* embedded master password, CWE-798 */
+  return verify_user(user, pass);
+}
+\end{lstlisting}
+
+This pattern (the ZTE F660 ``Zte521'' web backdoor is the textbook
+real-world case, CVE-2014-2321 being a sibling backdoor on the same
+family) gives unauthenticated-equivalent admin access independent of
+the configured password. Equally acceptable findings: an OTA updater
+that checks only a CRC/MD5 and no signature (CWE-345/CWE-347), or
+\texttt{system()} reached with an attacker-controlled filename
+(CWE-78). Full marks require the function name/address, the decompiler
+screenshot, and a correct CWE.
+
+\textbf{Common mistakes:} reading a \texttt{strcmp} hit as a finding
+without confirming the return path actually authenticates; wrong CWE
+(798 vs 259 vs 321 -- 798 is hard-coded credential, 259 is a hard-coded
+password used as a default, 321 is a hard-coded crypto key); claiming
+``no signature check'' when the check exists but lives in a separate
+verifier the student did not trace.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 6 -- qemu-user confirmation}
+Expected: the daemon runs under \texttt{qemu-arm-static} in a chroot
+and accepts the embedded credential where the provisioned one is
+rejected -- a \texttt{200} with admin content for \texttt{admin:Zte521}.
+Accept a partial result: many ICS daemons abort on a hardware
+\texttt{ioctl}/NVRAM read under emulation, and proving the auth path up
+to that call is sufficient.
+
+\textbf{Common mistakes:} wrong \texttt{qemu-*-static} for the ISA;
+forgetting \texttt{QEMU\_LD\_PREFIX}/the chroot so shared libraries are
+missing; declaring the finding unconfirmed when the daemon merely hit a
+\texttt{/dev} read that emulation cannot satisfy.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 7 -- (Stretch) version diff}
+Expected: a small change set clustered on one daemon, e.g.\ the
+hard-coded branch removed in the newer image. The takeaway the student
+must articulate: the silent fix makes the \emph{older} version a known
+n-day for everyone still running it, which is itself reportable.
+
+\textbf{Common mistakes:} diffing whole images and drowning in
+build-timestamp/path noise instead of \texttt{diff -rq} then drilling
+into the changed daemon; missing that a removed branch \emph{is} the
+fix.
+\end{solutionbox}
+
+\begin{solutionbox}{Disclosure email -- model rubric}
+A professional draft addresses the vendor PSIRT and contains: affected
+model + firmware version + image hash; a concise technical summary
+(finding, file/function, CWE); reproduction; suggested remediation;
+a proposed timeline (90 days, or 180 for coordinated ICS rollouts);
+and an explicit statement that no third-party device was touched and
+the PoC is held privately pending coordination. CC the relevant
+national CERT/CSIRT.
+
+\textbf{Common mistakes:} threatening publication, omitting the hash so
+the vendor cannot identify the exact build, attaching a working
+exploit, or naming end-user victims.
+\end{solutionbox}
+
+\begin{rubricbox}
+Total 20 pts; pass mark 10.
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Sourcing + hashing (3):} lawful image (1), provenance
+        pinned (1), own hash computed and compared (1).
+  \item \textbf{Triage accuracy (4):} ISA + endianness (2), filesystem
+        type/offset (1), entropy regions reasoned about (1).
+  \item \textbf{Filesystem extraction (3):} mounted root tree (1),
+        boot services identified (1), embedded hash/secret noted (1).
+  \item \textbf{Finding quality (6):} verifiable weakness (2), correct
+        CWE (1), Ghidra confirmation with address/screenshot (2),
+        qemu-user or equivalent dynamic confirmation (1).
+  \item \textbf{Disclosure email (3):} correct recipient + hash +
+        timeline (2), professional tone, no threats/exploit (1).
+  \item \textbf{Stretch (bonus +2):} version diff or triaged crash.
+\end{itemize}
+\textbf{Auto-fail:} any evidence the student analysed firmware they
+have no right to, or ran a finding against a device they do not own --
+re-issue the lab.
+\end{rubricbox}
+
+\end{document}

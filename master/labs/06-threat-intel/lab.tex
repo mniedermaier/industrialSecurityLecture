@@ -2,9 +2,9 @@
 
 \def\courseTitle{Industrial Security (Master)}
 \def\labNumber{06}
-\def\labTitle{Intel-Driven Hunt in the Bachelor Lab}
+\def\labTitle{Threat Intelligence for OT -- Build the Intel Product}
 \def\labSection{06}
-\def\labTime{2--3 hours}
+\def\labTime{3--4 hours}
 
 \input{../../../template/lab-preamble.tex}
 
@@ -12,34 +12,356 @@
 \labheader
 
 \begin{goalbox}
-Take a real, recent OT-relevant ATT\&CK technique. Form a hunt hypothesis. Execute it against the Bachelor Docker lab Zeek logs. Iterate until you can either confirm or deny.
+Produce a complete, analyst-grade threat-intelligence product on one real OT
+threat group. You will: build the group's ATT\&CK-for-ICS technique profile in
+Navigator, encode a campaign as a STIX 2.1 bundle (indicators, attack-patterns,
+relationships), map your existing detections back to the techniques, run a
+Diamond Model analysis of one incident, and derive a consequence-driven set of
+prioritised intelligence requirements (PIRs) for a named sector. The
+deliverable is a 2-page threat assessment plus a machine-readable ATT\&CK layer
+JSON --- the kind of artefact a SOC and a plant security lead can both act on.
 \end{goalbox}
 
-\begin{stepbox}{1 -- Pick a TTP}
-From the ATT\&CK for ICS matrix, pick one of: T0855 (Unauthorised Command Message), T0859 (Valid Accounts), T0846 (Remote System Discovery), T0867 (Lateral Tool Transfer). Note the canonical detection guidance.
+\begin{warnbox}
+Most useful OT intel is \textbf{TLP-marked}. Treat anything you pull from an
+ISAC, a vendor portal, or a paid feed as \textbf{TLP:AMBER} by default and do
+not redistribute it. The technique IDs, public Dragos/Mandiant/CISA reports,
+and the ATT\&CK matrix itself are TLP:CLEAR and safe to quote. When in doubt,
+mark your own product TLP:AMBER+STRICT and keep it inside the cohort.
+\end{warnbox}
+
+\section*{Background and scope}
+
+This lab is analysis, not exploitation. You will not touch the Bachelor Docker
+stack except to confirm which detections you already own (Step 4). Everything
+else is desk research, structured-data authoring, and writing. The skill being
+assessed is \emph{analytic tradecraft}: can you turn a pile of public reporting
+into a structured, falsifiable, decision-useful intel product?
+
+Pick \textbf{one} threat group at Step 0 and carry it through the entire lab.
+Do not switch groups halfway --- consistency across artefacts is part of the grade.
+
+\section*{Tooling / setup}
+
+\begin{stepbox}{0 -- Choose a group and stand up the toolchain}
+Choose one OT-relevant adversary and commit to it for the whole lab:
+
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{ELECTRUM / Sandworm} (Dragos / GRU Unit 74455) --- Industroyer,
+        Industroyer2, the 2015/16 Ukraine grid attacks, CaddyWiper alongside.
+  \item \textbf{CHERNOVITE} (Dragos) --- author of the \textbf{PIPEDREAM /
+        INCONTROLLER} cross-vendor ICS toolkit (CODESYS, OPC UA, Modbus,
+        Omron, Schneider).
+  \item \textbf{VOLTZITE / Volt Typhoon} (Dragos / Microsoft) --- PRC
+        living-off-the-land pre-positioning in US critical infrastructure
+        (electric, water, comms).
+\end{itemize}
+
+Stand up the tools (all run locally; nothing here phones an attacker):
+\begin{lstlisting}[language=bash]
+# 1) ATT&CK Navigator -- run the official container locally
+docker run -d --rm -p 4200:4200 \
+  --name attack-navigator mitre/attack-navigator:latest
+# open http://localhost:4200 and start a new "ICS" layer
+
+# 2) STIX 2.1 tooling -- the OASIS reference library
+python3 -m venv ~/ti-venv && . ~/ti-venv/bin/activate
+pip install stix2 stix2-validator taxii2-client
+
+# 3) (optional) MISP or OpenCTI for ingest practice
+#    docker compose stacks exist upstream; not required to pass.
+\end{lstlisting}
+
+Pull the public primary sources for your group into a working folder:
+the relevant \textbf{Dragos Year-in-Review} and threat-group page, the matching
+\textbf{Mandiant} or \textbf{Microsoft} write-up, and the \textbf{CISA}
+advisory (e.g.\ \texttt{AA22-103A} for PIPEDREAM-adjacent activity,
+\texttt{AA24-038A} for Volt Typhoon). \textbf{Expected output:} Navigator
+reachable in the browser, \texttt{stix2} importable in Python, and a folder of
+3--5 PDFs you will cite.
 \end{stepbox}
 
-\begin{stepbox}{2 -- Translate to lab telemetry}
-For your chosen TTP, identify what would be visible in: Zeek \texttt{conn.log}, \texttt{modbus.log}, \texttt{notice.log}, or in OpenPLC's web-UI access log.
+\section*{Part A -- Build the technique profile}
+
+\begin{stepbox}{1 -- ATT\&CK-for-ICS technique profile in Navigator}
+From your primary sources, extract every ATT\&CK \emph{for ICS} technique your
+group has demonstrably used. Work tactic-by-tactic across the ICS matrix
+(Initial Access $\to$ \dots $\to$ Impact). For each technique record the
+\texttt{Txxxx} ID, the tactic, and the \emph{evidence sentence} (which report,
+which incident).
+
+In Navigator, create an ICS-domain layer, score each used technique \texttt{1},
+colour it, and put your evidence sentence in the technique \texttt{comment}
+field. Map the group's official \texttt{group-Gxxxx} STIX ID in the layer
+metadata if it exists.
+
+\textbf{Expected output:} a Navigator layer with 10--20 scored ICS techniques,
+each carrying a one-line evidence comment, exported via
+\emph{layer $\to$ download $\to$ JSON} to \texttt{group-layer.json}. Sanity
+check: open the JSON and confirm \texttt{"domain": "ics-attack"} and that every
+\texttt{techniqueID} starts with \texttt{T0}.
 \end{stepbox}
 
-\begin{stepbox}{3 -- Generate baseline}
+\begin{stepbox}{2 -- Validate the profile against the matrix}
+A common rookie error is to cite \emph{enterprise} ATT\&CK techniques
+(\texttt{T1059}, \texttt{T1021}) in an ICS layer. The two matrices overlap
+conceptually but use different IDs. Walk your list and for every technique
+answer: is this an ICS-matrix technique (\texttt{T0xxx}) or did the activity
+actually happen in the IT/enterprise domain (\texttt{T1xxx}) before pivoting to
+OT?
+
+Many real OT campaigns are \emph{dual-matrix}: enterprise techniques for the IT
+intrusion, ICS techniques for the OT impact. Split your profile into an
+\textbf{enterprise} sub-list and an \textbf{ICS} sub-list, and note the
+pivot point (the technique where the adversary crossed from IT into OT ---
+typically a \texttt{T0883} Internet-Accessible Device or \texttt{T0822}
+External Remote Services hop).
+
+\textbf{Expected output:} a two-column table (enterprise IDs / ICS IDs) and one
+sentence naming the IT$\to$OT pivot technique for your group.
+\end{stepbox}
+
+\section*{Part B -- Encode the campaign as STIX 2.1}
+
+\begin{stepbox}{3 -- Author a STIX 2.1 bundle}
+Encode one campaign of your group as a STIX 2.1 bundle. At minimum include:
+one \texttt{intrusion-set} (or \texttt{threat-actor}), 2--3
+\texttt{attack-pattern} objects (each carrying an
+\texttt{external\_reference} to its ATT\&CK ICS \texttt{Txxxx} ID), 2--3
+\texttt{indicator} objects (use \emph{plausible, defanged} network or host
+indicators --- do not paste live C2 you cannot verify), and the
+\texttt{relationship} objects that wire them together
+(\texttt{uses}, \texttt{indicates}). Add TLP marking via the standard
+\texttt{marking-definition}.
+
+\begin{lstlisting}[language=python]
+from stix2 import (IntrusionSet, AttackPattern, Indicator, Relationship,
+                   Bundle, ExternalReference, TLP_AMBER)
+
+grp = IntrusionSet(name="ELECTRUM",
+    description="OT-capable activity group; see Dragos.",
+    object_marking_refs=[TLP_AMBER])
+
+ap = AttackPattern(name="Unauthorized Command Message",
+    external_references=[ExternalReference(
+        source_name="mitre-ics-attack", external_id="T0855")],
+    object_marking_refs=[TLP_AMBER])
+
+ind = Indicator(name="Suspicious Modbus write burst",
+    pattern="[network-traffic:dst_port = 502]",
+    pattern_type="stix",
+    object_marking_refs=[TLP_AMBER])
+
+rels = [Relationship(grp, "uses", ap),
+        Relationship(ind, "indicates", grp)]
+
+bundle = Bundle(grp, ap, ind, *rels)
+open("campaign.json","w").write(bundle.serialize(pretty=True))
+\end{lstlisting}
+
+Then validate it. A bundle that does not pass the validator is not a deliverable:
+\begin{lstlisting}[language=bash]
+stix2_validator campaign.json
+\end{lstlisting}
+
+\textbf{Expected output:} \texttt{campaign.json} that the validator accepts with
+no errors, containing $\geq$1 intrusion-set, $\geq$2 attack-patterns with
+ATT\&CK \texttt{external\_id}s, $\geq$2 indicators, and the relationships
+linking them.
+\end{stepbox}
+
+\section*{Part C -- Close the loop to detection}
+
+\begin{stepbox}{4 -- Map detections to techniques}
+Intel that does not change a detection is decoration. For each ICS technique in
+your Step 1 profile, decide whether you already detect it in the Bachelor lab
+telemetry, and \emph{with what}. Inventory what detections you actually have:
+
 \begin{lstlisting}[language=bash]
 cd bachelor/labs/_stack && docker compose up -d
-docker compose exec student python3 /labs/scripts/modbus_poll_loop.py &
-sleep 300
+ls zeek-logs/current/        # conn, modbus, notice logs available?
+docker compose exec student ls /labs/scripts/   # injectors to test against
 \end{lstlisting}
+
+Produce a coverage table: \texttt{Technique (Txxxx)} $\to$
+\texttt{Detection (Zeek notice / Sigma rule / none)} $\to$
+\texttt{Telemetry source} $\to$ \texttt{Coverage (full / partial / gap)}.
+Be honest about gaps --- naming a gap is worth more than overclaiming coverage.
+
+\textbf{Expected output:} a coverage table where every Step 1 ICS technique has
+a row, with at least the \texttt{T0855}/\texttt{T0836} Modbus-write techniques
+mapped to a real detection and at least two honest gaps identified.
 \end{stepbox}
 
-\begin{stepbox}{4 -- Inject and hunt}
-Trigger your chosen TTP (e.g.\ \texttt{modbus\_inject.py}). Search the Zeek logs for the signal. Document the time-to-detection and the precision (false positives in 5 min of baseline).
+\section*{Part D -- Structured analysis}
+
+\begin{stepbox}{5 -- Diamond Model of one incident}
+Pick \emph{one} concrete incident attributed to your group and fill all four
+Diamond vertices plus the meta-features. Be specific: ``the adversary'' is not
+a fill --- \emph{which} sub-cluster, \emph{which} infrastructure, \emph{which}
+capability version.
+
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Adversary} --- the named group and any sub-cluster / operator
+        tradecraft signature.
+  \item \textbf{Capability} --- the specific malware/tooling and its ATT\&CK
+        techniques (cross-reference your Step 1 \texttt{Txxxx} IDs).
+  \item \textbf{Infrastructure} --- C2, staging, delivery (Type 1 adversary-owned
+        vs.\ Type 2 hijacked).
+  \item \textbf{Victim} --- sector, asset class, the \emph{consequence} the
+        adversary was reaching for.
+  \item \textbf{Meta:} timestamp, phase (kill-chain / ICS Cyber Kill Chain
+        stage), result, confidence.
+\end{itemize}
+
+\textbf{Expected output:} a completed diamond (text or diagram) with all four
+vertices populated from cited sources, the capability vertex cross-referenced to
+your \texttt{Txxxx} list, and an explicit confidence rating (low/med/high) with
+one sentence of justification.
 \end{stepbox}
 
-\begin{stepbox}{5 -- Refine}
-If your hunt was noisy, tighten the query. If it missed, broaden it. Document the iteration.
+\begin{stepbox}{6 -- Consequence-driven PIRs for a sector}
+Write a prioritised intelligence-requirement (PIR) list for a \emph{named}
+sector your group threatens (e.g.\ electric transmission, water treatment,
+LNG). PIRs are questions, not statements, and they must be
+\textbf{consequence-driven}: anchor each to a process consequence the operator
+fears (loss of view, loss of control, equipment damage, safety trip), not to a
+generic IT outcome.
+
+Write 5--7 PIRs, ranked, each with: the question, the consequence it protects
+against, the collection source that would answer it, and the trigger /
+threshold that would escalate it. Example shape:
+\emph{``PIR-1: Is [group] currently developing or deploying capability against
+[specific protocol/controller we operate]? (Consequence: loss of control of
+[process]. Source: Dragos/CISA advisories + vendor PSIRT. Trigger: any advisory
+naming our controller family.)''}
+
+\textbf{Expected output:} 5--7 ranked, consequence-anchored PIRs, each a
+question with source and trigger, fitting on one page.
 \end{stepbox}
+
+\section*{Part E -- Stretch}
+
+\begin{stepbox}{7 -- Write a detection for one TTP (stretch)}
+Turn one technique from your profile into a deployable detection. Either a Sigma
+rule (for an IT/log-based TTP) or a Zeek script / notice (for an OT-protocol
+TTP). Tag it with the \texttt{Txxxx} ID it covers so the rule self-documents its
+ATT\&CK mapping.
+
+\begin{lstlisting}[]
+title: OT Unauthorized Command - Modbus Write Burst
+id: 7c0f1e2a-ot06-4b3c-9d1e-modbuswrite001
+status: experimental
+description: Detects a burst of Modbus write-coil/write-register
+  requests from a non-EWS host (ATT&CK ICS T0855 / T0836).
+logsource: { product: zeek, service: modbus }
+detection:
+  writes:
+    func_code:
+      - 5    # Write Single Coil
+      - 6    # Write Single Register
+      - 15   # Write Multiple Coils
+      - 16   # Write Multiple Registers
+  timeframe: 10s
+  condition: writes | count() by id.orig_h > 20
+tags: [attack.t0855, attack.t0836, attack.impair_process_control]
+falsepositives: [legitimate HMI/EWS batch writes during commissioning]
+level: high
+\end{lstlisting}
+
+\textbf{Expected output:} one syntactically valid Sigma or Zeek rule, carrying
+its \texttt{Txxxx} tag, with a stated false-positive condition and a tuning note.
+\end{stepbox}
+
+\section*{Troubleshooting}
+
+\begin{notebox}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Navigator container will not start} --- port 4200 is often busy;
+        remap with \texttt{-p 4300:4200} and browse \texttt{localhost:4300}.
+  \item \textbf{Navigator shows enterprise techniques only} --- you created an
+        enterprise layer. Start over and choose the \emph{ICS} domain at the
+        ``create new layer'' prompt.
+  \item \texttt{stix2} \textbf{rejects your TLP marking} --- use the built-in
+        \texttt{TLP\_AMBER} constant, not a hand-rolled marking-definition; the
+        library ships the canonical UUIDs.
+  \item \textbf{Validator complains about timestamps} --- let the library set
+        \texttt{created}/\texttt{modified} automatically; do not pass strings.
+  \item \textbf{Indicator pattern errors} --- STIX patterning is strict; wrap in
+        square brackets and quote string values
+        (\texttt{[file:hashes.'SHA-256' = '...']}).
+  \item \textbf{No Zeek modbus.log} --- the Bachelor stack only writes it once
+        Modbus traffic flows; run \texttt{modbus\_poll\_loop.py} first.
+\end{itemize}
+\end{notebox}
+
+\section*{Stretch goals (pick any)}
+
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item Stand up MISP or OpenCTI and \emph{ingest} your \texttt{campaign.json};
+        confirm the attack-patterns resolve to ATT\&CK objects.
+  \item Build a TAXII 2.1 collection and serve your bundle over it locally with
+        \texttt{taxii2-client} as the consumer.
+  \item Diff your group's technique profile against a second group and produce a
+        Navigator \emph{comparison} layer (scoring expression
+        \texttt{a - b}) to show overlap and divergence.
+  \item Add a \texttt{course-of-action} STIX object for each detection from
+        Step 4 and relate it (\texttt{mitigates}) to the attack-patterns.
+\end{itemize}
+
+\section*{Deliverable}
 
 \begin{deliverbox}
-A 1-page hunt report: TTP, hypothesis, query, baseline-noise level, detection result, refinement. Bonus: a Zeek script that turns the hunt into a continuous notice.
+Hand in a single archive containing:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item A \textbf{2-page threat assessment} (PDF): group overview, technique
+        profile summary, the Diamond Model of your chosen incident, the
+        detection-coverage table with honest gaps, and the ranked PIR list.
+        TLP-mark the document.
+  \item The \textbf{ATT\&CK layer JSON} (\texttt{group-layer.json}) from Step 1.
+  \item The \textbf{validated STIX bundle} (\texttt{campaign.json}) from Step 3.
+  \item (Optional) the Sigma/Zeek rule from Step 7.
+\end{itemize}
+A SOC lead should be able to read the 2 pages in five minutes and know what to
+hunt for this week; a detection engineer should be able to load the layer and
+the bundle without edits.
 \end{deliverbox}
+
+\section*{Self-check}
+
+Before handing in, make sure you can answer each in one sentence:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item Which of your techniques are ICS-matrix (\texttt{T0xxx}) and which are
+        enterprise (\texttt{T1xxx}), and where is the IT$\to$OT pivot?
+  \item Does \texttt{campaign.json} pass the validator with zero errors?
+  \item Which technique in your profile do you \emph{not} detect today, and what
+        would it take to close that gap?
+  \item Is every PIR a question anchored to a process consequence, or did one
+        slip back into a generic IT outcome?
+  \item What is your confidence in the Diamond attribution, and what single new
+        data point would change it?
+\end{itemize}
+
+\section*{Further reading}
+
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item MITRE. \emph{ATT\&CK for ICS}, \url{https://attack.mitre.org/matrices/ics/}.
+  \item Caltagirone, S., Pendergast, A., Betz, C. \emph{The Diamond Model of
+        Intrusion Analysis}, 2013.
+  \item Dragos. \emph{OT Cybersecurity Year in Review} (latest edition) and the
+        public threat-group pages (ELECTRUM, CHERNOVITE, VOLTZITE).
+  \item OASIS. \emph{STIX 2.1} and \emph{TAXII 2.1} specifications, 2021.
+  \item Assante, M., Lee, R. \emph{The Industrial Control System Cyber Kill
+        Chain}, SANS, 2015.
+  \item CISA. \emph{AA22-103A} (PIPEDREAM/INCONTROLLER) and \emph{AA24-038A}
+        (Volt Typhoon) advisories.
+\end{itemize}
+
+\begin{warnbox}
+Your finished assessment will contain a synthesis of TLP-marked source material.
+Mark the product itself \textbf{TLP:AMBER} (or \textbf{TLP:AMBER+STRICT}), do not
+post it to public repos, and store any indicators you collected from a feed
+under the originator's handling caveats. Sharing an intel product upward is good
+tradecraft; leaking your sources' restricted reporting ends your access to it.
+\end{warnbox}
 \end{document}

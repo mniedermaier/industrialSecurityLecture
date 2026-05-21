@@ -1,0 +1,280 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\labNumber{07}
+\def\labTitle{Safety / Security Co-Engineering on a SIL-rated SIS -- Solutions}
+\def\labSection{07}
+\def\labTime{4 hours, group of 4--6}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Lecturer / TA reference for the HF-201 co-engineering workshop: a worked
+Cyber-HAZOP row set, the reference $\mathrm{PFD}_{avg}$ / SIL calculation,
+the LOPA-independence-defeat analysis with before/after numbers, model
+non-interfering controls, the lifecycle mapping, a GSN sketch, common
+student mistakes, and a grading rubric. Treat the numbers as the reference
+answer; full marks for any defensible alternative with sound reasoning.
+\end{goalbox}
+
+\begin{solutionbox}{Steps 2--3 -- Worked Cyber-HAZOP rows (paired causes, phase tag)}
+Accept any six credible rows; at least three cyber causes must target the SIS
+itself. The set below is the reference standard. \emph{Phase} is the
+TR84.00.09 lifecycle phase the cyber cause exploits.
+
+\vspace{2pt}\footnotesize
+\renewcommand{\arraystretch}{1.25}\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}p{10mm}p{14mm}p{30mm}p{30mm}p{28mm}p{14mm}@{}}
+\toprule
+\textbf{Guide} & \textbf{Param} & \textbf{Safety cause} & \textbf{Cyber cause} & \textbf{Safeguard / gap} & \textbf{Phase} \\
+\midrule
+More & Header press. & PT drift / blocked impulse line & Setpoint raised via BPCS HMI write & SIF-1 trip; gap: no write allow-list & Oper. \\
+No   & Fuel isolation & Solenoid sticks open & Logic appended so DBB valves never command closed & 1oo1 FE; gap: unsigned download & Realis. \\
+As~well~as & Flame status & Scanner fouling & 2oo3 vote spoofed to ``flame OK'' on SIS I/O & 2oo3 voting; gap: no I/O integrity check & Design \\
+Other~than & SIS mode & Random CPU fault & Key-switch left in PROGRAM, logic overwritten & Key-switch interlock; gap: PROGRAM not alarmed & Oper. \\
+Part~of & Safety net & PSU degradation & Flat LAN lets EWS reach both SIS and BPCS & Zone firewall absent; gap: no conduit segmentation & Design \\
+More & Demand rate & Process upset & MOC bypassed, SIF disabled without re-validation & Change board; gap: no security sign-off on MOC & Modif. \\
+\bottomrule
+\end{tabular}
+\normalsize
+
+\par\vspace{2mm}
+\textbf{Marking note.} The discriminating skill is the phase tag. Rows tagged
+\emph{Operation} or \emph{Modification} are the high-value findings: they
+defeat the safety function \emph{after} certification, so the SIL certificate
+no longer evidences integrity. A worksheet with only \emph{Design}-phase
+network gripes has missed the point.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 4 -- Reference $\mathrm{PFD}_{avg}$ / SIL calculation (SIF-1)}
+With $1\,\mathrm{FIT}=10^{-9}\,\mathrm{h}^{-1}$ and $T_I=8760\,\mathrm{h}$:
+
+\par\vspace{1mm}
+\textbf{Sensor (1oo2 PTs, $\lambda_{DU}=300\,\mathrm{FIT}=3.0\times10^{-7}$, $\beta=0.10$):}
+\[
+\mathrm{PFD}_S \approx \tfrac{1}{3}(\lambda_{DU}T_I)^2 + \beta\,\lambda_{DU}\tfrac{T_I}{2}
+\]
+$\lambda_{DU}T_I = 3.0\times10^{-7}\times8760 = 2.628\times10^{-3}$.
+First term $=\tfrac13(2.628\times10^{-3})^2 = 2.30\times10^{-6}$;
+common-cause term $=0.10\times3.0\times10^{-7}\times4380 = 1.314\times10^{-4}$.
+So $\mathrm{PFD}_S \approx 1.34\times10^{-4}$ (the $\beta$ term dominates --
+the teaching point of redundancy with common cause).
+
+\par\vspace{1mm}
+\textbf{Logic solver (TMR, certified):} $\mathrm{PFD}_L = 2.0\times10^{-4}$.
+
+\par\vspace{1mm}
+\textbf{Final element (1oo1, $\lambda_{DU}=600\,\mathrm{FIT}=6.0\times10^{-7}$):}
+\[
+\mathrm{PFD}_{FE} \approx \tfrac12\lambda_{DU}T_I = \tfrac12\times6.0\times10^{-7}\times8760 = 2.63\times10^{-3}.
+\]
+
+\par\vspace{1mm}
+\textbf{Total:}
+\[
+\mathrm{PFD}_{avg}^{SIF\text{-}1} = 1.34\times10^{-4} + 2.0\times10^{-4} + 2.63\times10^{-3} \approx 2.96\times10^{-3}.
+\]
+This is in $[10^{-3},10^{-2})$ $\Rightarrow$ \textbf{SIL\,2 achieved}
+(RRF $\approx 1/2.96\times10^{-3}\approx 338$). The 1oo1 final element
+dominates -- correct engineering conclusion is that improving the SIF means
+1oo2 valves or a shorter proof interval, not touching the logic solver.
+Accept answers within a factor of $\sim$2 given rounding.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 5 -- LOPA-independence defeat (the central finding)}
+\textbf{Per-layer verdict after the SIS-EWS is compromised:}
+\begin{itemize}[leftmargin=*, nosep]
+  \item \textbf{SIS / SIF-1:} \emph{defeated.} Unsigned download + key-switch
+        in PROGRAM let the attacker append logic. Credit $\to$ PFD $=1$.
+  \item \textbf{BPCS alarm + operator:} \emph{defeated.} Flat LAN shared with
+        the SIS means the same foothold reaches the BPCS; the attacker
+        suppresses the high-pressure alarm. Credit $\to$ PFD $=1$.
+  \item \textbf{Mechanical relief valve:} \emph{survives.} Purely mechanical,
+        outside the cyber blast radius. Credit retained, PFD $\approx 10^{-2}$.
+\end{itemize}
+
+\par\vspace{1mm}
+\textbf{Independence collapse:} the SIS and the BPCS-alarm layer were credited
+as independent, but the \emph{shared engineering path + flat network} is a
+single common cause that defeats both. LOPA's independence axiom is violated
+the moment one foothold can reach both layers. The relief valve is the only
+genuinely independent layer left.
+
+\par\vspace{1mm}
+\textbf{Before/after (illustrative, $f_{IE}=10^{-1}$/yr exothermic upset):}
+\[
+f_{TE}^{\text{before}} = 10^{-1}\times(3.0\times10^{-3})\times(10^{-1})\times(10^{-2}) \approx 3\times10^{-7}\,/\text{yr}
+\]
+\[
+f_{TE}^{\text{after}} = 10^{-1}\times 1 \times 1 \times (10^{-2}) = 10^{-3}\,/\text{yr}
+\]
+A loss of $\sim$3--4 orders of magnitude of protection. The point students
+must articulate: the danger is not the malware payload, it is that
+\emph{counting correlated layers as independent} produced a SIL claim that was
+never true against a cyber adversary.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 6 -- TRITON/TRISIS walk-through + safe-state}
+Model answer per stage:
+\begin{itemize}[leftmargin=*, nosep]
+  \item \textbf{Foothold $\to$ EWS:} dual-homed NIC bridges DMZ to safety net.
+        Stopped by a data diode for the historian feed (no inbound path) and
+        a zone firewall.
+  \item \textbf{EWS $\to$ controller:} proprietary protocol + key in PROGRAM
+        allow logic append. Detected by key-switch-in-RUN + alarm on PROGRAM,
+        and by independent code-integrity (checksum) monitoring.
+  \item \textbf{Payload:} TRITON appended a backdoor intending to let unsafe
+        states pass while the SIS appeared healthy; the real incident tripped
+        because a TMR memory-validation mismatch forced a safe fault state.
+\end{itemize}
+\textbf{Was the trip luck or design?} Both. Fail-safe TMR \emph{design} means a
+detected internal inconsistency drives the safe state -- that is what tripped
+the plant. But the attacker did not \emph{intend} a trip; the protective
+behaviour was triggered by a payload defect, not by the SIS detecting the
+attack. So fail-safe TMR buys you a safe state on \emph{detected} faults; it
+does \emph{not} buy you protection against a clean payload that keeps the
+controller internally consistent while disabling the protective response (the
+``degraded but running'' attack). Safe-state implication: after a successful,
+defect-free version of this payload, the SIS would \emph{not} reach safe state
+on a real demand -- which is exactly the catastrophic outcome the attacker
+sought. The trip was a near miss, not evidence the SIS was secure.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 7 -- Model non-interfering controls (accepted vs.\ rejected)}
+\textbf{Accepted -- each removes a threat without touching the safety path:}
+\begin{itemize}[leftmargin=*, nosep]
+  \item \textbf{Key-switch to RUN, dual-control custody + PROGRAM alarm.}
+        Removes the post-cert logic-overwrite path. Cannot raise
+        $\mathrm{PFD}_{avg}$ (it does not alter the SIF); a genuine emergency
+        download is still possible under control. No re-validation needed.
+  \item \textbf{Zone the SIS off the BPCS (IEC~62443-3-2 conduit + firewall).}
+        Breaks the flat-LAN common cause from Step~5. Passive to the safety
+        logic. No SIF change $\Rightarrow$ no re-validation.
+  \item \textbf{Data diode for the historian feed; remove the dual-homed NIC.}
+        Eliminates the inbound DMZ$\to$SIS path. One-way egress only; cannot
+        affect safety output.
+  \item \textbf{Signed / whitelisted logic downloads.} Closes the unsigned
+        download gap. Is part of the engineering workflow, not the runtime
+        safety loop; does not add latency in the process safety time.
+  \item \textbf{Independent (out-of-band, passive) code-integrity monitoring.}
+        Detects the appended-logic payload. SPAN/tap only -- must not be
+        inline.
+\end{itemize}
+\textbf{Rejected -- would touch the safety path (the list students must
+produce):}
+\begin{itemize}[leftmargin=*, nosep]
+  \item \textbf{Inline IPS/DPI on the SIS conduit} -- can drop or delay a
+        safety I/O packet inside the process safety time. Reject; use passive
+        monitoring.
+  \item \textbf{Host AV / EDR on the logic solver} -- unsupported, can consume
+        scan cycles or quarantine the safety application. Reject.
+  \item \textbf{Emergency patch of the certified SIS} -- invalidates the SIL
+        certificate; route through safety MOC, not a security patch window.
+  \item \textbf{Any control able to command the safety output} -- creates a
+        spurious-trip path and a new attack surface onto the safe state.
+\end{itemize}
+The re-validation flag is the discriminator: only changes \emph{inside} the
+SIF boundary trigger IEC~61511 re-validation; network/zoning controls outside
+it do not.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 8 -- IEC 61511 $\leftrightarrow$ IEC 62443 lifecycle mapping}
+\vspace{1pt}\footnotesize
+\renewcommand{\arraystretch}{1.2}\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}p{52mm}p{56mm}p{38mm}@{}}
+\toprule
+\textbf{IEC 61511 (safety)} & \textbf{IEC 62443 (security)} & \textbf{Shared gate} \\
+\midrule
+HAZID / HAZOP & 62443-3-2 zone\,/\,conduit + cyber risk assessment & Joint Cyber-HAZOP \\
+SIF allocation (SIL-T) & SL-T allocation per zone & Risk-criteria board \\
+Safety requirements spec (SRS) & Security requirements (3-3 SRs) & Combined req review \\
+Design \& realisation & Secure design / hardening & Design review \\
+V\&V, SIL verification & Security V\&V / pen-test & Acceptance gate \\
+Operation, proof tests, MOC & Patch mgmt, monitoring, change & \textbf{Shared change board} \\
+\bottomrule
+\end{tabular}
+\normalsize
+\par\vspace{2mm}
+\textbf{Load-bearing point:} any modification to the safety application is
+simultaneously a safety MOC \emph{and} a security change. Neither standard's
+change process may complete without the other's sign-off -- the shared change
+board is the single mechanism that prevents a ``security patch'' from voiding
+the SIL and a ``safety MOC'' from opening a new attack path.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 9 -- (Stretch) GSN assurance-case fragment}
+Acceptable indented goal tree (G\,=\,goal, S\,=\,strategy, C\,=\,context,
+Sn\,=\,solution/evidence):
+\begin{itemize}[leftmargin=*, nosep]
+  \item \textbf{G0} HF-201 SIF-1 achieves SIL\,2 \emph{and} is not defeatable
+        by a credible cyber adversary.
+  \begin{itemize}[leftmargin=1.2em, nosep]
+    \item \textbf{C1} Threat model: adversary on plant DMZ, TRISIS-class TTPs.
+          \quad \textbf{C2} Proof-test regime $T_I=1$\,yr.
+    \item \textbf{S1} Argue over safety integrity \emph{and} integrity of the
+          safety function against the threat model.
+    \begin{itemize}[leftmargin=1.2em, nosep]
+      \item \textbf{G1} $\mathrm{PFD}_{avg}\le10^{-2}$ demonstrated.
+            $\to$ \textbf{Sn1} Step-4 calculation ($2.96\times10^{-3}$).
+      \item \textbf{G2} No single cyber foothold defeats $\geq2$ credited
+            layers. $\to$ \textbf{Sn2} Step-7 controls (zoning, diode, signed
+            download, key custody); \textbf{Sn3} Step-5 independence analysis.
+      \item \textbf{G3} Integrity preserved across the lifecycle. $\to$
+            \textbf{Sn4} Step-8 shared change-board gate.
+    \end{itemize}
+  \end{itemize}
+\end{itemize}
+\textbf{Marking point:} the security argument must be \emph{inside} the safety
+case (G2/G3 hang under G0), not a separate annex. A SIL certificate that
+ignores cyber is an incomplete assurance case -- that realisation is the
+deliverable.
+\end{solutionbox}
+
+\begin{solutionbox}{Common student mistakes}
+\begin{itemize}[leftmargin=*, nosep]
+  \item \textbf{Treating cyber faults as random.} Plugging an attack into the
+        $\beta$-factor / $\lambda_{DU}$ math. Cyber is intentional and
+        correlated; it gets PFD\,$=1$ on any layer it controls, not a small
+        number.
+  \item \textbf{Crediting correlated layers as independent.} Missing that the
+        flat LAN + shared EWS makes SIS and BPCS one common cause -- the whole
+        point of Step~5.
+  \item \textbf{Proposing interfering controls.} Inline IPS on the safety
+        conduit, host AV on the logic solver, emergency patching the certified
+        SIS. All degrade or invalidate the safety function.
+  \item \textbf{Forgetting the re-validation trigger.} Not flagging that a
+        change inside the SIF boundary forces IEC~61511 re-validation.
+  \item \textbf{Two separate registers / cases.} Keeping safety and security
+        arguments apart so the gap falls between them; GSN must integrate.
+  \item \textbf{Calling the TRITON trip ``proof the SIS is safe.''} It was a
+        payload defect, not a detection; a clean payload would not trip.
+\end{itemize}
+\end{solutionbox}
+
+\begin{rubricbox}
+Total \textbf{100 pts}; pass mark 50.
+\begin{itemize}[leftmargin=*, nosep]
+  \item \textbf{HAZOP rigour (20):} $\geq6$ rows, paired safety+cyber causes,
+        each cyber cause correctly phase-tagged; $\geq3$ target the SIS itself.
+  \item \textbf{SIL math (20):} per-subsystem $\mathrm{PFD}_{avg}$ computed,
+        summed, SIL band stated, dominant term identified; within $\sim2\times$.
+  \item \textbf{Independence analysis (25):} correct per-layer defeat verdict,
+        names the common cause, before/after residual frequency with the
+        order-of-magnitude loss. This is the core master-level skill.
+  \item \textbf{Control non-interference (20):} accepted controls justified as
+        non-interfering with the re-validation flag, \emph{and} an explicit
+        rejected list (inline IPS, host AV, emergency patch).
+  \item \textbf{Lifecycle reconciliation (15):} 61511$\leftrightarrow$62443
+        mapping with the shared change board identified as the load-bearing
+        gate. Bonus up to +5 for a coherent GSN fragment with the security
+        argument nested inside the safety case.
+\end{itemize}
+\textbf{Auto-fail:} any proposed control that can delay, inhibit, or
+spuriously trip the safety function and is \emph{not} flagged as rejected --
+security must never compromise safety.
+\end{rubricbox}
+
+\end{document}

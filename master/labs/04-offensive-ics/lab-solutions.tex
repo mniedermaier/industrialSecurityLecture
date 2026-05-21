@@ -1,0 +1,205 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\labNumber{04}
+\def\labTitle{Offensive ICS -- Authorised Kill-Chain -- Solutions}
+\def\labSection{04}
+\def\labTime{3--4 hours}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Lecturer / TA reference for the Offensive-ICS engagement lab: expected
+commands and outputs per step, the MITRE ATT\&CK for ICS technique IDs
+each step must be mapped to, the Zeek log lines each step should
+produce (or fail to produce), common student mistakes, and a grading
+rubric. The graded artefact is the engagement report, not raw command
+logs -- mark for attribution and detection awareness, not keystroke
+count.
+\end{goalbox}
+
+\begin{warnbox}
+This is offensive material. Before issuing the lab, confirm every
+student understands the scope is the local Docker stack only and that
+the self-signed ROE (Step 0) is a teaching device, not a licence to
+test anything else. Any evidence a student ran these tools against
+non-lab hosts is an auto-fail and a disciplinary matter.
+\end{warnbox}
+
+\begin{solutionbox}{Step 0 -- ROE and range up}
+The ROE need not be long, but must contain all six elements: scope
+(\texttt{172.28.0.0/16} + the five named containers), window,
+permitted techniques, out-of-scope list (host, landing page,
+Internet), kill-switch (\texttt{docker compose down}), named approver +
+timestamp. \texttt{docker compose ps} must show four services
+\texttt{Up} plus \texttt{is-zeek}, and \texttt{is-openplc-init}
+\texttt{Exited (0)}. The pre-flight curl returns \texttt{HTTP 200}.
+\textbf{Mark for:} an out-of-scope list that explicitly excludes the
+Docker host -- students who omit it have not understood why scope is
+the gating artefact.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 1 -- Passive baseline (T0842, T0840)}
+\texttt{conn.log} shows steady flows \texttt{172.28.0.20 ->
+172.28.0.10} with \texttt{service=modbus}, one roughly every 2\,s
+(the poll loop's cadence). \textbf{ATT\&CK:} T0842 Network Sniffing,
+T0840 Network Connection Enumeration. \textbf{Zeek:} \emph{nothing new
+attributable to the student} -- passive recon produces no notice. The
+key learning point is sequencing: recon before action, and the
+realisation that listening is invisible to a write-only detector.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 2 -- Active recon (T0846)}
+Expected open ports: \texttt{172.28.0.10}: 502, 8080;
+\texttt{172.28.0.11}: 4840; \texttt{172.28.0.12}: 1883. Ports 44818
+(ENIP) and 102 (S7comm) are \emph{closed} -- a correct answer notes
+this and explains that on a real plant those banners would reveal the
+vendor. \textbf{ATT\&CK:} T0846 Remote System Discovery. \textbf{Zeek:}
+a burst of short-lived flows from \texttt{172.28.0.20} in
+\texttt{conn.log} (history with \texttt{S0}/\texttt{REJ} states for the
+closed ports). No \texttt{notice.log} entry -- a connect-scan is not a
+Modbus write. Good students flag that the scan \emph{is} visible to a
+defender watching connection rates, even without a dedicated rule.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 3 -- Fingerprint + FC enumeration (T0888, T0846)}
+\texttt{modbus-discover} returns a Slave ID string containing
+\texttt{OpenPLC}; \texttt{s7-info} returns nothing (port 102 closed) --
+both are correct, and the contrast is the lesson.
+\texttt{opcua\_browse.py} connects anonymously and lists object nodes.
+The four-FC read prints discrete inputs
+\texttt{[F, T, T, T, ...]} = Start off, Stop/Guard1/Guard2 engaged --
+interlocks healthy; coils all \texttt{False}; registers all 0.
+\textbf{ATT\&CK:} T0888 Remote System Information Discovery, T0846.
+\textbf{Zeek:} reads land in \texttt{modbus.log} as
+\texttt{READ\_COILS} / \texttt{READ\_DISCRETE\_INPUTS} /
+\texttt{READ\_HOLDING\_REGISTERS} / \texttt{READ\_INPUT\_REGISTERS};
+\emph{no} \texttt{notice.log} entry, because the rule fires only on
+FC 5/6/15/16. Students who claim the enumeration ``was detected'' have
+misread the rule.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 4 -- Unauthorised write (T0855, T0831)}
+\texttt{modbus\_inject.py} prints a
+\texttt{WriteSingleCoilResponse} (no exception). The Monitoring page
+shows coil~0 flip briefly -- the ladder re-asserts the seal-in within
+one 20\,ms scan, so a one-shot write does not hold; recognising that is
+the point. \textbf{ATT\&CK:} T0855 Unauthorized Command Message +
+T0831 Manipulation of Control. \textbf{Zeek:} \texttt{notice.log} gains
+one line:
+\begin{lstlisting}
+{"note":"ModbusWatch::Unsolicited_Write",
+ "msg":"Modbus write from 172.28.0.20 to 172.28.0.10 (FC=5)", ...}
+\end{lstlisting}
+and \texttt{modbus.log} shows a \texttt{WRITE\_SINGLE\_COIL}. The
+detection-latency delta (write time vs.\ notice \texttt{ts}) should be
+sub-second; students must report a number, not ``it was detected''.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 5 -- Safety-logic defeat, simulated (T0858, T0880)}
+The write storm (\texttt{sleep 0.01}, $\sim$3000 writes in 30\,s) holds
+Motor ON for the whole window despite the seal-in logic -- the external
+master overrides the output faster than the scan can correct it.
+\textbf{ATT\&CK:} T0858 Change Operating Mode + T0880 Loss of Safety
+(the interlock no longer governs the actuator). A strong report states
+the \emph{caveat}: this is loud (a notice per write), whereas a true
+SIS attack (TRITON) tries to disable the trip \emph{and} the logging;
+TRITON was caught precisely because it tripped the SIS into a safe
+state. \textbf{Zeek:} \texttt{grep -c Unsolicited\_Write notice.log}
+returns a count in the thousands. Award full marks only if the student
+distinguishes ``defeating the output'' (what the lab does) from
+``reprogramming the safety controller'' (what TRITON did) and maps
+the finding to ISA TR84.00.09.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 6 -- Replay + view spoof (T0856, T0832, T0820)}
+\texttt{tshark} confirms FC3 frames in the PCAP. During the spoof loop
+the Monitoring page shows Motor=ON while Lamp=OFF -- the
+\texttt{Lamp := Motor} invariant is visibly broken from the operator's
+side. \textbf{ATT\&CK:} T0856 Spoof Reporting Message + T0832
+Manipulation of View, with the replay as T0820 Exploitation for
+Evasion. \textbf{Zeek:} the FC5 spoof writes raise
+\texttt{Unsolicited\_Write} notices; the replay/poll reads
+(\texttt{READ\_HOLDING\_REGISTERS}) appear only in \texttt{modbus.log}
+with \emph{no} notice. The required insight: the deception's
+\emph{cover} (replay) is invisible to this sensor; only the
+control-changing writes are caught.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 7 -- Detection reconciliation}
+The \texttt{jq} write filter lists every FC5 from \texttt{172.28.0.20};
+the \texttt{date -d @\{ts\}} pipeline yields the first malicious write
+in \texttt{HH:MM:SS}; the read counter shows the replay traffic sitting
+in \texttt{modbus.log} with no corresponding notice. Correct conclusion
+for the report: \textbf{this sensor detects protocol abuse (writes) and
+is blind to behavioural attacks (replay, read-only view manipulation,
+new-master detection)}. That gap is the headline recommendation.
+\end{solutionbox}
+
+\begin{solutionbox}{ATT\&CK mapping -- answer key}
+\small
+\begin{tabular}{@{}p{1.0cm}p{5.2cm}p{4.0cm}@{}}
+\toprule
+\textbf{Step} & \textbf{ATT\&CK for ICS} & \textbf{Detection} \\
+\midrule
+1 & T0842, T0840           & none (passive) \\
+2 & T0846                  & conn.log flow burst \\
+3 & T0888, T0846           & modbus.log reads, no notice \\
+4 & T0855, T0831           & notice: Unsolicited\_Write (FC5) \\
+5 & T0858, T0880           & notice flood (FC5) \\
+6 & T0856, T0832, T0820    & writes caught; replay missed \\
+\bottomrule
+\end{tabular}
+\normalsize
+\par\vspace{2mm}
+Accept reasonable near-misses (e.g.\ T0859 Valid Accounts is not
+applicable here; T0836 Modify Parameter is acceptable for the
+register-spoof variant). Penalise IDs from enterprise ATT\&CK
+(T1xxx) -- this is the ICS matrix.
+\end{solutionbox}
+
+\begin{solutionbox}{Common mistakes}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item Claiming recon/enumeration was ``detected'' -- the rule is
+        write-only; reads never raise a notice.
+  \item Reporting ``detected'' with no latency number for Step 4.
+  \item Conflating the lab's interlock-override (Step 5) with actually
+        reprogramming a safety controller (TRITON) -- overstates impact.
+  \item Using enterprise ATT\&CK IDs (T1xxx) instead of ICS (T0xxx).
+  \item Forgetting the replay-was-missed observation (Step 7) -- the
+        single most important defensive takeaway.
+  \item Ranking findings by raw CVSS instead of process impact.
+  \item One-shot write in Step 4 not holding, then reporting it
+        ``failed'' -- it succeeded; the ladder simply re-asserted.
+  \item ROE missing the explicit out-of-scope list.
+\end{itemize}
+\end{solutionbox}
+
+\begin{rubricbox}
+Total 100 pts; pass mark 50.
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Reconnaissance (15):} passive baseline before action
+        (5); correct open/closed port findings incl.\ 102/44818 closed
+        (5); FC enumeration with interlock state read correctly (5).
+  \item \textbf{Exploitation (25):} unauthorised write confirmed (8);
+        safety-logic defeat held across the window with the TRITON
+        caveat stated (9); replay + view spoof demonstrably breaks the
+        Lamp/Motor invariant (8).
+  \item \textbf{ATT\&CK mapping accuracy (20):} correct T0xxx IDs per
+        step (15); uses the ICS matrix, not enterprise (5).
+  \item \textbf{Detection awareness (20):} attack$\to$detection table
+        complete (8); Step-4 latency reported as a number (4);
+        replay-missed gap identified and explained (8).
+  \item \textbf{Report quality (20):} executive summary in plain
+        language (4); findings reproducible (6); recommendations
+        prioritised and process-impact-ranked (6); ROE attached and
+        complete (4).
+\end{itemize}
+\textbf{Auto-fail:} any evidence the student ran these tools against a
+host outside the lab stack -- escalate, do not re-issue.
+\end{rubricbox}
+
+\end{document}

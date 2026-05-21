@@ -1,0 +1,237 @@
+\documentclass[11pt,a4paper]{article}
+
+\def\courseTitle{Industrial Security (Master)}
+\def\labNumber{05}
+\def\labTitle{Secure-by-Design Architecture Workshop -- Solutions}
+\def\labSection{05}
+\def\labTime{4 hours, group of 3--4}
+
+\input{../../../template/lab-preamble.tex}
+
+\begin{document}
+\labheader
+
+\begin{goalbox}
+Lecturer / TA reference for the greenfield NorthCell design workshop:
+model architecture answers, sample SL-T assignments with justification,
+sample procurement clauses, the common mistakes to watch for per step,
+and a grading rubric. This is an open design lab -- a defensible
+alternative with sound reasoning earns full marks. Mark the
+\emph{reasoning}, not conformance to this exact dossier.
+\end{goalbox}
+
+\begin{solutionbox}{Step 1 -- Sample zone model + SL-T}
+A defensible zoning of NorthCell. Accept any partition where each zone
+groups one threat profile / consequence class, and SL-T is justified by
+\emph{worst-case physical consequence}, not exposure.
+
+\vspace{2pt}
+\small
+\begin{tabular}{@{}p{1.8cm}p{1.2cm}p{10.3cm}@{}}
+\toprule
+\textbf{Zone} & \textbf{SL-T} & \textbf{Justification (one sentence expected)} \\
+\midrule
+Z-SIS   & 3 & Only zone where an integrity attack can cause an explosion / injury (dry-room, formation, coating solvent trip); SL3 = realistic ICS-literate adversary. \\
+Z-CTRL  & 3 & BPCS for motion / robots / drives; integrity loss damages product and can create a mechanical hazard. \\
+Z-SUP   & 2 & Supervisory SCADA/HMI/EMS; consequence is operational (lost production), not direct safety. \\
+Z-MES   & 2 & MES + quality data lake; integrity matters for traceability, not for immediate physical harm. \\
+Z-iDMZ  & 3 & Chokepoint protecting the SL3 zones behind it; follows the highest zone it defends. \\
+Z-ENT   & --(IT) & Outside the OT trust boundary; corporate IT controls apply, not an OT SL-T. \\
+\bottomrule
+\end{tabular}
+\normalsize
+\par\vspace{2mm}
+Sample conduit rows the dossier should contain (diode candidates flagged):
+historian export Z-SUP$\to$Z-iDMZ (OPC~UA, 4840, one-way \emph{diode}),
+SIS telemetry Z-SIS$\to$Z-iDMZ (one-way \emph{diode}, no inbound),
+remote-access broker Z-iDMZ inside$\to$Z-CTRL micro-zone (brokered, time-boxed),
+MES batch pull Z-MES$\to$Z-iDMZ$\to$Z-ENT (terminated/re-originated, never one hop).
+\end{solutionbox}
+
+\begin{solutionbox}{Step 1 -- Common mistakes}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item SL-T set by exposure (iDMZ at SL4, control at SL2) instead of by
+    consequence -- the single most common error; deduct hard.
+  \item SIS not given its own zone, or given the same SL-T as the BPCS.
+  \item Conduits listed without direction or without an SL-T; a conduit
+    must inherit the higher of the two zones it joins.
+  \item No diode candidates identified, or diodes placed on flows that
+    genuinely need a return path.
+\end{itemize}
+\end{solutionbox}
+
+\begin{solutionbox}{Step 2 -- Sample FR matrix + SR detail}
+The seven FRs apply to every zone; the SL ladder scales rigor and is
+cumulative. A model matrix for the high-SL zones:
+
+\vspace{2pt}
+\small
+\begin{tabular}{@{}p{2.4cm}ccccccc@{}}
+\toprule
+\textbf{Zone (SL-T)} & \textbf{FR1} & \textbf{FR2} & \textbf{FR3} & \textbf{FR4} & \textbf{FR5} & \textbf{FR6} & \textbf{FR7} \\
+\midrule
+Z-SIS  (3) & 3 & 3 & 3 & 2 & 3 & 3 & 3 \\
+Z-CTRL (3) & 3 & 3 & 3 & 2 & 3 & 3 & 3 \\
+Z-SUP  (2) & 2 & 2 & 2 & 2 & 2 & 2 & 2 \\
+Z-iDMZ (3) & 3 & 3 & 3 & 3 & 3 & 3 & 3 \\
+\bottomrule
+\end{tabular}
+\normalsize
+\par\vspace{2mm}
+Note FR4 (DC) deliberately set to 2 in the field: confidentiality is
+rarely the field driver and the downgrade is documented + compensated at
+FR5. Award marks for SR-level detail on the two highest zones, e.g.\
+SR~1.5/1.7 (token/MFA for safety-relevant changes), SR~3.4 (firmware
+integrity on load), SR~5.1/5.2 (deny-by-default boundary), SR~7.3/7.4
+(backup + verified restore of control logic).
+\end{solutionbox}
+
+\begin{solutionbox}{Step 2 -- Common mistakes}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item Treating an FR as binary ``on/off'' instead of an SL value.
+  \item An \emph{undocumented} FR downgrade below the zone SL-T -- a
+    justified, written downgrade is fine; a silent one is a finding.
+  \item No SR-level detail at all; the matrix alone is half the answer.
+\end{itemize}
+\end{solutionbox}
+
+\begin{solutionbox}{Step 3 -- Model network design}
+Full marks need: (1) the iDMZ at L3.5 as the \emph{only} OT$\leftrightarrow$IT
+path, with no direct L3$\to$L4 conduit; (2) brokered services paired
+inside/outside so nothing crosses in a single hop; (3) at least one data
+diode on a genuinely one-way flow (SIS/safety telemetry, regulatory
+export) with the explicit note that a diode means no remote control;
+(4) TSN scoped only to the motion-control + coating web-line cells, with
+the CNC/CUC named as an asset to protect, and \emph{not} sprayed across
+aging/test/historian flows; (5) per-cell micro-zones behind cell
+firewalls with deny-by-default + function-code/node allow-listing; (6)
+an out-of-band management VLAN for switch/firewall admin, reachable only
+via a hardened jump host. A correct answer reads like a tender-ready
+reference topology, not a single flat switch.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 3 -- Common mistakes}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item Flat L2 control network / one broadcast domain.
+  \item iDMZ that forwards a flow in one hop (router with extra steps).
+  \item TSN over-specified (everywhere) or its CNC left unprotected.
+  \item Management plane in-band on the control VLAN.
+\end{itemize}
+\end{solutionbox}
+
+\begin{solutionbox}{Step 4 -- Sample procurement clauses (PLC, SL-C 3)}
+Each clause must map to a -4-2 CR and state the SL-C. Model set:
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item CR~1.1/1.2/1.5 -- individual accounts, identity-store or
+    cert-based auth, no hard-coded/undocumented accounts.
+  \item CR~2.1/2.8 -- role-based authorisation (program vs.\ operate);
+    auditable record of every program/config change.
+  \item CR~3.1/3.4 -- firmware integrity verified on boot; rejects
+    unsigned firmware; signed logic download.
+  \item CR~3.10 -- secure-by-default delivery, unused services off.
+  \item CR~7.1/7.6 -- documented DoS resilience; backup/restore to a
+    known-good state.
+  \item Lifecycle (cross-ref -4-1): CycloneDX/SPDX SBOM per release;
+    ISO/IEC 30111 vuln handling with disclosure SLA; 20-year patch +
+    support commitment; named PSIRT contact; ATP-on-arrival rejection
+    hook.
+\end{itemize}
+The master-level point students must hit: \emph{a vendor that cannot
+deliver an SBOM today is ineligible for a 20-year capital line}, and a
+zone reaches its SL-T only if components support the matching SL-C.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 4 -- Common mistakes}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item Generic ``must be secure'' clauses with no CR / SL-C mapping.
+  \item No SBOM or no support-lifetime clause -- the two clauses that
+    actually survive procurement.
+  \item Specifying an SL-C below the zone SL-T (component cannot reach
+    the target).
+\end{itemize}
+\end{solutionbox}
+
+\begin{solutionbox}{Step 5 -- Model remote-access design}
+Expected flow: vendor $\to$ internet $\to$ SSO+MFA portal (iDMZ
+outside) $\to$ PAM/policy broker $\to$ time-boxed jump host (iDMZ
+inside) $\to$ target micro-zone. Required elements: no vendor credential
+on any OT asset (broker injects a short-lived credential it owns);
+named-operator approval per session; session recording (keystroke +
+screen) to a write-once store; least privilege so each OEM reaches only
+its own equipment; a dual-control documented break-glass path with
+after-the-fact review. The broker is itself a crown-jewel asset at
+SL-T~3, monitored, and never inbound-reachable from the control zones.
+The anti-pattern to call out is the flat ``vendor VPN straight to the
+PLC''.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 6 -- Model SIS independence}
+Z-SIS is a separate zone at SL-T~3 with separate logic solvers, I/O, and
+power from the BPCS (IEC 61511 separation). Only one conduit leaves it: a
+one-way, diode-protected telemetry feed to the historian. There is
+\emph{no} inbound conduit from BPCS, iDMZ, or the remote-access broker.
+A shared HMI may read SIS state but cannot write a safety parameter or
+set a bypass; overrides are local, key-switched, dual-authorised, and
+alarmed -- never remote. Security applies to the safety lifecycle too
+(signed safety logic, change logging, a cyber-security requirements spec
+feeding the 61511 SRS -- the IEC TR 63069 co-engineering view). The
+fatal error to penalise: one engineering workstation able to download
+both BPCS and SIS logic, which makes the SIS only as trustworthy as the
+most-exposed BPCS node.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 7 -- Model lifecycle}
+Two linked processes plus backups. (1) Vendor SDL gate (-4-1): SDL
+conformance, SBOM per release, product threat model per major release,
+ISO/IEC 30111 vuln SLA, ATP-on-arrival. (2) Asset-owner patch programme
+(-2-3/-2-1): vendor advisory $\to$ risk triage against the Step~1 zone
+model $\to$ test on an offline cell twin $\to$ scheduled window $\to$
+documented back-out plan, including an explicit \emph{do-not-patch}
+decision rule when a compensating control already holds the risk below
+tolerance and the patch endangers the process. (3) Immutable-backup
+triad (production / off-site / WORM), quarterly tested restore, covering
+control logic, HMI projects, historian, and network device configs.
+Master-level point: every OT patch is a risk decision against the zone
+model, signed off with operations and safety -- not an IT patch-Tuesday.
+\end{solutionbox}
+
+\begin{solutionbox}{Step 8 -- Stretch model answer}
+STRIDE: for the brokered remote-access conduit, expect Spoofing
+$\to$ MFA+broker identity (FR1); Tampering $\to$ session integrity +
+recording (FR3/FR6); Repudiation $\to$ write-once session log (FR6);
+Info disclosure $\to$ least privilege per OEM (FR2); DoS $\to$ broker
+redundancy (FR7); EoP $\to$ time-boxed least-privilege jump host
+(FR2). Any threat without a mapped control is a gap and should be
+listed. CCE: unacceptable consequence = dry-room/formation explosion;
+the strongest answer \emph{engineers it out} with a hardwired,
+non-programmable safety trip that no cyber path can defeat -- not merely
+more controls. Reward the consequence-elimination mindset over
+control-stacking.
+\end{solutionbox}
+
+\begin{rubricbox}
+Total 100 pts; pass mark 50. Mark reasoning, not conformance to this
+exact dossier.
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Zoning correctness (18):} sensible zones, SIS separate,
+    conduits with direction + SL-T, diode candidates marked.
+  \item \textbf{SL-T justification (15):} every SL-T tied to worst-case
+    \emph{consequence}, not exposure; gap-to-tolerance reasoning shown.
+  \item \textbf{FR/SR specification (12):} FR matrix complete; SR detail
+    on the two highest zones; downgrades documented.
+  \item \textbf{Network design (18):} iDMZ-only OT/IT path, paired
+    brokers, diode placement, TSN correctly scoped, per-cell micro-zones,
+    OOB management.
+  \item \textbf{Procurement spec (12):} clauses mapped to -4-2 CRs +
+    SL-C; SBOM + support-lifetime present.
+  \item \textbf{Safety independence (15):} SIS separated per 61511, one
+    one-way egress, no inbound, no shared write path.
+  \item \textbf{Lifecycle (10):} SDL gate + patch programme (with
+    do-not-patch rule) + tested immutable backups.
+\end{itemize}
+\textbf{Auto-deduct:} flat L2 control network; vendor VPN to the PLC;
+SIS coupled to the BPCS write path; SL-T set by exposure. \textbf{Bonus
+(up to +5):} a credible CCE consequence-elimination answer in Step~8.
+\end{rubricbox}
+
+\end{document}
