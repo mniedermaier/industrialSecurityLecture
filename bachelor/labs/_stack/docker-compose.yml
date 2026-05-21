@@ -50,7 +50,7 @@ services:
     command:
       - sh
       - -c
-      - "make -C bachelor labs exercises handouts && echo '==> PDFs built. Reload http://127.0.0.1:8000'"
+      - "make -C bachelor labs exercises handouts && chown -R \"$(stat -c '%u:%g' /repo)\" /repo/bachelor && echo '==> PDFs built. Reload http://127.0.0.1:8000'"
     restart: "no"
 
   # --------------------------------------------------------------
