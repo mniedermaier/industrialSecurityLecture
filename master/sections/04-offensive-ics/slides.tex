@@ -62,10 +62,11 @@ Cross-border engagements need both legal opinions. A US-headquartered firm testi
   \draw[netline] (sw) -- (att);
   \draw[netline, dashed] (sw) -- (cap);
 \end{tikzpicture}
-\vspace{2mm}
+\vspace{1mm}
 \begin{tipbox}{Air-gapped, recorded}
-No Internet, no host bridge, full PCAP. Every action you take is later auditable to a wall-clock minute.
+No Internet, no host bridge, full PCAP. Every action is later auditable to a wall-clock minute.
 \end{tipbox}
+\source{NIST SP 800-82 r3, 2023, \S 6 (isolated test environments) \textbar{} MITRE ATT\&CK for ICS, Reconnaissance / Discovery tactics.}
 \end{frame}
 
 \begin{frame}{Lab Equipment Choices}
@@ -87,6 +88,7 @@ Production-grade & Vendor demo kits, donated equipment & vendor-specific exploit
 \begin{notebox}{Donations}
 Many vendors donate retired equipment to academic and CERT labs in exchange for confidentiality on findings. Always worth asking.
 \end{notebox}
+\source{OpenPLC Project (Alves, T.), \texttt{openplcproject.com} \textbar{} ScadaBR; open62541; Siemens S7-1200 / Schneider Modicon M580 product documentation.}
 \end{frame}
 
 \section{Tactics}
@@ -160,6 +162,7 @@ Always take a verified backup of the original program first, and test the rollba
 \begin{tipbox}{Reproducibility}
 A finding without a step-by-step repro is theatre. If the asset owner cannot reproduce it after a week, they will not trust the rest of the report.
 \end{tipbox}
+\source{NIST SP 800-115, \S 8 \emph{Reporting}, 2008 \textbar{} PTES \emph{Reporting} section; OWASP Web Security Testing Guide v4, \emph{Reporting} chapter.}
 \end{frame}
 
 \begin{frame}{Common Reporting Pitfalls}
@@ -173,6 +176,7 @@ A finding without a step-by-step repro is theatre. If the asset owner cannot rep
 \begin{warnbox}
 The asset owner's safety engineers should be able to read the report and say whether the test \emph{could have} caused a process upset. If not, your scope was wrong.
 \end{warnbox}
+\source{NIST SP 800-115, \S 8 (reporting pitfalls), 2008 \textbar{} PTES Technical Guidelines, \emph{Reporting}.}
 \end{frame}
 
 %% Frame 1: Framework anchor -- MITRE ATT&CK for ICS + ICS Cyber Kill Chain
@@ -299,7 +303,9 @@ Every authorised technique you run is a detection-engineering test case. Map it 
 
 \referencesframe{
   \item NIST SP 800-115. \emph{Technical Guide to Information Security Testing and Assessment}, 2008.
+  \item NIST SP 800-82 r3. \emph{Guide to Operational Technology (OT) Security}, 2023.
   \item PTES. \emph{Penetration Testing Execution Standard}, technical guidelines.
+  \item OWASP. \emph{Web Security Testing Guide} v4, reporting chapter.
   \item ISO/IEC 29147:2018. \emph{Vulnerability disclosure}.
   \item ISO/IEC 30111:2019. \emph{Vulnerability handling processes}.
   \item Klick, J., Lau, S., Marzin, D., Malchow, J.-O., Roth, V. ``Internet-facing PLCs as a Network Backdoor'', BlackHat USA, 2015.
@@ -310,6 +316,7 @@ Every authorised technique you run is a detection-engineering test case. Map it 
   \item Dragos. \emph{ICS Knowledge Pack} and \emph{Year in Review} reports.
   \item OPC Foundation. \emph{OPC UA Security Bulletin} archive.
   \item Forescout Vedere Labs. ICS vulnerability research outputs.
+  \item OpenPLC Project (Alves, T.). \texttt{openplcproject.com}.
 }
 
 \closingframe

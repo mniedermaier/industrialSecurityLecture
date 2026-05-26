@@ -71,6 +71,7 @@ open("ob1.bin", "wb").write(ob1)
 \begin{notebox}{Permission check}
 The S7-300/400 default \emph{put/get} setting allows upload; modern S7-1500 requires explicit enable. Document any change.
 \end{notebox}
+\source{Snap7 project documentation, \url{https://snap7.sourceforge.net} \textbar{} Siemens, \emph{SIMATIC S7-1500 Communication Function Manual}, 2023 (PUT/GET access).}
 \end{frame}
 
 \begin{frame}{Project-File Acquisition}
@@ -86,6 +87,7 @@ The S7-300/400 default \emph{put/get} setting allows upload; modern S7-1500 requ
 \begin{tipbox}{Always sandbox}
 Project files have run macros and \emph{network ranges}. Open them in a disconnected VM with no host shares.
 \end{tipbox}
+\source{Siemens, \emph{TIA Portal Project Server / Multiuser Engineering} manual, 2022 \textbar{} Rockwell Automation, \emph{Logix5000 Controllers Import/Export}, 1756-RM084, 2021.}
 \end{frame}
 
 \section{Decoding}
@@ -115,6 +117,7 @@ Project files have run macros and \emph{network ranges}. Open them in a disconne
 \begin{tipbox}{Decompile then re-render}
 Round-trip the export through RSLogix; what visually matches the original is faithful, what diverges is your target.
 \end{tipbox}
+\source{Rockwell Automation, \emph{Logix5000 Controllers Import/Export}, manual 1756-RM084, 2021 \textbar{} Rockwell Automation, \emph{Logix5000 Add-On Instructions}, 1756-PM010, 2020.}
 \end{frame}
 
 \begin{frame}{CODESYS / IEC 61131-3 Round-Trip}
@@ -158,6 +161,7 @@ Sixteen CVEs in CODESYS Runtime exposed authentication, parser, and update-verif
 \begin{warnbox}
 A missing CRC, or a CRC that does not match the project file, is more often vendor sloppiness than malice -- but it deserves a written investigation.
 \end{warnbox}
+\source{R.\ Langner, \emph{To Kill a Centrifuge}, The Langner Group, 2013 \textbar{} N.\ Falliere et al., \emph{W32.Stuxnet Dossier} v1.4, Symantec, 2011.}
 \end{frame}
 
 \begin{frame}{Tagging the Memory Map}
@@ -174,6 +178,7 @@ A missing CRC, or a CRC that does not match the project file, is more often vend
 \begin{notebox}{Reverse engineering tip}
 Cross-reference \emph{every} symbol against where it is read and where it is written. Symbols that are only \emph{written} (never read) are smoke.
 \end{notebox}
+\source{IEC 61131-3:2013, \S 6.5 (located variables \texttt{\%I}/\texttt{\%Q}/\texttt{\%M}) \textbar{} Siemens, \emph{S7-300/400 System and Standard Functions} reference manual, 2017.}
 \end{frame}
 
 \section{Defending the Code}
@@ -187,6 +192,7 @@ Cross-reference \emph{every} symbol against where it is read and where it is wri
   \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of c] (d) {Version-controlled project files with CI \& review};
   \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of d] (e) {Engineering workstation hardened; no Internet, MFA, application allow-listing};
 \end{tikzpicture}
+\source{IEC 62443-4-2:2019, CR 3.4 (software/firmware integrity) and CR 1.1 \textbar{} Siemens, \emph{Industrial Security Configuration Manual} (SIMATIC S7-1500), 2023.}
 \end{frame}
 
 \begin{frame}{Disclosure Considerations}
@@ -199,6 +205,7 @@ Cross-reference \emph{every} symbol against where it is read and where it is wri
 \begin{warnbox}
 Logic from a production PLC you do not own is contaminated evidence. No serious vendor will accept it.
 \end{warnbox}
+\source{ISO/IEC 29147:2018 (vulnerability disclosure) \textbar{} CISA, \emph{Coordinated Vulnerability Disclosure Process}, 2022 \textbar{} \S 202c StGB (DE).}
 \end{frame}
 
 %% Frame 1: Standards anchor -- IEC 61131-3 languages, 62443-4-2 CR 3.4, compile chain
@@ -336,10 +343,19 @@ None of the above survives a byte-level diff of every block CRC against a \emph{
   \item Snap7 project. \url{https://snap7.sourceforge.net}.
   \item OpenPLC project. \url{https://openplcproject.com}.
   \item ODVA. \emph{libplctag / CIP open libraries}.
-  \item Rockwell Automation. \emph{Logix5000 Controllers Import/Export}, manual 1756-RM084.
+  \item Rockwell Automation. \emph{Logix5000 Controllers Import/Export}, manual 1756-RM084, 2021.
+  \item Rockwell Automation. \emph{Logix5000 Add-On Instructions}, 1756-PM010, 2020.
+  \item Siemens. \emph{SIMATIC S7-1500 Communication Function Manual} (PUT/GET access), 2023.
+  \item Siemens. \emph{TIA Portal Project Server / Multiuser Engineering} manual, 2022.
+  \item Siemens. \emph{S7-300/400 System and Standard Functions} reference manual, 2017.
+  \item Siemens. \emph{Industrial Security Configuration Manual} (SIMATIC S7-1500), 2023.
   \item CISA \emph{ICSA-23-103-09} and related CODESYS advisories (CoDe16), 2023.
+  \item CISA. \emph{Coordinated Vulnerability Disclosure Process}, 2022.
   \item Microsoft Threat Intelligence. \emph{CoDe16: 16 vulnerabilities in CODESYS Runtime}, 2023.
   \item IEC 61131-3:2013. \emph{Programmable controllers -- Part 3: Programming languages}.
+  \item IEC 62443-4-2:2019. \emph{Technical security requirements for IACS components} (CR 1.1, CR 3.4).
+  \item ISO/IEC 29147:2018. \emph{Information technology -- Security techniques -- Vulnerability disclosure}.
+  \item \S 202c StGB (Germany). \emph{Vorbereiten des Aussp\"ahens und Abfangens von Daten}.
   \item Dragos, Claroty, Nozomi. PLC integrity-monitoring product documentation.
 }
 

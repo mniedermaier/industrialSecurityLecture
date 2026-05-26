@@ -48,6 +48,7 @@ Each session derives a key from challenges in the handshake -- but the key deriv
 \begin{notebox}{Open-source dissectors}
 \texttt{python-s7commplus} (gymgle, 2018) and \texttt{Plc4j} / \texttt{Plc4go} (Apache) both implement S7commPlus enough to read tags. Wireshark has a partial dissector.
 \end{notebox}
+\source{Lei, C.\ et al., \emph{S7commPlus reverse engineering}, 2017--2020 \textbar{} Wireshark \texttt{s7comm-plus} dissector (\texttt{epan/dissectors/packet-s7comm-plus.c}).}
 \end{frame}
 
 \section{IEC 61850 Stack}
@@ -132,6 +133,7 @@ bind_layers(TCP, MyVendor, dport=27015)
 \begin{tipbox}{First step}
 Capture a known-good session, hex-edit one byte at a time, replay -- watch the device's reaction. That tells you which fields gate what.
 \end{tipbox}
+\source{P.\ Biondi et al., \emph{Scapy} project documentation, \url{https://scapy.readthedocs.io} \textbar{} Scapy contrib ICS modules (Modbus, ENIP/CIP).}
 \end{frame}
 
 \begin{frame}{Fuzzing ICS Protocols}
@@ -183,6 +185,7 @@ DLMS/COSEM   & AARQ, COSEM class IDs      & encrypted, depending on level \\
 \begin{notebox}{Implication}
 Span-port IDS gives full visibility on legacy plaintext stacks and only partial visibility on session-keyed stacks. Plan host telemetry for the latter.
 \end{notebox}
+\source{Zeek Project, \emph{Zeek Network Monitor}, \url{https://zeek.org} \textbar{} CISA \texttt{cisagov/icsnpp} ICS protocol parsers \textbar{} MITRE ATT\&CK for ICS (v14, 2024).}
 \end{frame}
 
 %% Frame 1: IEC 62351 / 62443-3-3 standards anchor
@@ -293,17 +296,21 @@ HLS level 5 (GMAC): forged StoC/CtoS or nonce reuse breaks the GCM auth; a leake
 
 \referencesframe{
   \item IEC 61850 (multipart). \emph{Communication networks and systems for power utility automation}.
-  \item IEC 62351 (multipart). \emph{Security for IEC TC 57 protocols}.
+  \item IEC 62351 (multipart), incl.\ IEC 62351-6:2020. \emph{Security for IEC TC 57 protocols}.
   \item ISO 9506. \emph{Manufacturing Message Specification (MMS)}, Parts 1 \& 2.
   \item IEC 62056. \emph{DLMS/COSEM} (Blue/Green/Yellow/White books).
   \item BSI TR-03109. \emph{Smart Metering System Specifications}.
   \item Beresford, D. \emph{Exploiting Siemens Simatic S7 PLCs}, BlackHat USA, 2011.
   \item Gordeychik, S. \emph{SCADA StrangeLove} talks and tools, 2014--2018.
+  \item Lei, C.\ et al. Reverse-engineering of S7commPlus, academic papers, 2017--2020.
   \item Forescout Vedere Labs. \emph{Project Memoria} -- Ripple20, URGENT/11, NUCLEUS:13, NAME:WRECK, INFRA:HALT.
-  \item Wireshark Foundation. ICS protocol dissector documentation.
-  \item Scapy contributors. \emph{Scapy User Manual}, ICS protocol modules.
+  \item Wireshark Foundation. ICS protocol dissectors (incl.\ \texttt{packet-s7comm-plus.c}).
+  \item Biondi, P.\ et al. \emph{Scapy}, \url{https://scapy.readthedocs.io}; ICS contrib modules.
   \item \texttt{boofuzz} project (Joshua Pereyda). \url{https://boofuzz.readthedocs.io}.
   \item Apache Software Foundation. \emph{Plc4x} (Plc4j, Plc4go, Plc4py).
+  \item Zeek Project. \emph{Zeek Network Monitor}, \url{https://zeek.org}.
+  \item CISA. \texttt{cisagov/icsnpp} -- ICS Network Protocol Parsers for Zeek.
+  \item MITRE. \emph{ATT\&CK for ICS}, v14, 2024.
 }
 
 \closingframe

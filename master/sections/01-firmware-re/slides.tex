@@ -33,6 +33,7 @@
 \begin{importantbox}{The opaque box}
 Without firmware analysis the asset owner only sees what the vendor chooses to document. Backdoors, hard-coded credentials, and weak crypto often hide here.
 \end{importantbox}
+\source{OWASP Firmware Security Testing Methodology (FSTM), 2019 \textbar{} IEC 62443-4-1:2018.}
 \end{frame}
 
 \begin{frame}{Famous ICS Firmware Findings}
@@ -46,6 +47,7 @@ Without firmware analysis the asset owner only sees what the vendor chooses to d
 \begin{notebox}{Pattern}
 Long product lifecycles + slow vendor patching + shared third-party code $=$ systemic risk.
 \end{notebox}
+\source{R.\ Santamarta, \emph{Project Basecamp}, Digital Bond, 2012 \textbar{} CVE-2018-7811 (Modicon M340) \textbar{} CISA ICSA-19-099-01 (S7-1200) \textbar{} Microsoft Section 52, \emph{CoDe16}, 2023 \textbar{} Microsoft Threat Intel, \emph{Boa in IoT/OT}, Nov 2022.}
 \end{frame}
 
 \section{Sourcing and Triage}
@@ -60,6 +62,7 @@ Long product lifecycles + slow vendor patching + shared third-party code $=$ sys
 \begin{warnbox}{Compliance}
 Reverse engineering is often legally permitted for security research and interoperability. Check your jurisdiction; in the EU see Directive 2009/24/EC and the CRA's research safe-harbour.
 \end{warnbox}
+\source{Directive 2009/24/EC, Art.\ 6 (decompilation) \textbar{} Regulation (EU) 2024/2847 (Cyber Resilience Act) \textbar{} Siemens Industry Online Support; Rockwell PCDC vendor portals.}
 \end{frame}
 
 \begin{frame}[fragile]{First Pass with \texttt{binwalk}}
@@ -74,6 +77,7 @@ DECIMAL    HEX        DESCRIPTION
 \begin{notebox}{Signals}
 File magic at well-known offsets, recognisable compression algorithms, sane image checksum -- and you have probably found bootloader, kernel, and root filesystem.
 \end{notebox}
+\source{ReFirmLabs binwalk (signature-scanning carver), 2010-- \textbar{} OWASP FSTM stage 3 (firmware analysis).}
 \end{frame}
 
 \begin{frame}{Triage Workflow}
@@ -89,6 +93,7 @@ File magic at well-known offsets, recognisable compression algorithms, sane imag
 \begin{tipbox}{Cheap wins first}
 Before opening Ghidra, run \texttt{strings}, \texttt{grep -i pass\textbar key\textbar token}, and look at \texttt{/etc/passwd}. Many findings sit on the surface.
 \end{tipbox}
+\source{OWASP FSTM stages 3--5 (analysis, extraction, filesystem contents), 2019 \textbar{} A.\ Costin et al., \emph{A Large-Scale Analysis of the Security of Embedded Firmwares}, USENIX Security, 2014.}
 \end{frame}
 
 \section{Deep Analysis}
@@ -105,6 +110,7 @@ Before opening Ghidra, run \texttt{strings}, \texttt{grep -i pass\textbar key\te
 \begin{notebox}{Detection tools}
 \texttt{file}, \texttt{binwalk -A}, \texttt{cpu\_rec}, and the Ghidra ``Auto Analyze'' loader. Cross-check against the chip on the actual board if you can.
 \end{notebox}
+\source{L.\ Granboulan, \texttt{cpu\_rec} (statistical CPU architecture detector), 2017 \textbar{} ReFirmLabs binwalk \texttt{-A} architecture scan \textbar{} NSA Ghidra Loader docs, 2019.}
 \end{frame}
 
 \begin{frame}[fragile]{Hunting Hard-coded Secrets}
@@ -118,6 +124,7 @@ $ binwalk -E firmware.bin     # high-entropy regions often hide keys
 \begin{importantbox}{Red flags}
 Strings like ``admin'' adjacent to ``pass...'', high-entropy 16/32-byte blobs near init code, repeated keys across firmware versions.
 \end{importantbox}
+\source{CWE-798 (Use of Hard-coded Credentials), MITRE \textbar{} OWASP ASVS v4.0.3, V2 (authentication) \& V6 (cryptography), 2021 \textbar{} TruffleHog (trufflesecurity), 2017--.}
 \end{frame}
 
 \begin{frame}{Ghidra for ICS Firmware}
@@ -132,6 +139,7 @@ Strings like ``admin'' adjacent to ``pass...'', high-entropy 16/32-byte blobs ne
 \begin{tipbox}{Workflow tip}
 For repeat work, save your Ghidra project per vendor family. Common findings (Modbus parser, web admin, OTA verifier) tend to recur across products.
 \end{tipbox}
+\source{NSA, \emph{Ghidra Software Reverse Engineering Framework}, public release at RSA, Mar 2019 \textbar{} B.\ Eagle \& K.\ Nance, \emph{The Ghidra Book}, No Starch Press, 2020.}
 \end{frame}
 
 \section{Responsible Disclosure}
@@ -149,6 +157,7 @@ For repeat work, save your Ghidra project per vendor family. Common findings (Mo
 \begin{notebox}{Timelines}
 Common practice: 90 days vendor + 30 day grace. ICS vendors often need longer (180 days) because of co-ordinated firmware rollouts.
 \end{notebox}
+\source{ISO/IEC 29147:2018 (vulnerability disclosure) \textbar{} ISO/IEC 30111:2019 (vulnerability handling) \textbar{} CISA \emph{Coordinated Vulnerability Disclosure Process}, 2022.}
 \end{frame}
 
 \begin{frame}{Ethics and Safe-Harbour}
@@ -161,6 +170,7 @@ Common practice: 90 days vendor + 30 day grace. ICS vendors often need longer (1
 \begin{warnbox}{Hard line}
 A finding obtained on equipment you do not own (or are not authorised to test) is contaminated -- no responsible publication channel will accept it.
 \end{warnbox}
+\source{17 U.S.C.\ \S1201(j) (DMCA security-research exemption), Library of Congress final rule, Oct 2018 \textbar{} \S202c StGB (Vorbereiten des Aussp\"ahens) \textbar{} Regulation (EU) 2024/2847 (CRA) research safe-harbour.}
 \end{frame}
 
 %% Frame 1: Standards & methodology anchor for firmware RE
@@ -287,6 +297,25 @@ A magic string is an auth bypass that never expires or rotates --- a 62443-4-1 S
 \end{itemize}
 \end{takeawaybox}
 \end{frame}
+
+\referencesframe{
+  \item IEC 62443-4-1:2018. \emph{Secure product development lifecycle requirements}.
+  \item IEC 62443-4-2:2019. \emph{Technical security requirements for IACS components} (CR 3.4, CR 3.14).
+  \item ISO/IEC 29147:2018. \emph{Vulnerability disclosure}.
+  \item ISO/IEC 30111:2019. \emph{Vulnerability handling processes}.
+  \item NIST SP 800-193. \emph{Platform Firmware Resiliency Guidelines}, May 2018.
+  \item OWASP. \emph{Firmware Security Testing Methodology (FSTM)}, 2019.
+  \item Falliere, N., O'Murchu, L., Chien, E. \emph{W32.Stuxnet Dossier}, v1.4, Symantec, 2011.
+  \item Heffner, T. ``Reverse Engineering a D-Link Backdoor'', /dev/ttyS0, Oct 2013. CVE-2013-6026.
+  \item Santamarta, R. \emph{Project Basecamp}, Digital Bond / S4, 2012.
+  \item Microsoft Threat Intelligence. \emph{CoDe16: 16 vulnerabilities in CODESYS Runtime}, 2023; CISA \emph{ICSA-23-103-09}.
+  \item Microsoft Section 52. \emph{Vulnerable SDK components leading to supply-chain risks (Boa web server)}, Nov 2022.
+  \item Costin, A., Zaddach, J., Francillon, A., Balzarotti, D. \emph{A Large-Scale Analysis of the Security of Embedded Firmwares}, USENIX Security, 2014.
+  \item NSA. \emph{Ghidra Software Reverse Engineering Framework}, public release, Mar 2019.
+  \item ReFirmLabs. \emph{binwalk}, firmware analysis tool, 2010--.
+  \item Directive 2009/24/EC (Software Directive), Art.\ 6; Regulation (EU) 2024/2847 (Cyber Resilience Act).
+  \item 17 U.S.C.\ \S1201(j), DMCA security-research exemption; \S202c StGB (Germany).
+}
 
 \closingframe
 

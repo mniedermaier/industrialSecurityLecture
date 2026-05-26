@@ -158,6 +158,7 @@ Who, what, on what, against whom. Filling all four corners gives you a hypothesi
 \begin{tipbox}{Half-life}
 Network-side IOCs (IP, domain) decay in days. Host-side IOCs (file hash) decay in weeks. Behavioural rules persist for years.
 \end{tipbox}
+\source{NIST SP 800-150, \emph{Guide to Cyber Threat Information Sharing}, 2016 \textbar{} Bianco, D., \emph{Pyramid of Pain}, 2013.}
 \end{frame}
 
 \begin{frame}{STIX / TAXII -- Sharing Format}
@@ -181,6 +182,7 @@ Network-side IOCs (IP, domain) decay in days. Host-side IOCs (file hash) decay i
   \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of c] (d) {Hunt cadence (weekly, monthly) and tracking};
   \node[isbox, fill=isOT!15, draw=isOT, minimum width=110mm, font=\small, below=of d] (e) {Feedback loop into SOC detections};
 \end{tikzpicture}
+\source{SANS ICS \emph{CTI Survey}, 2022--2024 \textbar{} Dragos \emph{Year in Review} 2020--2024 \textbar{} FIRST Threat Intelligence SIG.}
 \end{frame}
 
 \begin{frame}{Common Failure Modes}
@@ -194,6 +196,7 @@ Network-side IOCs (IP, domain) decay in days. Host-side IOCs (file hash) decay i
 \begin{warnbox}
 A CTI team without a tight feedback loop into detection engineering is decoration. Measure the time from \emph{intel published} to \emph{rule deployed}.
 \end{warnbox}
+\source{SANS ICS \emph{CTI Survey} 2022--2024 \textbar{} Dragos \emph{Year in Review} \textbar{} Mandiant \emph{M-Trends} \textbar{} Bianco, D., \emph{Pyramid of Pain}, 2013.}
 \end{frame}
 
 \begin{frame}{Sharing Responsibilities}
@@ -211,6 +214,7 @@ A CTI team without a tight feedback loop into detection engineering is decoratio
 \begin{notebox}{Reciprocity}
 You get what you give. ISACs work because members share, even when it is uncomfortable. Have an internal pre-approval list of what you can share without delay.
 \end{notebox}
+\source{NIST SP 800-150, 2016 \textbar{} FIRST \emph{TLP 2.0}, 2022 \textbar{} Directive (EU) 2022/2555 (NIS2), Art.\ 29.}
 \end{frame}
 
 %% Frame 1: Framework anchor -- ATT&CK for ICS / Diamond Model / STIX 2.1 + TAXII
@@ -324,7 +328,7 @@ A PIR is answerable, time-bound and owned by a decision-maker. TLP governs who s
   \item Caltagirone, S., Pendergast, A., Betz, C. \emph{The Diamond Model of Intrusion Analysis}, 2013.
   \item Bianco, D. ``The Pyramid of Pain'' blog post and presentations, 2013--2014.
   \item MITRE. \emph{ATT\&CK for ICS}, \url{https://attack.mitre.org/matrices/ics/}.
-  \item Dragos. \emph{Year in Review} reports 2020--2024.
+  \item Dragos. \emph{Year in Review} reports 2020--2024 and activity-group profiles (ELECTRUM, CHERNOVITE, VOLTZITE, KAMACITE, XENOTIME).
   \item Mandiant. \emph{M-Trends} annual reports.
   \item Microsoft Threat Intelligence. Volt Typhoon and related write-ups, 2023.
   \item CISA. ICS Advisories, BAS templates and IR resources.
@@ -332,7 +336,10 @@ A PIR is answerable, time-bound and owned by a decision-maker. TLP governs who s
   \item BSI. \emph{Lagebericht der IT-Sicherheit in Deutschland}, annual.
   \item NCSC-UK. ICS guidance and threat reports.
   \item OASIS. \emph{STIX 2.1} and \emph{TAXII 2.1} specifications, 2021.
-  \item SANS Institute. \emph{Threat Hunting Maturity Model} and related curriculum.
+  \item SANS Institute. \emph{Threat Hunting Maturity Model}; SANS ICS \emph{CTI Survey} 2022--2024.
+  \item NIST SP 800-150, \emph{Guide to Cyber Threat Information Sharing}, 2016.
+  \item FIRST. \emph{Traffic Light Protocol (TLP) 2.0}, 2022; FIRST Threat Intelligence SIG.
+  \item Directive (EU) 2022/2555 (NIS2), information-sharing provisions (Art.\ 29).
 }
 
 \closingframe
