@@ -11,12 +11,15 @@ SECTIONS := \
 SECTION_DIRS  := $(addprefix sections/,$(SECTIONS))
 EXERCISE_DIRS := $(addprefix exercises/,$(SECTIONS))
 
-.PHONY: all slides exercises solutions labs clean distclean
+.PHONY: all slides notes exercises solutions labs clean distclean
 
-all: slides exercises solutions labs
+all: slides notes exercises solutions labs
 
 slides:
 	@for d in $(SECTION_DIRS); do $(MAKE) -C $$d slides || exit 1; done
+
+notes:
+	@for d in $(SECTION_DIRS); do $(MAKE) -C $$d notes || exit 1; done
 
 exercises:
 	@for d in $(EXERCISE_DIRS); do $(MAKE) -C $$d exercises || exit 1; done

@@ -1,5 +1,4 @@
 # Top-level Makefile. Builds every course directory listed in COURSES.
-# Add "master" here once the master course is populated.
 
 COURSES := bachelor master
 
@@ -9,6 +8,9 @@ all: $(COURSES)
 
 bachelor:
 	$(MAKE) -C bachelor all
+
+master:
+	$(MAKE) -C master all
 
 slides:
 	@for c in $(COURSES); do $(MAKE) -C $$c slides || exit 1; done

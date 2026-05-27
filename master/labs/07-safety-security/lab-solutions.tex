@@ -27,15 +27,15 @@ TR84.00.09 lifecycle phase the cyber cause exploits.
 
 \vspace{2pt}\footnotesize
 \renewcommand{\arraystretch}{1.25}\setlength{\tabcolsep}{3pt}
-\begin{tabular}{@{}p{10mm}p{14mm}p{30mm}p{30mm}p{28mm}p{14mm}@{}}
+\begin{tabular}{@{}p{10mm}p{14mm}p{32mm}p{36mm}p{32mm}p{14mm}@{}}
 \toprule
 \textbf{Guide} & \textbf{Param} & \textbf{Safety cause} & \textbf{Cyber cause} & \textbf{Safeguard / gap} & \textbf{Phase} \\
 \midrule
 More & Header press. & PT drift / blocked impulse line & Setpoint raised via BPCS HMI write & SIF-1 trip; gap: no write allow-list & Oper. \\
 No   & Fuel isolation & Solenoid sticks open & Logic appended so DBB valves never command closed & 1oo1 FE; gap: unsigned download & Realis. \\
-As~well~as & Flame status & Scanner fouling & 2oo3 vote spoofed to ``flame OK'' on SIS I/O & 2oo3 voting; gap: no I/O integrity check & Design \\
-Other~than & SIS mode & Random CPU fault & Key-switch left in PROGRAM, logic overwritten & Key-switch interlock; gap: PROGRAM not alarmed & Oper. \\
-Part~of & Safety net & PSU degradation & Flat LAN lets EWS reach both SIS and BPCS & Zone firewall absent; gap: no conduit segmentation & Design \\
+As well as & Flame status & Scanner fouling & 2oo3 vote spoofed to ``flame OK'' on SIS I/O & 2oo3 voting; gap: no I/O integrity check & Design \\
+Other than & SIS mode & Random CPU fault & Key-switch left in PROGRAM, logic overwritten & Key-switch interlock; gap: PROGRAM not alarmed & Oper. \\
+Part of & Safety net & PSU degradation & Flat LAN lets EWS reach both SIS and BPCS & Zone firewall absent; gap: no conduit segmentation & Design \\
 More & Demand rate & Process upset & MOC bypassed, SIF disabled without re-validation & Change board; gap: no security sign-off on MOC & Modif. \\
 \bottomrule
 \end{tabular}

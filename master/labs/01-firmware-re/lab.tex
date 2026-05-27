@@ -376,11 +376,9 @@ your n-day finding.
         \texttt{binwalk -A}; endianness (MIPS BE vs LE) is the most
         common mistake. Set the correct load/base address for raw
         blobs or every cross-reference is wrong.
-  \item \textbf{\texttt{qemu-user} binary exits immediately.} Usually a
-        missing shared library (\texttt{QEMU\_LD\_PREFIX=rootfs}) or a
-        hardware \texttt{ioctl}/\texttt{/dev} read. Run under
-        \texttt{strace} via \texttt{qemu-arm-static -strace} to see the
-        last syscall before exit.
+  \item \textbf{\texttt{qemu-user} exits immediately.} Missing shared
+        library: set \texttt{QEMU\_LD\_PREFIX}\allowbreak{}=\allowbreak\texttt{rootfs}.
+        For \texttt{ioctl}/\texttt{/dev} reads, run with \texttt{strace}.
 \end{itemize}
 
 \subsection*{Stretch goal}
@@ -412,9 +410,9 @@ A single PDF (max 2 pages) containing:
 
 \subsection*{Further reading}
 \begin{itemize}\setlength{\itemsep}{1pt}
-  \item OWASP, \emph{Firmware Security Testing Methodology (FSTM)},
-        \url{https://github.com/scriptingxss/owasp-fstm} -- the nine
-        stages map almost one-to-one onto this lab's steps.
+  \item OWASP, \emph{Firmware Security Testing Methodology (FSTM)} ---
+        \url{https://github.com/scriptingxss/owasp-fstm}\,;
+        the nine stages map almost one-to-one onto this lab's steps.
   \item A.\ Costin, J.\ Zaddach, A.\ Francillon, D.\ Balzarotti,
         \emph{A Large-Scale Analysis of the Security of Embedded
         Firmwares}, USENIX Security 2014 -- the canonical study of
