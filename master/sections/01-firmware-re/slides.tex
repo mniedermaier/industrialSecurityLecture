@@ -39,15 +39,15 @@ Without firmware analysis the asset owner only sees what the vendor chooses to d
 \begin{frame}{Famous ICS Firmware Findings}
 \begin{itemize}
   \item \textbf{Project Basecamp (2012)} -- 16 PLC families with hard-coded credentials.
-  \item \textbf{Schneider M340 (2018)} -- Modicon firmware downgrade without signing.
-  \item \textbf{Siemens S7-1200 (2019)} -- engineering-tool backdoor for bootloader updates.
+  \item \textbf{Schneider M340 (2018)} -- unverified password change in the embedded web server.
+  \item \textbf{Siemens S7-1200 (2019)} -- hard-coded bootloader access credentials.
   \item \textbf{CODESYS Runtime (2023)} -- \emph{Code16} suite, 16 CVEs affecting hundreds of products.
   \item \textbf{Boa web server} -- abandoned upstream, still in many ICS HMIs (Microsoft, 2022).
 \end{itemize}
 \begin{notebox}{Pattern}
 Long product lifecycles + slow vendor patching + shared third-party code $=$ systemic risk.
 \end{notebox}
-\source{R.\ Santamarta, \emph{Project Basecamp}, Digital Bond, 2012 \textbar{} CVE-2018-7811 (Modicon M340) \textbar{} CISA ICSA-19-099-01 (S7-1200) \textbar{} Microsoft Section 52, \emph{CoDe16}, 2023 \textbar{} Microsoft Threat Intel, \emph{Boa in IoT/OT}, Nov 2022.}
+\source{R.\ Santamarta, \emph{Project Basecamp}, Digital Bond, 2012 \textbar{} CVE-2018-7811 (Modicon M340 web server) \textbar{} CISA ICSA-19-318-02 / Siemens SSA-686531 (CVE-2019-13945, S7-1200), Nov 2019 \textbar{} Microsoft Threat Intelligence, \emph{CoDe16}, Aug 2023 \textbar{} Microsoft Threat Intel, \emph{Boa in IoT/OT}, Nov 2022.}
 \end{frame}
 
 \section{Sourcing and Triage}
@@ -139,7 +139,7 @@ Strings like ``admin'' adjacent to ``pass...'', high-entropy 16/32-byte blobs ne
 \begin{tipbox}{Workflow tip}
 For repeat work, save your Ghidra project per vendor family. Common findings (Modbus parser, web admin, OTA verifier) tend to recur across products.
 \end{tipbox}
-\source{NSA, \emph{Ghidra Software Reverse Engineering Framework}, public release at RSA, Mar 2019 \textbar{} B.\ Eagle \& K.\ Nance, \emph{The Ghidra Book}, No Starch Press, 2020.}
+\source{NSA, \emph{Ghidra Software Reverse Engineering Framework}, public release at RSA, Mar 2019 \textbar{} C.\ Eagle \& K.\ Nance, \emph{The Ghidra Book}, No Starch Press, 2020.}
 \end{frame}
 
 \section{Responsible Disclosure}

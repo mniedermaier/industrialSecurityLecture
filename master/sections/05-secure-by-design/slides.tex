@@ -121,7 +121,7 @@ Single point of policy enforcement for vendor remote access, historian replicati
 \begin{notebox}{Future-proofing}
 Specify in procurement: TLS 1.3+, modern cipher suites, support for cert rotation, and an explicit upgrade-path commitment from the vendor.
 \end{notebox}
-\source{IEC 62351 series (power-systems comms security) \textbar{} OPC UA Part 6 (Mappings) \& Part 12 (Discovery), OPC Foundation.}
+\source{IEC 62351 series (power-systems comms security) \textbar{} OPC UA Part 2 (Security Model) \& Part 4 (Services), OPC Foundation.}
 \end{frame}
 
 \begin{frame}{Pattern 5 -- Immutable Backup Triad}
@@ -137,7 +137,7 @@ Specify in procurement: TLS 1.3+, modern cipher suites, support for cert rotatio
 \begin{importantbox}{Test restore quarterly}
 Backups that have never been restored are not backups.
 \end{importantbox}
-\source{NIST SP 800-184:2016 (Guide for Cybersecurity Event Recovery) \textbar{} 3-2-1 backup rule, US-CERT TA13-309A, 2013.}
+\source{NIST SP 800-184:2016 (Guide for Cybersecurity Event Recovery) \textbar{} P.\ Krogh, \emph{The DAM Book}, O'Reilly, 2009 (origin of the 3-2-1 backup rule).}
 \end{frame}
 
 \section{Procurement \& Contracts}
@@ -286,7 +286,7 @@ SL-T rises with both \emph{consequence severity} and \emph{threat-actor capabili
 \end{notebox}
 \source{IEC 62443-3-2:2020 (zone/conduit \& SL-T method) \textbar{} IEC 62443-4-2:2019 (component SL-C).}
 \note{
-  Make this concrete and quantitative. The two inputs to SL-T in 3-2 are consequence and threat-actor capability -- the table reads left to right exactly as the standard's tolerable-risk loop runs. Field/SIS lands at SL\,3, not 4, because SL\,4 assumes a nation-state with extended resources and the willingness to spend them on this specific zone; for most non-critical batch plants SL\,3 is the defensible design target, and SL\,4 is reserved for the highest-consequence critical infrastructure. The right column is the procurement consequence: you do not buy ``a secure PLC'', you buy a component whose certified SL-C meets the zone's SL-T. If no vendor offers SL-C\,3 for a needed device, that gap becomes either a compensating control or a documented residual risk -- tie this back to the risk-acceptance slide. Stress conduit sizing: a conduit inherits the higher SL-T of the two zones it connects. Watch for students who pick SL by ``feel'' -- force them to name the consequence and the actor first. Transition: ``SL-T is risk-driven. CCE pushes the same logic further -- engineer the worst case out entirely.''
+  Make this concrete and quantitative. The two inputs to SL-T in 3-2 are consequence and threat-actor capability -- the table reads left to right exactly as the standard's tolerable-risk loop runs. Field/SIS lands at SL\,3, not 4, because SL\,4 (62443-3-3 \S\,5.10) assumes an adversary with sophisticated means, extended resources, IACS-specific skills, and high motivation against this specific zone; for most non-critical batch plants SL\,3 is the defensible design target, and SL\,4 is reserved for the highest-consequence critical infrastructure. The right column is the procurement consequence: you do not buy ``a secure PLC'', you buy a component whose certified SL-C meets the zone's SL-T. If no vendor offers SL-C\,3 for a needed device, that gap becomes either a compensating control or a documented residual risk -- tie this back to the risk-acceptance slide. Stress conduit sizing: a conduit inherits the higher SL-T of the two zones it connects. Watch for students who pick SL by ``feel'' -- force them to name the consequence and the actor first. Transition: ``SL-T is risk-driven. CCE pushes the same logic further -- engineer the worst case out entirely.''
 }
 \end{frame}
 

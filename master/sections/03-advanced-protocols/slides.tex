@@ -33,7 +33,7 @@
 \begin{importantbox}{Session keys, not real crypto}
 Each session derives a key from challenges in the handshake -- but the key derivation function (KDF) is fixed and reproducible. Several research groups have re-implemented it.
 \end{importantbox}
-\source{Lei, C., He, J. et al., reverse-engineering of S7commPlus, multiple academic papers 2017--2020.}
+\source{Biham, E., Bitan, S., Carmel-Veilleux, A., et al., \emph{Rogue7: Rogue Engineering-Station Attacks on S7 Simatic}, Black Hat USA, 2019.}
 \end{frame}
 
 \begin{frame}[fragile]{S7commPlus Frame Sketch}
@@ -107,7 +107,7 @@ The HMI's read/write of named variables flows through MMS. If you can spoof or r
 \end{tikzpicture}
 \vspace{2mm}
 \begin{notebox}{Authentication levels}
-DLMS defines 0 (none), 1 (low, shared password), 2 (high, MD5/SHA-1), 3 (high-GMAC). German rollout (BSI TR-03109) mandates Gateway with X.509 + AES-GCM.
+DLMS defines mechanism IDs 0--7 (IEC 62056-5-3): 0 = none, 1 = LLS (shared password), 2--7 = HLS variants (MD5, SHA-1, GMAC, SHA-256, ECDSA). German rollout (BSI TR-03109) mandates Gateway with X.509 + AES-GCM.
 \end{notebox}
 \source{IEC 62056 (DLMS/COSEM Blue/Green/Yellow/White books) \textbar{} BSI TR-03109.}
 \end{frame}
@@ -156,7 +156,7 @@ Industrial devices crash on malformed input -- often by tripping the safety syst
 \begin{itemize}
   \item Integer overflows in length fields (Ripple20, URGENT/11, NUCLEUS:13).
   \item Out-of-bounds writes in ASN.1 parsers (MMS, GOOSE).
-  \item Missing nonce checks in challenge-response auth (S7commPlus pre-2019).
+  \item Reproducible session-key derivation in challenge-response auth (Rogue7, 2019).
   \item Hard-coded session keys after firmware update (multiple vendors).
   \item ICS PSIRT disclosures often reveal these for one product but the same code is in twenty others.
 \end{itemize}

@@ -232,7 +232,7 @@ A single named individual with both safety and security training is worth a bind
 \begin{notebox}{Architecture knobs (61508 / 61511)}
 \footnotesize Redundancy \textbf{1oo2} cuts $\lambda_{DU}$ but raises spurious trips; \textbf{2oo3 / TMR} balances both. Common-cause factor $\beta$ caps the gain: $\mathrm{PFD_{avg}}\gtrsim \tfrac{1}{2}\beta\,\lambda_{DU}\,T_{1}$ never falls below the $\beta$-floor, so a shorter $T_{1}$ buys SIL only until $\beta$ dominates.
 \end{notebox}
-\source{IEC 61508-6:2010 Annex B (PFD\textsubscript{avg} formulae, $\beta$-model) \textbar{} IEC 61511-1:2016 \S\,11 (architectural constraints).}
+\source{IEC 61508-6:2010 Annex B (PFD\textsubscript{avg} formulae, $\beta$-model) \textbar{} IEC 61508-2:2010 \S\,7.4.4 (HFT/SFF architectural constraints).}
 \note{
   Master-level refresher --- assume they have seen the ladder in the Bachelor standards section, so push the maths. Two points to land. First, RRF is just $1/\mathrm{PFD_{avg}}$; a SIL\,3 SIF buys a risk-reduction factor of 1\,000--10\,000, and that is what LOPA spends. Second, the architecture and the $\beta$ factor are where co-engineering bites: 1oo2 halves dangerous-undetected failure but doubles spurious trips; 2oo3 / TMR (the Triconex topology) is the process favourite because it tolerates one channel failed without tripping. The killer is common cause --- $\beta$ (typically 1--10\%) sets a floor no amount of redundancy or proof testing can beat, because identical channels fail together. Tie this forward: a cyber attack is the ultimate common-cause failure, $\beta\to1$, every redundant channel runs the same compromised logic. Transition: "TRITON is exactly that $\beta\to1$ event --- let us walk the kill chain."
 }
@@ -258,7 +258,7 @@ A single named individual with both safety and security training is worth a bind
 \begin{itemize}\setlength{\itemsep}{1pt}
   \item Pivot from IT to the SIS engineering workstation.
   \item Speak the proprietary \emph{TriStation} protocol (UDP/1502) to the controller in PROGRAM mode.
-  \item Append a backdoor (\texttt{inject.bin} / \texttt{imain.bin}) to the controller's firmware, ready to rewrite safety logic on demand.
+  \item Inject a backdoor (\texttt{inject.bin} / \texttt{imain.bin}) into the controller's running memory, ready to rewrite safety logic on demand.
 \end{itemize}
 \column{0.5\textwidth}
 \footnotesize

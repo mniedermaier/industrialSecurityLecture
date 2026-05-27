@@ -115,7 +115,7 @@ Nmap with \texttt{--max-rate} and only NSE scripts known safe for the target. Ru
   \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small, below=of c] (d) {GOOSE -- spoof higher stNum to inject false trip};
   \node[isbox, fill=isAttack!10, draw=isAttack, minimum width=110mm, font=\small, below=of d] (e) {OPC UA -- enumerate anonymous endpoints, abuse weak user policies};
 \end{tikzpicture}
-\source{MITRE ATT\&CK for ICS, T0855/T0867/T0846/T0848/T0858.}
+\source{MITRE ATT\&CK for ICS: T0855 Unauthorized Command Message; T0858 Change Operating Mode; T0856 Spoof Reporting Message; T0846 Remote System Discovery; T0848 Rogue Master.}
 \end{frame}
 
 \begin{frame}{Logic Injection Workflow}
@@ -183,14 +183,14 @@ The asset owner's safety engineers should be able to read the report and say whe
 \begin{frame}{Framework anchor -- ATT\&CK for ICS \& the ICS Kill Chain}
 \centering
 \begin{tikzpicture}[node distance=2mm, scale=0.85, transform shape]
-  \node[isbox, fill=isIT!15, draw=isIT, minimum width=120mm, font=\footnotesize, align=left] (a)
+  \node[isbox, fill=isIT!15, draw=isIT, minimum width=120mm, font=\footnotesize, align=left, text width=114mm] (a)
     {\textbf{Recon \& Initial Access} \ ATT\&CK \emph{Initial Access} (T0817 Drive-by, T0866 Remote Services) $\;\equiv\;$ Kill Chain \textbf{Stage 1}};
-  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=120mm, font=\footnotesize, align=left, below=of a] (b)
-    {\textbf{Pivot \& Cross iDMZ} \ ATT\&CK \emph{Lateral Movement} (T0859 Valid Accounts, T0867 Eng.\ WS) $\;\equiv\;$ end of \textbf{Stage 1}};
-  \node[isbox, fill=isOT!15, draw=isOT, minimum width=120mm, font=\footnotesize, align=left, below=of b] (c)
+  \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=120mm, font=\footnotesize, align=left, below=of a, text width=114mm] (b)
+    {\textbf{Pivot \& Cross iDMZ} \ ATT\&CK \emph{Lateral Movement} (T0859 Valid Accounts, T0818 Eng.\ Workstation Compromise) $\;\equiv\;$ end of \textbf{Stage 1}};
+  \node[isbox, fill=isOT!15, draw=isOT, minimum width=120mm, font=\footnotesize, align=left, below=of b, text width=114mm] (c)
     {\textbf{Logic \& Command} \ ATT\&CK \emph{Impair Process Control} (T0836 Mod.\ Param., T0843 Program Download) $\;\equiv\;$ \textbf{Stage 2}};
-  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=120mm, font=\footnotesize, align=left, below=of c] (d)
-    {\textbf{Disable Safety \& Effect} \ ATT\&CK \emph{Inhibit Response} (T0880) \& \emph{Impact} (T0831 Loss of Control) $\;\equiv\;$ \textbf{Stage 2}};
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=120mm, font=\footnotesize, align=left, below=of c, text width=114mm] (d)
+    {\textbf{Disable Safety \& Effect} \ ATT\&CK \emph{Inhibit Response} (T0881 Service Stop) \& \emph{Impact} (T0827 Loss of Control, T0880 Loss of Safety) $\;\equiv\;$ \textbf{Stage 2}};
 \end{tikzpicture}
 \par\vspace{2mm}
 \begin{notebox}{Two lenses, one engagement}
@@ -273,7 +273,7 @@ Modbus coil/register write & T0855 & \textbf{Sees} -- \texttt{modbus.log} write 
 \hline
 S7 program download (logic) & T0843 & \textbf{Sees} -- \texttt{s7comm.log} job: download block to CPU \\
 \hline
-OPC UA over TLS (encrypted) & T0867 & \textbf{Blind} -- payload encrypted; only endpoint metadata \\
+OPC UA over TLS (encrypted) & T0869 & \textbf{Blind} -- payload encrypted; only endpoint metadata \\
 \hline
 Spoof reporting / HMI replay & T0856 & \textbf{Partial} -- needs process-baseline model, not parsing alone \\
 \hline
@@ -282,9 +282,9 @@ Spoof reporting / HMI replay & T0856 & \textbf{Partial} -- needs process-baselin
 \begin{importantbox}{Build detection \emph{from} offense}
 Every authorised technique you run is a detection-engineering test case. Map it to its ATT\&CK ID, capture the PCAP, and hand the blue team the exact Zeek signature it should -- or could not -- have produced.
 \end{importantbox}
-\source{MITRE ATT\&CK for ICS (T0846/T0855/T0843/T0867/T0856) \textbar{} Zeek + ICSNPP protocol analysers, \texttt{github.com/cisagov/icsnpp}.}
+\source{MITRE ATT\&CK for ICS (T0846/T0855/T0843/T0869/T0856) \textbar{} Zeek + ICSNPP protocol analysers, \texttt{github.com/cisagov/icsnpp}.}
 \note{
-  Closes the offensive section by tying every technique back to the defender's instrument. Walk each row and stress the \textbf{Sees / Blind / Partial} verdict. Scanning (T0846) is loud --- Zeek logs the connection fan-out and ICSNPP flags the function-code sweep. Modbus writes (T0855) and S7 program downloads (T0843) are fully visible: ICSNPP analysers parse \texttt{modbus.log} and \texttt{s7comm.log} down to the function code and download-block job; the tester should produce those log lines and confirm an alert fires. Two hard cases are the lesson: OPC UA over TLS (T0867) is a \emph{blind spot} --- only endpoint metadata visible, which is why the PIPEDREAM \textsc{mousehole} pivot is dangerous; mitigations are endpoint logging or a sanctioned TLS-inspection point. HMI replay (T0856 --- the Stuxnet trick) is only \emph{partially} detectable from the wire: protocol parsing alone cannot tell a replayed-but-valid value from a real one, so you need a process-behaviour baseline. Land the importantbox: every authorised technique becomes a labelled detection test case --- run it, capture the PCAP, hand over the Zeek/ICSNPP signature that should have caught it (or document the gap).
+  Closes the offensive section by tying every technique back to the defender's instrument. Walk each row and stress the \textbf{Sees / Blind / Partial} verdict. Scanning (T0846) is loud --- Zeek logs the connection fan-out and ICSNPP flags the function-code sweep. Modbus writes (T0855) and S7 program downloads (T0843) are fully visible: ICSNPP analysers parse \texttt{modbus.log} and \texttt{s7comm.log} down to the function code and download-block job; the tester should produce those log lines and confirm an alert fires. Two hard cases are the lesson: OPC UA over TLS (T0869) is a \emph{blind spot} --- only endpoint metadata visible, which is why the PIPEDREAM \textsc{mousehole} pivot is dangerous; mitigations are endpoint logging or a sanctioned TLS-inspection point. HMI replay (T0856 --- the Stuxnet trick) is only \emph{partially} detectable from the wire: protocol parsing alone cannot tell a replayed-but-valid value from a real one, so you need a process-behaviour baseline. Land the importantbox: every authorised technique becomes a labelled detection test case --- run it, capture the PCAP, hand over the Zeek/ICSNPP signature that should have caught it (or document the gap).
 }
 \end{frame}
 

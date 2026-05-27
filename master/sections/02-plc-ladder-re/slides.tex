@@ -46,7 +46,7 @@ The PLC runs the \emph{compiled} blocks. The vendor tool shows the \emph{project
 \rowcolor{slidePanel}
  & \textbf{Siemens S7-3xx/4xx} & \textbf{Rockwell ControlLogix} & \textbf{CODESYS family} \\
 \hline
-Project file & \texttt{.zap}, \texttt{.s7p} (Step7); \texttt{.ap16} (TIA) & \texttt{.acd} & \texttt{.project} (XML zip) \\
+Project file & \texttt{.zap}, \texttt{.s7p} (Step7); \texttt{.apXX} (TIA) & \texttt{.acd} & \texttt{.project} (XML zip) \\
 On-PLC format & MC7 byte-code, OBxx/FCxx/DBxx blocks & \texttt{.L5K} compiled tags & UDFB structured text \\
 Read-back tool & \texttt{snap7}, TIA upload & RSLogix5000 upload, \texttt{libplctag} & CODESYS device tree \\
 \hline
@@ -102,7 +102,7 @@ Project files have run macros and \emph{network ranges}. Open them in a disconne
 \end{tikzpicture}
 \vspace{2mm}
 \begin{notebox}{Tools}
-\texttt{s7-pcap} and \texttt{step7-parser} (Sergey Gordeychik et al., 2015) parse MC7. Newer S7commPlus blocks (S7-1200/1500) use \texttt{Pdata} and require S7commPlus-aware tools.
+D.\ Beresford's MC7 reversing (2011) and community parsers help with classic S7. Newer S7commPlus blocks (S7-1200/1500) use \texttt{Pdata} and require S7commPlus-aware tools.
 \end{notebox}
 \source{Sergey Gordeychik et al., \emph{SCADA StrangeLove}, 2015 \textbar{} Beresford, D., \emph{Exploiting Siemens Simatic S7 PLCs}, 2011.}
 \end{frame}
@@ -130,7 +130,7 @@ Round-trip the export through RSLogix; what visually matches the original is fai
   \foreach \s/\e in {a/b, b/c, c/d}{\draw[flow] (\s) -- (\e);}
 \end{tikzpicture}
 \vspace{2mm}
-\begin{importantbox}{CODE16 (2023)}
+\begin{importantbox}{CoDe16 (2023)}
 Sixteen CVEs in CODESYS Runtime exposed authentication, parser, and update-verifier flaws across hundreds of vendor products built on the runtime.
 \end{importantbox}
 \source{CISA \emph{ICSA-23-103-09} and related advisories; Microsoft \emph{CoDe16} disclosure, 2023.}
@@ -200,7 +200,7 @@ Cross-reference \emph{every} symbol against where it is read and where it is wri
   \item Findings on production logic touch \textbf{safety} -- coordinate with process safety, not just IT.
   \item Vendor PSIRT first; CERT/CC second; public publication only after fix.
   \item Sharing tags or constants from real plants risks identifying the asset owner -- redact heavily.
-  \item Some jurisdictions (US DMCA \S1201, EU CRA research safe-harbour, German \S202c StGB) constrain RE; consult counsel.
+  \item Some jurisdictions (US DMCA \S1201, EU CRA / NIS2 coordinated-disclosure rules, German \S202c StGB) constrain RE; consult counsel.
 \end{itemize}
 \begin{warnbox}
 Logic from a production PLC you do not own is contaminated evidence. No serious vendor will accept it.
