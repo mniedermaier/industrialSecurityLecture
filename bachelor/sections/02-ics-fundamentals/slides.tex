@@ -106,7 +106,7 @@
 \begin{notebox}{Security relevance}
 A sensor that lies fools every layer above it. \,4--20\,mA has a built-in tamper signal: 0\,mA = wire cut.
 \end{notebox}
-\source{ISA 5.1-2009 (Instrumentation Symbols) \textbar{} ISA-50.00.01 (4-20 mA standard).}
+\source{ISA 5.1-2009 (Instrumentation Symbols) \textbar{} IEC 60381-1:1982 (DC analogue signals for process control, i.e. the 4-20\,mA loop).}
 \note{
   Spend a moment on why 4--20\,mA dominates even in 2024: the 4\,mA floor is the integrity check --- a broken or sabotaged wire reads 0\,mA, which is out of band and instantly diagnosable. Compare to 0--5\,V where a cut wire reads 0\,V, indistinguishable from ``valve closed.'' Frame the digital row for IT students: a 24\,V DI is just a GPIO with shock-resistant wiring; an encoder is the same idea as a quadrature input on an Arduino, just rugged. Security relevance lands at the top: every later control decision trusts these readings; if the sensor lies, the PLC, HMI, and historian all lie too. Stuxnet exploited this --- the 21-second replay was a sensor-layer lie. Transition: ``Sensors talk in --- actuators talk out.''
 }
@@ -121,7 +121,7 @@ A sensor that lies fools every layer above it. \,4--20\,mA has a built-in tamper
 \end{tikzpicture}
 \par\vspace{2mm}
 \begin{notebox}{Attack target}
-Stuxnet did not attack a sensor or a PLC --- it attacked the \emph{VFDs} (variable-frequency drives) running the centrifuges. Final elements are where consequences live.
+Stuxnet's payload commanded the \emph{VFDs} (variable-frequency drives) running the centrifuges from a compromised Siemens PLC --- the PLC was the foothold, but the final elements are where the physical consequence lived.
 \end{notebox}
 \source{IEC 60534 (Industrial-process control valves) \textbar{} IEC 61800 (Adjustable-speed electrical power drive systems).}
 \note{

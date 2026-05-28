@@ -416,7 +416,7 @@ Passive: \textbf{Zeek} + \textbf{ICSNPP} dissectors (CISA / INL, 12+ ICS protoco
 \begin{takeawaybox}{What to remember from this section}
 \begin{itemize}\setlength{\itemsep}{2pt}
   \item Most legacy industrial protocols are unauthenticated and unencrypted by design.
-  \item Modbus is the canonical example -- 12 bytes of MBAP and a one-byte function code.
+  \item Modbus is the canonical example -- 7-byte MBAP header and a one-byte function code.
   \item Modern protocols (OPC UA, MQTT-TLS) bring real cryptography, but require correct configuration.
   \item Network-layer mitigations (firewalls, segmentation) compensate where the protocol cannot.
 \end{itemize}

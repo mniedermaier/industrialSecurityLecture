@@ -201,7 +201,7 @@ A single failed layer should not equal a successful attack.
 \begin{notebox}{Sealing the wall jack}
 802.1X (with MAC bypass for legacy devices) prevents random laptops from joining the plant LAN. Static PLC ports get MAC pinning.
 \end{notebox}
-\source{IEEE 802.1X-2020 \textbar{} NIST SP 800-92 (logging) \textbar{} vendors: Cisco ISE, Aruba ClearPass, Forescout eyeSight.}
+\source{IEEE 802.1X-2020 \textbar{} NIST SP 800-82 Rev.\,3:2023 \S\,5 (network segmentation \& access control) \textbar{} vendors: Cisco ISE, Aruba ClearPass, Forescout eyeSight.}
 \note{
   802.1X in OT is the long-running argument. The clean version requires a supplicant on every endpoint -- and a Siemens S7-1500 does not speak EAP. The workable version is MAC Authentication Bypass with a Forescout SilentDefense or Cisco ISE policy that pins each PLC port to a known OUI and quarantines anything else. Profile the device before you let it on, not after. The Stuxnet-era lesson is that the attack came in on a USB, but the lateral move was over the flat plant LAN with no port security at all. Ask the room: what is your move when an engineer's laptop fails 802.1X at 2 a.m. during an outage?
 }

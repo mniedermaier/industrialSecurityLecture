@@ -37,7 +37,7 @@
   \node[firewall, right=4mm of L4, minimum height=6mm, minimum width=10mm, font=\scriptsize] (fw1) {FW};
   \node[firewall, right=4mm of L5, minimum height=6mm, minimum width=10mm, font=\scriptsize] (fw2) {FW};
 \end{tikzpicture}
-\source{T.J.\ Williams, ``The Purdue Enterprise Reference Architecture'', \emph{Computers in Industry}, 1994 \textbar{} ISA-95 / IEC 62264.}
+\source{T.J.\ Williams (ed.), \emph{The Purdue Enterprise Reference Architecture}, Purdue Univ., 1989 (revised in \emph{Computers in Industry} 24, 1994) \textbar{} ISA-95 / IEC 62264.}
 \note{
   Williams' 1994 model is a teaching scaffold, not a building code --- be honest with the room that real plants rarely match it cleanly. In most brownfield sites Level 2 and Level 3 are fused into one flat \emph{plant network}, and Level 4/5 increasingly merge into a single cloud-fronted ERP. Pre-empt the IT instinct that ``layers equal subnets'' --- a Purdue layer is a \emph{trust boundary}, not a VLAN. Mention that ISA-95 (IEC 62264) is the standards-track sibling and that NIST SP 800-82 Rev.\,3 still anchors its architecture chapter here. Transition: ``If Layer 3.5 is the broker, what actually lives in it?'' --- next slide opens the iDMZ. Optional ask: ``Where would a wireless mobile HMI sit --- Level 2, Level 3, or floating?''
 }
@@ -313,18 +313,18 @@ Private 5G     & 1 ms     & 100--500 m & High-density factory \\
 %% Frame 2: Industrial Ethernet Variants Compared
 \begin{frame}{Industrial Ethernet Variants Compared}
 \centering
-\renewcommand{\arraystretch}{1.1}
+\renewcommand{\arraystretch}{1.0}
 \scriptsize
-\begin{tabular}{|p{20mm}|p{18mm}|p{16mm}|p{20mm}|p{38mm}|}
+\begin{tabular}{|p{20mm}|p{22mm}|p{16mm}|p{20mm}|p{38mm}|}
 \hline
 \rowcolor{slidePanel}
 \textbf{Variant} & \textbf{Determinism} & \textbf{OSI reuse} & \textbf{Lead vendor} & \textbf{What it actually is} \\
 \hline
 Modbus TCP   & soft (best-effort) & L1--L4 std        & Schneider          & Modbus RTU framed inside TCP/502 \\
 \hline
-EtherNet/IP  & soft (CIP)         & L1--L4 std        & Rockwell / ODVA    & CIP objects over UDP/TCP \\
+EtherNet/IP  & soft (CIP class 1) & L1--L4 std        & ODVA (Rockwell-led) & CIP objects over UDP/TCP \\
 \hline
-PROFINET RT  & hard (1\,ms)       & L1--L2 std, custom L3 & Siemens (PNO)  & VLAN-tagged Ethernet frames, no IP \\
+PROFINET RT  & soft ($\sim$1--10\,ms) & L1--L2 std, custom L3 & Siemens (PNO)  & VLAN-tagged Ethernet frames, no IP \\
 \hline
 PROFINET IRT & hard (\textmu s)   & custom MAC sched. & Siemens (PNO)      & TDMA slots in switch silicon \\
 \hline
@@ -333,9 +333,9 @@ EtherCAT     & hard (\textmu s)   & custom L2         & Beckhoff (ETG)     & ``p
 \end{tabular}
 \par\vspace{2mm}
 \begin{notebox}{IT analogue}
-Modbus TCP $\approx$ HTTP on a LAN: works on any switch. EtherCAT $\approx$ InfiniBand: needs special silicon and dedicated wiring. The harder the real-time guarantee, the less of the standard IP stack survives.
+Modbus TCP $\approx$ HTTP on a LAN: works on any switch. EtherCAT $\approx$ InfiniBand: needs special silicon. The harder the real-time guarantee, the less of the standard IP stack survives.
 \end{notebox}
-\source{IEC 61784-2:2023, \emph{Industrial communication networks --- Profiles --- Part 2: Additional fieldbus profiles for real-time networks} \textbar{} ODVA, \emph{The CIP Networks Library}, Vol.\,2, 2024.}
+\source{IEC 61784-2:2023 \textbar{} ODVA, \emph{CIP Networks Library} Vol.\,2, 2024.}
 \note{
   Read top-to-bottom by determinism: Modbus TCP is Modbus RTU in TCP/502, works on any office switch but no timing guarantee. EtherNet/IP (``IP'' = Industrial Protocol, naming trap) is Rockwell's CIP stack and dominates NA factories. PROFINET RT keeps Ethernet frames but skips IP for cycle traffic (VLAN priority 6, EtherType 0x8892). PROFINET IRT pre-schedules transmit slots in switch ASIC. EtherCAT is the odd one: a single frame goes round the ring and each slave reads/writes its slice on the fly. Wireshark works for Modbus TCP and EtherNet/IP, partial for PROFINET, largely useless for IRT/EtherCAT without specialised taps. Transition: ``can we converge OT and IT on one wire? TSN promises that.''
 }

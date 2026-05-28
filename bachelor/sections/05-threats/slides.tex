@@ -264,7 +264,7 @@ With Industroyer, ICS attack tooling crossed the line from bespoke ordnance to a
   \item Attackers reached an engineering workstation with TriStation software, then pivoted onto the SIS network.
   \item Payload (\texttt{trilog.exe} + \texttt{library.zip}) spoke the proprietary \textbf{TriStation} protocol; exploited a Triconex weakness (CVE-2018-7522) to inject malicious \emph{ladder logic} into the safety controller's RAM.
   \item Once resident, the implant could rewrite SIS logic -- including \emph{neutralising} trip set-points -- and restore the original on demand.
-  \item Attribution: \textbf{TEMP.Veles} / Xenotime (FSU-linked); US Treasury sanctioned TsNIIKhM in 2020.
+  \item Attribution: \textbf{TEMP.Veles} (Mandiant) / \textbf{XENOTIME} (Dragos); US Treasury sanctioned TsNIIKhM (Russia) in 2020.
 \end{itemize}
 \begin{importantbox}{First public attack on a safety layer}
 TRITON crossed a long-assumed red line: targeting the SIS deliberately, with intent to disable the layer that prevents loss of life. Subsequent victim discoveries (Schneider, 2019) showed the framework was not a one-off.
@@ -286,13 +286,13 @@ TRITON crossed a long-assumed red line: targeting the SIS deliberately, with int
     \begin{itemize}\setlength{\itemsep}{0pt}
       \item \textbf{Maersk:} $\sim$\$300\,M; rebuilt 4\,000 servers, 45\,000 PCs in 10 days; container terminals halted.
       \item \textbf{Merck:} $\sim$\$870\,M; vaccine production disrupted.
-      \item \textbf{Mondel\=ez, FedEx/TNT, Reckitt, Saint-Gobain:} hundreds of millions each.
+      \item \textbf{Mondelez, FedEx/TNT, Reckitt, Saint-Gobain:} hundreds of millions each.
     \end{itemize}
   \item Total damage estimated at \$10\,B+; attributed by US/UK/EU to \textbf{Sandworm} (GRU).
 \end{itemize}
 \source{A.\ Greenberg, \emph{Sandworm}, Doubleday, 2019 \textbar{} White House attribution statement, 15 Feb 2018 \textbar{} CISA \emph{TA17-181A}, 1 Jul 2017.}
 \note{
-  Open by killing the ``ransomware'' framing: the ransom note was theatre. The encryption was one-way; the ``personal installation key'' shown to victims was random bytes. NotPetya was a wiper dressed as ransomware to muddy attribution and discourage immediate state response. The supply-chain vector matters: M.E.Doc was the Ukrainian equivalent of TurboTax for businesses, so by trojanising one update server the GRU achieved near-total coverage of Ukrainian corporate IT. The collateral was the lesson: Maersk, Merck, FedEx/TNT, Mondel\=ez, Reckitt, Saint-Gobain were not the target, they were bystanders connected to Ukrainian subsidiaries. Andy Greenberg's \emph{Sandworm} has the Maersk recovery story in detail --- the entire domain controller fleet was wiped, and a single surviving DC in Ghana (offline during the attack for an unrelated power outage) was the only seed left to rebuild from. Use this slide to introduce the section's recurring theme: OT can be lost without OT being touched, if the IT it depends on is wiped.
+  Open by killing the ``ransomware'' framing: the ransom note was theatre. The encryption was one-way; the ``personal installation key'' shown to victims was random bytes. NotPetya was a wiper dressed as ransomware to muddy attribution and discourage immediate state response. The supply-chain vector matters: M.E.Doc was the Ukrainian equivalent of TurboTax for businesses, so by trojanising one update server the GRU achieved near-total coverage of Ukrainian corporate IT. The collateral was the lesson: Maersk, Merck, FedEx/TNT, Mondelez, Reckitt, Saint-Gobain were not the target, they were bystanders connected to Ukrainian subsidiaries. Andy Greenberg's \emph{Sandworm} has the Maersk recovery story in detail --- the entire domain controller fleet was wiped, and a single surviving DC in Ghana (offline during the attack for an unrelated power outage) was the only seed left to rebuild from. Use this slide to introduce the section's recurring theme: OT can be lost without OT being touched, if the IT it depends on is wiped.
 }
 \end{frame}
 
@@ -309,7 +309,7 @@ TRITON crossed a long-assumed red line: targeting the SIS deliberately, with int
   \draw[flow] (enc.south) |- (shut.east); \draw[flow] (shut) -- (impact);
 \end{tikzpicture}
 \begin{itemize}\setlength{\itemsep}{0pt}\footnotesize
-  \item \textbf{7 May 2021:} DarkSide affiliate enters via a reused VPN password; no MFA.
+  \item Access via leaked VPN password \textbf{29 Apr 2021}; ransomware \textbf{7 May}; no MFA.
   \item OT was \emph{not} compromised. Colonial halted the 8\,850\,km pipeline because billing/dispatch IT was down.
   \item \$4.4\,M ransom paid; $\sim$half later recovered by the FBI; fuel shortages in 17 states.
 \end{itemize}
@@ -388,7 +388,7 @@ Volt Typhoon's target list (water, power, ports) and its persistence in OT-adjac
 \end{warnbox}
 \source{CISA \emph{AA24-038A}, 7 Feb 2024 \textbar{} Microsoft Threat Intelligence, \emph{Volt Typhoon targets US critical infrastructure with living-off-the-land techniques}, 24 May 2023.}
 \note{
-  Frame Volt Typhoon as a strategic shift, not just another APT. Microsoft Threat Intelligence published the first public profile on 24 May 2023; the joint CISA/NSA/FBI advisory AA24-038A in February 2024 added the multi-victim picture and the five-year dwell-time figure --- read that one slowly to the room. The target set is the giveaway: water, electricity, ports, and communications, with a striking overconcentration on Guam, which would be a logistics hub in any Pacific contingency. That mix is not consistent with espionage, which would prioritise R\&D or political targets, and it is consistent with preparing the battlefield. FBI Director Wray testified to Congress in early 2024 calling this exactly that --- pre-positioning for disruptive effects against US CNI in a crisis. Mention that ``Volt Typhoon'' is Microsoft's naming; Mandiant tracks much of the same activity as ``Voltzite'', Dragos as ``Voltzite'' as well. Pivot into the next slide on \emph{how} they stay hidden.
+  Frame Volt Typhoon as a strategic shift, not just another APT. Microsoft Threat Intelligence published the first public profile on 24 May 2023; the joint CISA/NSA/FBI advisory AA24-038A in February 2024 added the multi-victim picture and the five-year dwell-time figure --- read that one slowly to the room. The target set is the giveaway: water, electricity, ports, and communications, with a striking overconcentration on Guam, which would be a logistics hub in any Pacific contingency. That mix is not consistent with espionage, which would prioritise R\&D or political targets, and it is consistent with preparing the battlefield. FBI Director Wray testified to Congress in early 2024 calling this exactly that --- pre-positioning for disruptive effects against US CNI in a crisis. Mention that ``Volt Typhoon'' is Microsoft's naming; Dragos tracks the cluster as VOLTZITE, CrowdStrike as VANGUARD PANDA, Secureworks as BRONZE SILHOUETTE. Pivot into the next slide on \emph{how} they stay hidden.
 }
 \end{frame}
 
