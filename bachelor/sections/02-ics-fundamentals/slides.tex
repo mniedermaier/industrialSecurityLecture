@@ -292,6 +292,7 @@ Stuxnet's payload commanded the \emph{VFDs} (variable-frequency drives) running 
 \end{tikzpicture}
 \par\vspace{2mm}
 {\footnotesize Mimic diagrams, trends, alarm bars. Bad HMI design $=$ accidents (Three Mile Island, 1979).}
+\source{President's Commission on the Accident at Three Mile Island (Kemeny Commission), \emph{Report}, 1979.}
 \note{
   Three Mile Island is the canonical bad-HMI story: hundreds of alarms went off simultaneously and the operators could not see which one mattered --- ISA-101 was written so this would not happen again. Modern guidance (also from the High Performance HMI movement) is greyscale by default and colour reserved for abnormal state, which is the opposite of what students expect from web UI. Pre-empt the misconception ``the HMI is the control system'' --- it is just a window; pull the cable and the PLC keeps running. War story worth telling: Stuxnet specifically replayed normal-looking values to the WinCC HMI while spinning the centrifuges to destruction --- operators saw green screens. Optional question: ``which colour should a normally-open valve be?'' --- ISA-101 says muted grey, not green. Transition: where do those trend lines come from? The historian, next.
 }

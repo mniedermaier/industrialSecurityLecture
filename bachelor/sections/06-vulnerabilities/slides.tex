@@ -283,25 +283,25 @@ When you cannot patch quickly, deploy a virtual patch (IPS rule) or tighten the 
 \end{frame}
 
 %% Frame 2: Anatomy of a CISA ICS Advisory
-\begin{frame}{Anatomy of a CISA ICS Advisory --- ICSA-23-103-10}
+\begin{frame}{Anatomy of a CISA ICS Advisory --- ICSA-19-318-02}
 \centering
 \begin{tikzpicture}[node distance=1.5mm, scale=0.85, transform shape]
   \node[isbox, fill=slidePanel, draw=isOT, minimum width=120mm, align=left, font=\scriptsize] (a)
-    {\textbf{ICSA-ID:} ICSA-23-103-10 \quad\textbar\quad \textbf{Published:} 13 Apr 2023 \quad\textbar\quad \textbf{Vendor:} Siemens};
+    {\textbf{ICSA-ID:} ICSA-19-318-02 \quad\textbar\quad \textbf{Published:} 14 Nov 2019 \quad\textbar\quad \textbf{Vendor:} Siemens};
   \node[isbox, fill=slidePanel, draw=isOT, minimum width=120mm, align=left, font=\scriptsize, below=of a] (b)
-    {\textbf{Affected:} SIMATIC CP 1242-7, CP 1243-1/-7/-8 (firmware $<$ V3.4.36)};
+    {\textbf{Affected:} SIMATIC S7-1200 CPU family (various firmware versions)};
   \node[isbox, fill=slidePanel, draw=isOT, minimum width=120mm, align=left, font=\scriptsize, below=of b] (c)
-    {\textbf{CVEs:} CVE-2022-46140 (hard-coded credential, CWE-798)};
+    {\textbf{CVEs:} CVE-2019-13945 (hard-coded credentials in bootloader, CWE-798)};
   \node[isbox, fill=slidePanel, draw=isOT, minimum width=120mm, align=left, font=\scriptsize, below=of c] (d)
-    {\textbf{CVSS v3.1:} 7.5 \ \texttt{AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N} (network, no auth, confid.\ only)};
+    {\textbf{CVSS v3.1:} 6.8 \ \texttt{AV:L/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H} (local access, then full compromise)};
   \node[isbox, fill=slidePanel, draw=isOT, minimum width=120mm, align=left, font=\scriptsize, below=of d] (e)
-    {\textbf{Impact:} Remote attacker can extract sensitive configuration data over the network};
+    {\textbf{Impact:} Bootloader-level access via undocumented credentials enables persistent firmware changes};
   \node[isbox, fill=slidePanel, draw=isOT, minimum width=120mm, align=left, font=\scriptsize, below=of e] (f)
-    {\textbf{Mitigation:} Upgrade firmware to V3.4.36; restrict network access to port 102 (S7)};
+    {\textbf{Mitigation:} Apply Siemens-provided firmware update; physical key-switch in RUN; restrict access};
   \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=120mm, align=left, font=\scriptsize, below=of f] (g)
-    {\textbf{Cross-ref:} Siemens SSA-479249 --- vendor PSIRT, same content, often first};
+    {\textbf{Cross-ref:} Siemens SSA-686531 --- vendor PSIRT, same content, often first};
 \end{tikzpicture}
-\source{CISA, \emph{ICSA-23-103-10 Siemens SIMATIC CP}, 13 Apr 2023 \textbar{} Siemens SSA-479249, 2023.}
+\source{CISA, \emph{ICSA-19-318-02 Siemens SIMATIC S7-1200}, 14 Nov 2019 \textbar{} Siemens SSA-686531, 2019 (CVE-2019-13945).}
 \note{
   ICSA-ID encodes year (23), day-of-year (103 = 13 Apr), sequence number (10). Affected band is load-bearing: without firmware version in CMDB you cannot answer ``are we vulnerable?'' CVSS vector: AV:N = network-reachable, AC:L = no special conditions, PR:N = no auth, C:H/I:N/A:N = leaks data but does not corrupt or DoS. Every CISA advisory has a vendor PSIRT twin, usually published first by days/weeks. IT analogue: OT equivalent of Ubuntu USN that bundles upstream CVEs. Question: ``why only 7.5 not 9.8?'' --- only leaks data, no RCE or DoS.
 }
