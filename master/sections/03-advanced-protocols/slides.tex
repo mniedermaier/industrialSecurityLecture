@@ -62,7 +62,7 @@ Each session derives a key from challenges in the handshake -- but the key deriv
 \end{tikzpicture}
 \vspace{2mm}
 \begin{importantbox}{GOOSE has no authentication by default}
-Multicast L2 frames, sub-4\,ms latency, sequence-number anti-replay only. IEC 62351 adds signatures but adoption in production substations is rare.
+Multicast L2 frames, 3\,ms total transfer time (IEC 61850-5 type 1A trip), sequence-number anti-replay only. IEC 62351 adds signatures but adoption in production substations is rare.
 \end{importantbox}
 \source{IEC 61850 (multipart) \textbar{} IEC 62351 (security for TC 57 protocols).}
 \end{frame}
@@ -238,7 +238,7 @@ Later firmware adds a non-derivable nonce and binds the digest to TLS transport 
 \centering
 \begin{tikzpicture}[font=\scriptsize, node distance=0mm, scale=0.8, transform shape]
   \draw[axisline] (0,0) -- (9.2,0) node[right] {t};
-  \foreach \x/\lbl/\dt in {0.4/{stNum=7}/T0=2ms, 1.9/{retx}/T1=4ms, 3.8/{retx}/8ms, 6.2/{stable}/$\geq$16ms}{
+  \foreach \x/\lbl/\dt in {0.4/{stNum=7}/T0=2ms, 1.9/{retx}/T1=4ms, 3.8/{retx}/8ms, 6.2/{stable}/$\to T_{\max}$}{
     \draw[isOT, thick] (\x,0.05) -- (\x,0.8);
     \node[isOT, font=\tiny, anchor=south] at (\x,0.8) {\lbl};
     \node[isMute, font=\tiny, anchor=north] at (\x,-0.05) {\dt};
