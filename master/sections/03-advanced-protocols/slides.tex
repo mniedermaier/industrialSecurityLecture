@@ -39,7 +39,7 @@ Each session derives a key from challenges in the handshake -- but the key deriv
 \begin{frame}[fragile]{S7commPlus Frame Sketch}
 \centering
 \begin{tikzpicture}[x=11mm, y=8mm, font=\scriptsize]
-  \foreach \x/\w/\name/\col in {0/1/{0x72}/isOT, 1/1/{Ver}/isOT, 2/2/{Len}/isOT, 4/3/{Cmd hdr}/isPLC, 7/4/{Encrypted data}/isAttack}{
+  \foreach \x/\w/\name/\col in {0/1/{0x72}/isOT, 1/1/{Ver}/isOT, 2/2/{Len}/isOT, 4/3/{Cmd hdr}/isPLC, 7/2/{Integrity}/isAttack, 9/2/{Payload}/isMute}{
     \draw[fill=\col!15, draw=\col, thick] (\x,0) rectangle ++(\w,1);
     \node[align=center] at (\x+\w/2, 0.5) {\name};
   }

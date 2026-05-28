@@ -250,7 +250,7 @@ You cannot segment what you have not inventoried. You cannot retire what you hav
   \node[isbox, fill=isAccent!15, draw=isAccent, minimum width=118mm, minimum height=9mm, font=\small, align=left, below=of b, text width=112mm] (c)
     {\textbf{62443-4-1} \ Vendor \emph{secure development lifecycle} (SDL): how the product was built securely};
   \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=118mm, minimum height=9mm, font=\small, align=left, below=of c, text width=112mm] (d)
-    {\textbf{62443-4-2} \ Component requirements $\rightarrow$ each device carries a capability level \textbf{SL-C} that must meet SL-T};
+    {\textbf{62443-4-2} \ Component requirements $\rightarrow$ each device (or compensating control) delivers \textbf{SL-C $\ge$ SL-T} per conduit};
   \draw[flow] (a.south) -- (b.north);
   \draw[flow] (b.south) -- (c.north);
   \draw[flow] (c.south) -- (d.north);
