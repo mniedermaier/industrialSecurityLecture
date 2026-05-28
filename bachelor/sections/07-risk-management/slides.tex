@@ -356,7 +356,7 @@ Alarm + operator & high-Cl alarm & $10^{-1}$ & shares HMI & none \\
 SIS interlock & SIL-2 trip & $10^{-2}$ & independent & $10^{-2}$ \\
 \hline
 \end{tabular}}
-\source{ISA TR84.00.09:2017 (Cybersecurity \& Functional Safety) \textbar{} AWWA M19, \emph{Emergency Planning for Water and Wastewater Utilities}, 2018.}
+\source{ISA TR84.00.09:2017 (Cybersecurity \& Functional Safety) \textbar{} AWWA J100-10 (R13), \emph{Risk and Resilience Management of Water and Wastewater Systems}.}
 \note{
   Walk end-to-end: municipal water plant. PLC ratios sodium hypochlorite to flow; residual analyser closes the loop; SIS trips on high-Cl. Three cyber initiating events: spoofed Modbus reading (PLC thinks Cl is low, ramps dosing); unauthorised setpoint write at HMI; SIS interlock bypass (TRITON-style). LOPA: BPCS and alarm both run on same Schneider HMI/SCADA stack, so a cyber compromise collapses both layers to one common-cause failure --- zero risk-reduction credit. Only the independent SIL-2 SIS still contributes its $10^{-2}$. Punchline: cyber turns independent layers into one layer. Oldsmar (FL, 2021) lye-dosing intrusion is the real-world cousin.
 }

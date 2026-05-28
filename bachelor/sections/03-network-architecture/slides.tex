@@ -133,7 +133,7 @@ Topology choice in OT is driven by \textbf{determinism} and \textbf{availability
   \draw[conduit] (p2.south) -- (s2.north);
 \end{tikzpicture}
 \par\vspace{1mm}
-{\footnotesize Zones group assets with similar security needs; conduits are the controlled channels between them.}
+{\footnotesize Zones group assets with similar security needs; conduits are the controlled channels between them. \textbf{SL-T 1--4} = target resistance, from casual mis-use up to a sophisticated, well-resourced attacker (IEC 62443-3-3 \S\,5).}
 \note{
   Zones and conduits come from IEC 62443-3-2 --- it is the only piece of vocabulary the standard insists you use during a risk assessment. The SL-T target on each zone is what an assessor will challenge, so explain that ``SL-T 3'' means ``resists intentional violation by a skilled attacker with moderate resources''. Pre-empt the misconception that a zone is a VLAN --- a zone is a \emph{set of assets with a common security target}; the conduit is the only place you ever put a control. Note the safety zone (SIS, SL-T 4) is deliberately the smallest and is usually connected only by hard-wired dry contacts, not Ethernet --- this is why Triton/Trisis in 2017 needed a Windows engineering workstation as a pivot. Transition: ``So what enforces a conduit?'' --- next slide opens the industrial firewall. Optional question: ``Could two zones share the same SL-T and still need a conduit between them?''
 }

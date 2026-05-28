@@ -143,7 +143,7 @@ Stuxnet's payload commanded the \emph{VFDs} (variable-frequency drives) running 
       \item Structured Text (ST)
       \item Function Block (FBD)
       \item Sequential Function Chart
-      \item Instruction List
+      \item Instruction List \emph{(deprecated, 2013 ed.)}
     \end{itemize}
 \end{itemize}
 {\color{slideMuted}\tiny\textit{Source:} D.\ Morley, ``History of the PLC'', Modicon, 2003 \textbar{} IEC 61131-3:2013.\par}
@@ -215,8 +215,8 @@ Stuxnet's payload commanded the \emph{VFDs} (variable-frequency drives) running 
   \draw[thick] (4,1) -- (4,2);                 % rejoin main rung at Stop input
 \end{tikzpicture}
 \par\vspace{1mm}
-\begin{notebox}{What it does}
-\texttt{Start} energises the \texttt{Motor} coil. The seal-in branch around \texttt{Start} latches the coil so it stays on. \texttt{Stop} (NC) breaks both paths.
+\begin{notebox}{What it does (IT-bridge)}
+\texttt{Start} energises the \texttt{Motor} coil. The seal-in branch around \texttt{Start} latches the coil so it stays on. \texttt{Stop} (NC) breaks both paths. \textbf{In IT terms:} \emph{coil} = output bit; \emph{NC contact} = inverted input; \emph{seal-in} = self-feedback latch (the classic SR-latch pattern).
 \end{notebox}
 \note{
   Read the rung out loud the way an electrician would: ``power, Start (NO) closes, current goes through Stop (NC) which is closed by default, energises the Motor coil''. Emphasise why ladder logic survives despite looking ancient: a maintenance electrician with no software background can troubleshoot it on a printout with a multimeter --- that is a feature, not a bug, and the reason Rockwell, Mitsubishi and Schneider all still ship LD-first toolchains. Pre-empt the misconception ``Stop should be NO'' --- it is wired NC on purpose so a broken Stop wire \emph{stops} the motor (fail-safe). The seal-in (latching) pattern is the single most common construct in industry; once they see it once they will see it everywhere. Optional question: ``what if both Start and Stop are pressed at the same time?'' (Stop wins, because it is in series.) Transition: zoom out from one rung to a whole plant.
@@ -371,7 +371,7 @@ The SIS brings the process to a safe state on demand. \textbf{IEC 61511 / 61508}
     1/ST/{Structured Text}/isPLC,
     2/FBD/{Function Block}/isAccent,
     3/SFC/{Sequential FC}/isNet,
-    4/IL/{Instruction List}/isMute}{
+    4/IL/{Instr.\ List (deprecated)}/isMute}{
     \node[isbox, fill=\col!15, draw=\col, font=\scriptsize, minimum width=22mm, minimum height=18mm, align=center] at (\i,0)
       {\textbf{\code}\\\name};
   }
