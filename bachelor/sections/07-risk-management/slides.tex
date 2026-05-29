@@ -114,28 +114,6 @@ Likelihood depends on adversary capability \emph{and} exploit difficulty.
 }
 \end{frame}
 
-\begin{frame}{Layers of Protection (LOPA)}
-\centering
-\begin{tikzpicture}[y=0.7cm]
-  \foreach \r/\name/\col in {
-    0/{Process design}/isOT,
-    1/{BPCS control loops (main controller)}/isPLC,
-    2/{Alarms and operator action}/isHMI,
-    3/{SIS interlocks (independent safety)}/isAttack,
-    4/{Physical protection}/isAccent,
-    5/{Plant emergency response}/isMute,
-    6/{Community emergency response}/isMute}{
-    \draw[fill=\col!15, draw=\col, thick] (0,\r) rectangle (10, \r+0.8);
-    \node[font=\small] at (5, \r+0.4) {\name};
-  }
-  \draw[-{Stealth[length=3mm]}, very thick, isAttack] (-0.6,6.4) -- (-0.6, 0.4);
-  \node[rotate=90, font=\scriptsize, anchor=south] at (-1.0, 3.4) {escalating consequence};
-\end{tikzpicture}
-\note{
-  Walk top to bottom: each layer is a chance for the incident to be stopped before it escalates. The arrow on the left says ``if all seven fail, the community is exposed.'' This is the CCPS framing used in chemicals, refining, and LNG. Pre-empt the false-precision trap --- LOPA gives a number but the number is only as good as the credit you assign each layer. Ask the room: which of these layers does cyber neutralise simultaneously? (Answer: anything that runs on the same DCS --- BPCS, alarms, and an unhardened SIS can all collapse to a single common-cause cyber failure.) Transition: ``next slide quantifies that intuition.''
-}
-\end{frame}
-
 \begin{frame}{Consequence-Driven Cyber-Informed Engineering (CCE)}
 \centering
 \begin{tikzpicture}[scale=0.55, transform shape, >={Stealth[length=2.5mm]}]

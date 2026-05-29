@@ -190,7 +190,7 @@ A PLC is \emph{not} ``62443 compliant'' on its own --- it can be \emph{62443-4-2
 \centering
 \renewcommand{\arraystretch}{1.05}
 \scriptsize
-\begin{tabular}{|c|p{32mm}|p{28mm}|p{38mm}|}
+\begin{tabular}{|c|p{32mm}|p{28mm}|>{\raggedright\arraybackslash}p{38mm}|}
 \hline
 \rowcolor{isMute!20}
 \textbf{Year} & \textbf{Target / actor} & \textbf{Vector} & \textbf{What broke}\\
@@ -303,7 +303,7 @@ A PLC is \emph{not} ``62443 compliant'' on its own --- it can be \emph{62443-4-2
   \node[font=\scriptsize, align=center] at (5, 1.5) {Hacktivists};
   \node[font=\scriptsize, align=center] at (5, 2.5) {Cybercriminals (ransomware)};
   \node[font=\scriptsize, align=center] at (5, 3.5) {Industrial espionage};
-  \node[font=\tiny, align=center] at (5, 3.95) {Nation-state};
+  \node[font=\tiny, align=center, fill=isAttack!15, inner sep=1pt] at (5, 4.3) {Nation-state};
 \end{tikzpicture}
 \vspace{2mm}\par
 \small Capability rises as we move up; volume of actors falls.

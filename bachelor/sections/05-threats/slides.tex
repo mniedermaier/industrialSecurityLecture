@@ -201,9 +201,9 @@ Operators reportedly watched their own mouse cursors move and breakers trip -- a
   \node[isbox, fill=isAttack!12, draw=isAttack, below=4mm of m2, minimum width=42mm] (sip) {SIPROTEC DoS exploit (CVE-2015-5374)};
   \node[isbox, fill=isAttack!12, draw=isAttack, right=4mm of sip, minimum width=22mm] (wp) {Data wiper};
   \draw[attack] (core)--(m1);
-  \draw[attack] (core.east) -- ++(2mm,0) |- (m2.west);
-  \draw[attack] (core.east) -- ++(2mm,0) |- (m3.west);
-  \draw[attack] (core.east) -- ++(2mm,0) |- (m4.west);
+  \draw[attack] (core.north) -- ++(0,3mm) -| (m2.north);
+  \draw[attack] (core.north) -- ++(0,6mm) -| (m3.north);
+  \draw[attack] (core.north) -- ++(0,9mm) -| (m4.north);
 \end{tikzpicture}
 \source{A.\ Cherepanov, \emph{Win32/Industroyer: A new threat for industrial control systems}, ESET, 12 Jun 2017 \textbar{} Dragos, \emph{CRASHOVERRIDE: Analysis of the Threat to Electric Grid Operations}, 2017.}
 \note{

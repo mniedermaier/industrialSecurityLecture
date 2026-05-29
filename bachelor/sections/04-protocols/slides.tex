@@ -119,8 +119,8 @@ Most industrial protocols in production today were \textbf{designed before the I
   \node[plc] (out1) at (4,1) {Outstation 1};
   \node[plc] (out2) at (4,-1) {Outstation 2};
   \node[plc] (out3) at (4,-3) {Outstation 3};
-  \draw[flow] (master.east) to[bend left=30] node[pos=0.4, sloped, above=2pt, font=\tiny, fill=white, inner sep=1pt]{poll} (out1.west);
-  \draw[flow] (out1.west) to[bend left=30] node[pos=0.4, sloped, above=2pt, font=\tiny, fill=white, inner sep=1pt]{unsolicited} (master.east);
+  \draw[flow] (master.east) to[bend left=30] node[pos=0.5, above=4pt, font=\tiny, fill=white, inner sep=2pt]{poll} (out1.west);
+  \draw[flow] (out1.west) to[bend left=30] node[pos=0.5, above=4pt, font=\tiny, fill=white, inner sep=2pt]{unsolicited} (master.east);
   \draw[flow] (master) -- (out2);
   \draw[flow] (master) -- (out3);
 \end{tikzpicture}

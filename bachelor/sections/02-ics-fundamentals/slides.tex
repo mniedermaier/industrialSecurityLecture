@@ -348,7 +348,7 @@ A compromised HMI that follows ISA-101 stands out; a vendor HMI with 500 blinkin
 \centering
 \begin{tikzpicture}[node distance=14mm]
   \node[plc, fill=isPLC!15, align=center] (bpcs) {BPCS\\(PLC/DCS)};
-  \node[plc, fill=isAttack!15, draw=isAttack, align=center, right=22mm of bpcs] (sis) {SIS\\(SIL-rated)};
+  \node[plc, fill=isAttack!15, draw=isAttack, align=center, right=44mm of bpcs] (sis) {SIS\\(SIL-rated)};
   \node[process, minimum width=80mm, below=18mm of bpcs.south, xshift=14mm] (proc) {Process};
   \draw[<->, thick, isPLC] (bpcs.south) -- (bpcs.south |- proc.north);
   \draw[<->, thick, isAttack] (sis.south) -- (sis.south |- proc.north);
@@ -371,8 +371,8 @@ The SIS brings the process to a safe state on demand. \textbf{IEC 61511 / 61508}
     0/LD/{Ladder Diagram}/isOT,
     1/ST/{Structured Text}/isPLC,
     2/FBD/{Function Block}/isAccent,
-    3/SFC/{Sequential FC}/isNet,
-    4/IL/{Instr.\ List (deprecated)}/isMute}{
+    3/SFC/{Sequential}/isNet,
+    4/IL/{IL (deprecated)}/isMute}{
     \node[isbox, fill=\col!15, draw=\col, font=\scriptsize, minimum width=22mm, minimum height=18mm, align=center] at (\i,0)
       {\textbf{\code}\\\name};
   }

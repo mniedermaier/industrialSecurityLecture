@@ -127,9 +127,9 @@ Topology choice in OT is driven by \textbf{determinism} and \textbf{availability
   \node[plc] (p2) at (10.0,1.2) {PLC 2};
   \node[plc, fill=isAttack!15, draw=isAttack] (s1) at (4.0,-1.9) {SIS 1};
   \node[plc, fill=isAttack!15, draw=isAttack] (s2) at (7.0,-1.9) {SIS 2};
-  \draw[conduit] (h2.east) to[bend left=22] node[above, font=\tiny, sloped, fill=white, inner sep=2pt] {OPC UA} (p1.west);
-  \draw[conduit] (h1.east) to[bend right=18] (p2.west);
-  \draw[conduit] (p1.south) -- node[right=6pt, font=\tiny, fill=white, inner sep=3pt, rounded corners=1pt] {dry contact} (s1.north);
+  \draw[conduit] (h2.east) to[bend left=22] node[pos=0.5, yshift=4mm, font=\tiny, fill=white, inner sep=2pt] {OPC UA} (p1.west);
+  \draw[conduit] (h1.east) to[bend left=45] (p2.west);
+  \draw[conduit] (p1.south) -- node[pos=0.5, xshift=8mm, font=\tiny, fill=white, inner sep=2pt] {dry contact} (s1.north);
   \draw[conduit] (p2.south) -- (s2.north);
 \end{tikzpicture}
 \par\vspace{1mm}
@@ -403,7 +403,7 @@ All three encrypt the payload; none stop an SDR-driven jammer on the same band. 
     \node[plc, minimum width=8mm, minimum height=5mm] (m4) at (306:1.1) {C};
     \node[plc, minimum width=8mm, minimum height=5mm] (m5) at (18:1.1) {D};
     \draw[netline] (m1)--(m2)--(m3)--(m4)--(m5)--(m1);
-    \node[font=\tiny, below=18mm of m1, align=center] {1 mgr blocks 1 port\\recover $\le$200\,ms};
+    \node[font=\tiny, below=26mm of m1, align=center] {1 mgr blocks 1 port\\recover $\le$200\,ms};
   \end{scope}
   \begin{scope}[shift={(4.5,0)}]
     \node[font=\scriptsize\bfseries] at (0,2.0) {HSR};
@@ -413,7 +413,7 @@ All three encrypt the payload; none stop an SDR-driven jammer on the same band. 
     \node[plc, minimum width=8mm, minimum height=5mm] (h4) at (306:1.1) {D};
     \node[plc, minimum width=8mm, minimum height=5mm] (h5) at (18:1.1) {E};
     \draw[netline] (h1)--(h2)--(h3)--(h4)--(h5)--(h1);
-    \node[font=\tiny, below=18mm of h1, align=center] {send both ways\\zero-loss};
+    \node[font=\tiny, below=26mm of h1, align=center] {send both ways\\zero-loss};
   \end{scope}
   \begin{scope}[shift={(9,0)}]
     \node[font=\scriptsize\bfseries] at (0,2.0) {PRP};
