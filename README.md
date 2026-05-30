@@ -55,7 +55,7 @@ OT cybersecurity sits awkwardly between two worlds. IT-trained students don't kn
 <tr>
 <td valign="top">
 
-10 Bachelor sections covering:
+**10 Bachelor sections** (IT students, no EE/PLC background assumed):
 
 - Introduction & threat picture
 - ICS & SCADA fundamentals
@@ -68,16 +68,31 @@ OT cybersecurity sits awkwardly between two worlds. IT-trained students don't kn
 - Standards & compliance
 - Incident response
 
+**8 Master sections** (deeper, assumes Bachelor + EE/CS familiarity):
+
+- Firmware reverse engineering
+- PLC ladder reverse engineering
+- Advanced ICS protocols (S7commPlus, GOOSE, OPC UA, DLMS/COSEM)
+- Offensive ICS in authorised labs
+- Secure-by-design architectures (IEC 62443 in greenfield design)
+- Threat intelligence for OT (Diamond Model, ATT&CK for ICS)
+- Safety/security co-engineering (IEC 61508/61511 + 62443)
+- Research methods & seminar work
+
+Bachelor and Master sections cross-reference each other so students can navigate prerequisites.
+
 </td>
 <td valign="top">
 
-For every section:
+For every section in both courses:
 
-- `slides.pdf` — projector deck (≈ 19–22 frames per section, ~200 frames total)
+- `slides.pdf` — projector deck (~200 Bachelor + ~160 Master frames)
 - `notes.pdf` — slide-on-left + speaker-notes-on-right
 - `exercises.pdf` — 8–10 scenario-driven exercises
 - `solutions.pdf` — model answers + grader rubric
-- `lab.pdf` — 60–135 min hands-on exercise (260–561 lines each)
+- `lab.pdf` — 60–135 min hands-on exercise
+
+Every non-trivial-fact slide carries a `\source{}` line; references frames aggregate citations per section.
 
 </td>
 <td valign="top">
@@ -134,6 +149,8 @@ docker compose down -v   # also drops captured PCAPs
 
 ## Course outline
 
+### Bachelor (~40 h)
+
 | #  | Section                                | IEC 62443 anchor                       | Lab                                          | Lab time     |
 |----|----------------------------------------|----------------------------------------|----------------------------------------------|--------------|
 | 01 | Introduction to Industrial Security    | 1-1 concepts                           | Orientation + first Modbus read              | 60–90 min    |
@@ -148,6 +165,19 @@ docker compose down -v   # also drops captured PCAPs
 | 10 | Incident Response & Recovery           | 2-1 IR program, 3-3 SR 6               | Tabletop + Zeek-log forensics                | 90–120 min   |
 
 Day-by-day pacing is in `bachelor/handouts/delivery-schedule.pdf`.
+
+### Master (~60 h)
+
+| #  | Section                                | Standards anchor                                | Lab focus                                            |
+|----|----------------------------------------|-------------------------------------------------|------------------------------------------------------|
+| 01 | Firmware Reverse Engineering           | OWASP FSTM + 62443-4-1 + ISO/IEC 29147          | binwalk → Ghidra on a real firmware image            |
+| 02 | PLC Ladder Reverse Engineering         | IEC 61131-3 + 62443-4-2 CR 3.4                  | Lift ST/LD from OpenPLC artefacts, spot logic bombs  |
+| 03 | Advanced ICS Protocols                 | IEC 62351 + IEC 61850 + OPC UA Parts 2/4        | S7commPlus dissection, GOOSE spoof in Wireshark      |
+| 04 | Offensive ICS in Authorised Labs       | MITRE ATT&CK for ICS + ICS Cyber Kill Chain     | Contained pentest of the Bachelor lab stack          |
+| 05 | Secure-by-Design Architectures         | IEC 62443-3-2 / -3-3 / -4-1 / -4-2 + NIST 800-207 | SL-T derivation + vendor SDL contract pack         |
+| 06 | Threat Intelligence for OT             | Diamond Model + ATT&CK for ICS + STIX 2.1       | Industroyer2 walk-through; PIR authoring             |
+| 07 | Safety / Security Co-Engineering       | IEC 61508 + 61511 + 62443 + ISA TR84.00.09      | Cyber-HAZOP / SECOP table on a worked node           |
+| 08 | Research Methods and Seminar Work      | ACM AE badging + Cook & Campbell + ISO 29147    | Reproducible artefact + seminar presentation         |
 
 ## Lab stack architecture
 
@@ -301,11 +331,14 @@ Issue templates and a PR template live in `.github/`.
 ## Roadmap
 
 - [x] Bachelor: 10 sections (slides + notes), 10 labs, 10 exercise+solution pairs, 3 handouts
+- [x] Master: 8 sections (slides + notes), 8 labs, 8 exercise+solution pairs
 - [x] One-command Docker lab stack with auto-bootstrap
 - [x] IEC 62443 anchor frame in every section
-- [x] IT-student-friendly glossary frame and inline IT analogues throughout
+- [x] IT-student-friendly glossary frame and inline IT analogues throughout Bachelor
+- [x] Cross-references between Bachelor and Master sections
+- [x] `\source{}` on every non-trivial-fact slide; per-section references frame
 - [x] CI/CD: build + verify on every PR; PDF artefacts on tagged release
-- [ ] Master: complete the remaining 4 sections + lab exercises
+- [x] Speaker-notes PDFs gated by `make verify` (no silent overflow)
 - [ ] Translations: DE (and EN if you write in another language)
 - [ ] OPC UA secure-mode lab variant (currently anonymous + None)
 - [ ] Add a S7 / EtherNet/IP lab using `snap7` and `pycomm3`
