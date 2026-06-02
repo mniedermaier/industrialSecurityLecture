@@ -101,7 +101,7 @@ Adversary side: which techniques did campaign X use? Defender side: what do I de
   \node[font=\scriptsize, align=center] at (5, 2.0) {Domain names};
   \node[font=\scriptsize, align=center] at (5, 2.8) {Network/host artefacts};
   \node[font=\scriptsize, align=center] at (5, 3.6) {Tools};
-  \node[font=\scriptsize, align=center] at (5, 4.4) {TTPs};
+  \node[font=\scriptsize, align=center] at (5, 4.0) {TTPs};
 \end{tikzpicture}
 \vspace{1mm}
 \begin{notebox}{Detect higher = hurt the adversary more}
@@ -112,12 +112,12 @@ A signature on a hash dies in hours. Detection on a TTP forces the adversary to 
 
 \begin{frame}{Diamond Model for ICS Intrusions}
 \centering
-\begin{tikzpicture}[scale=0.8, transform shape]
+\begin{tikzpicture}[scale=0.7, transform shape]
   \draw[thick, fill=isOT!10] (0,2.5) -- (2.5,5) -- (5,2.5) -- (2.5,0) -- cycle;
-  \node[font=\small\bfseries] at (2.5, 4.5) {Adversary};
-  \node[font=\small\bfseries] at (5.0, 2.5) {Capability};
-  \node[font=\small\bfseries] at (2.5, 0.5) {Victim};
-  \node[font=\small\bfseries] at (0.0, 2.5) {Infrastructure};
+  \node[font=\small\bfseries, above=2pt] at (2.5, 5) {Adversary};
+  \node[font=\small\bfseries, right=2pt] at (5.0, 2.5) {Capability};
+  \node[font=\small\bfseries, below=2pt] at (2.5, 0) {Victim};
+  \node[font=\small\bfseries, left=2pt] at (0.0, 2.5) {Infrastructure};
 \end{tikzpicture}
 \vspace{1mm}
 \begin{notebox}{Asking the right four questions}
@@ -147,7 +147,7 @@ Who, what, on what, against whom. Filling all four corners gives you a hypothesi
 
 \begin{frame}{IOC Lifecycle}
 \centering
-\begin{tikzpicture}[x=2cm]
+\begin{tikzpicture}[x=2.6cm]
   \node[isbox, fill=isOT!15, draw=isOT, font=\scriptsize, minimum width=22mm, minimum height=12mm, align=center] at (0,0) {Ingest};
   \node[isbox, fill=isAccent!15, draw=isAccent, font=\scriptsize, minimum width=22mm, minimum height=12mm, align=center] at (1,0) {Enrich};
   \node[isbox, fill=isPLC!15, draw=isPLC, font=\scriptsize, minimum width=22mm, minimum height=12mm, align=center] at (2,0) {Deploy};

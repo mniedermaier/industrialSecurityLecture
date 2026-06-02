@@ -221,14 +221,14 @@ Most secure-by-design wins arrive in the next capital project. Brownfield gets c
 
 \begin{frame}{Migration Roadmap (sketch)}
 \centering
-\begin{tikzpicture}[x=2.0cm]
+\begin{tikzpicture}[x=2.7cm]
   \foreach \i/\name/\col in {
     0/{Y1: visibility}/isOT,
     1/{Y2: segment + MFA}/isPLC,
     2/{Y3: vendor exit}/isAccent,
     3/{Y4: greenfield core}/isNet,
     4/{Y5: legacy retired}/isMute}{
-    \node[isbox, fill=\col!15, draw=\col, font=\scriptsize, align=center, minimum width=28mm, minimum height=14mm]
+    \node[isbox, fill=\col!15, draw=\col, font=\scriptsize, align=center, minimum width=23mm, minimum height=14mm]
       at (\i,0) {\name};
   }
 \end{tikzpicture}
