@@ -322,6 +322,31 @@ You can shut down OT without touching it -- if the IT it depends on goes down.
 }
 \end{frame}
 
+% --- Oldsmar water plant (1 slide) ----------------------------------
+
+\begin{frame}{Oldsmar Water (Feb 2021) -- the Almost-Incident}
+\centering
+\begin{tikzpicture}[node distance=4mm, scale=0.85, transform shape]
+  \node[isbox, fill=isAttack!15, draw=isAttack, minimum width=22mm, font=\scriptsize, align=center] (a) {Shared TeamViewer\\(no MFA)};
+  \node[isbox, fill=isAccent!15, draw=isAccent, right=of a, minimum width=22mm, font=\scriptsize, align=center] (b) {Operator HMI};
+  \node[isbox, fill=isOT!15, draw=isOT, right=of b, minimum width=28mm, font=\scriptsize, align=center] (c) {NaOH setpoint\\100 $\to$ 11\,100 ppm};
+  \node[isbox, fill=isNet!15, draw=isNet, right=of c, minimum width=28mm, font=\scriptsize, align=center] (d) {Operator reverted\\within minutes};
+  \foreach \s/\e in {a/b, b/c, c/d}{\draw[attack] (\s) -- (\e);}
+\end{tikzpicture}
+\begin{itemize}\setlength{\itemsep}{0pt}\footnotesize
+  \item \textbf{5 Feb 2021:} unauthorised access into the Oldsmar (FL) water-treatment HMI via a TeamViewer session shared by multiple operators; no MFA.
+  \item NaOH (lye) setpoint moved 100 $\to$ 11\,100 ppm; the operator saw the cursor move and reverted before any chemical change reached distribution.
+  \item \emph{Attribution remains unresolved} -- the FBI/CISA bulletin described unauthorised remote access; no external actor was ever publicly confirmed.
+\end{itemize}
+\begin{takeawaybox}{Shared remote access is the recurring footgun}
+A single shared TeamViewer credential reused across operators is the cheapest, most-repeated OT incident pattern -- with no MFA, there is nothing to audit.
+\end{takeawaybox}
+\source{FBI/CISA, \emph{Joint Cybersecurity Advisory AA21-042A: Compromise of US Water Treatment Facility}, 11 Feb 2021 \textbar{} Pinellas County Sheriff press conference, 8 Feb 2021.}
+\note{
+  Use Oldsmar as the cheaper, lower-stakes counterweight to the headline cases. The technical mechanism is the simplest possible: shared TeamViewer credentials, no MFA, an attacker (or accidentally clumsy operator --- attribution is genuinely unresolved) moves the sodium-hydroxide setpoint by a factor of 111. The plant runs a lot of downstream protection (pH alarms, retention time, mechanical mixing) so the chemical change would not have reached the public water for hours, but the slide is what made remote-access hygiene front-page news in 2021. Tie this back to Pattern 3 in the secure-by-design Master section: a brokered, MFA-enforced jump host with session recording would have prevented the event regardless of whether the actor was external. Common student misconception: ``the attacker poisoned the water'' --- they did not; the operator reverted, and even if they had not, multiple downstream controls would have caught a 100x setpoint change. The point is that none of those defences were the \emph{primary} control; the access control was the primary control, and it had failed silently for years.
+}
+\end{frame}
+
 % --- PIPEDREAM (1 slide) --------------------------------------------
 
 \begin{frame}{PIPEDREAM / INCONTROLLER (2022)}
