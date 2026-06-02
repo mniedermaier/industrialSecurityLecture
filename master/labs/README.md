@@ -62,18 +62,42 @@ analysis tools themselves.
 - **PCAPs** — §03 uses a small set of public PCAPs from the
   `automayt/ICS-pcap` GitHub repository; clone it once and point the lab
   at the local path.
-- **No Master-specific Docker images** — by design. If you would rather
-  not install everything on the host, run the Bachelor `is-student`
-  container as a base and `apt install` the extras inside it.
+- **`scapy.contrib.scada.goose`** — not shipped in stock scapy 2.5; the
+  §03 spoofing step needs either a vendored `goose.py` helper or the
+  community port (`load_contrib('scada.goose')` only works if you have
+  it installed separately). The shipped `is-master-extras` container
+  carries scapy and `scapy.contrib.scada.iec104`; the GOOSE spoof is the
+  one step you may have to hand-craft or fetch upstream.
+
+## Want everything in a container instead of on the host?
+
+The shared Bachelor lab stack now ships an opt-in **`is-master-extras`**
+service that carries every host-side tool listed above (except Ghidra,
+which is a ~400 MB graphical app). Bring it up with:
+
+```bash
+cd bachelor/labs/_stack && docker compose --profile master up -d
+```
+
+Then drop in:
+
+```bash
+docker compose exec master-extras bash
+```
+
+The container has the `master/labs/` tree mounted read-only at
+`/labs/master`, the shared captures directory at `/labs/captures`, and a
+named volume at `/labs/firmware` so firmware samples you drop in for
+§01 survive container restarts. On the network it sits at
+`172.28.0.30` and can reach every Bachelor service (OpenPLC, OPC UA,
+MQTT, Zeek) at the same IPs the student container sees.
 
 ## What this directory does not include
 
-- A Master-specific Docker stack (use the Bachelor one).
-- A landing-page tile for each lab (Master labs are not surfaced on the
-  `is-landing` page).
-- A bundled firmware image for §01 (license-clean firmware that is also
-  pedagogically interesting is hard to ship — the lab walks you through
-  lawful acquisition instead).
+- A bundled firmware image for §01 — license-clean firmware that is also
+  pedagogically interesting is hard to ship. The lab walks you through
+  lawful acquisition instead (vendor portal, your own device read-out,
+  or an OpenWrt build for a known router family).
 
-If any of those would meaningfully help your delivery, they are tracked
-on the repository roadmap and patches are welcome.
+If that would meaningfully help your delivery it is tracked on the
+repository roadmap and patches are welcome.

@@ -303,6 +303,148 @@
   </div>
 </section>
 
+<!-- ============================ MASTER LABS ============================ -->
+<section class="section" id="master-labs">
+  <div class="section-head">
+    <div class="section-head-row">
+      <h2>Master labs (8)</h2>
+    </div>
+    <p>Deeper 3&ndash;5 hour exercises that assume the Bachelor course. Most reuse the same Docker stack &ndash; bring the <code>master-extras</code> service up alongside it: <code>docker compose --profile master up&nbsp;-d</code>.</p>
+  </div>
+
+  <div class="lab-grid" id="master-lab-grid">
+
+    <article class="lab-card" data-lab="m01" data-keywords="firmware binwalk ghidra squashfs reverse engineering">
+      <header class="lab-card-head">
+        <div class="lab-num">M01</div>
+        <button class="lab-done" data-lab="m01" aria-label="Mark Master Lab 01 as completed" title="Mark as completed">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 11.5 2.5 8l1.4-1.4 2.1 2.1 5.6-5.6L13 4.5l-7 7z" fill="currentColor"/></svg>
+        </button>
+      </header>
+      <h3><button class="lab-title-link" data-pdf="/master-labs/01-firmware-re/01-firmware-re-lab.pdf" data-title="Master Lab 01 — Firmware Reverse Engineering">Firmware Reverse Engineering &ndash; First Cut</button></h3>
+      <p>Carve a firmware image with binwalk, extract the rootfs, find a hard-coded credential or backdoor in Ghidra.</p>
+      <div class="lab-tags"><span class="pill pill-docker">master-extras</span><span>3&ndash;4&nbsp;h</span></div>
+      <div class="lab-actions">
+        <button class="lab-action" data-pdf="/master-labs/01-firmware-re/01-firmware-re-lab.pdf" data-title="Master Lab 01 — Firmware Reverse Engineering">Open lab</button>
+        <button class="lab-action lab-action-ghost" data-pdf="/master-labs/01-firmware-re/01-firmware-re-lab-solutions.pdf" data-title="Master Lab 01 — Solutions"><span class="pill pill-sol">solutions</span></button>
+      </div>
+    </article>
+
+    <article class="lab-card" data-lab="m02" data-keywords="plc ladder iec 61131 openplc matiec ghidra control intent">
+      <header class="lab-card-head">
+        <div class="lab-num">M02</div>
+        <button class="lab-done" data-lab="m02" aria-label="Mark Master Lab 02 as completed" title="Mark as completed">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 11.5 2.5 8l1.4-1.4 2.1 2.1 5.6-5.6L13 4.5l-7 7z" fill="currentColor"/></svg>
+        </button>
+      </header>
+      <h3><button class="lab-title-link" data-pdf="/master-labs/02-plc-ladder-re/02-plc-ladder-re-lab.pdf" data-title="Master Lab 02 — PLC Control-Logic RE">PLC Control-Logic Reverse Engineering</button></h3>
+      <p>Lift ladder/ST from OpenPLC artefacts; recover the I/O map; plant and then detect a Stuxnet-style logic bomb.</p>
+      <div class="lab-tags"><span class="pill pill-docker">openplc</span><span class="pill pill-docker">master-extras</span><span>3&ndash;4&nbsp;h</span></div>
+      <div class="lab-actions">
+        <button class="lab-action" data-pdf="/master-labs/02-plc-ladder-re/02-plc-ladder-re-lab.pdf" data-title="Master Lab 02 — PLC Control-Logic RE">Open lab</button>
+        <button class="lab-action lab-action-ghost" data-pdf="/master-labs/02-plc-ladder-re/02-plc-ladder-re-lab-solutions.pdf" data-title="Master Lab 02 — Solutions"><span class="pill pill-sol">solutions</span></button>
+      </div>
+    </article>
+
+    <article class="lab-card" data-lab="m03" data-keywords="s7commplus goose iec 61850 dlms cosem wireshark scapy">
+      <header class="lab-card-head">
+        <div class="lab-num">M03</div>
+        <button class="lab-done" data-lab="m03" aria-label="Mark Master Lab 03 as completed" title="Mark as completed">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 11.5 2.5 8l1.4-1.4 2.1 2.1 5.6-5.6L13 4.5l-7 7z" fill="currentColor"/></svg>
+        </button>
+      </header>
+      <h3><button class="lab-title-link" data-pdf="/master-labs/03-advanced-protocols/03-advanced-protocols-lab.pdf" data-title="Master Lab 03 — Advanced Protocols">Advanced Industrial Protocols on the Wire</button></h3>
+      <p>Decode S7commPlus, GOOSE/SV, DLMS/COSEM in Wireshark + scapy; reproduce the stNum/sqNum spoof on a capture.</p>
+      <div class="lab-tags"><span class="pill pill-docker">master-extras</span><span>3&ndash;4&nbsp;h</span></div>
+      <div class="lab-actions">
+        <button class="lab-action" data-pdf="/master-labs/03-advanced-protocols/03-advanced-protocols-lab.pdf" data-title="Master Lab 03 — Advanced Protocols">Open lab</button>
+        <button class="lab-action lab-action-ghost" data-pdf="/master-labs/03-advanced-protocols/03-advanced-protocols-lab-solutions.pdf" data-title="Master Lab 03 — Solutions"><span class="pill pill-sol">solutions</span></button>
+      </div>
+    </article>
+
+    <article class="lab-card" data-lab="m04" data-keywords="offensive attack pentest mitre attack kill chain authorised">
+      <header class="lab-card-head">
+        <div class="lab-num">M04</div>
+        <button class="lab-done" data-lab="m04" aria-label="Mark Master Lab 04 as completed" title="Mark as completed">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 11.5 2.5 8l1.4-1.4 2.1 2.1 5.6-5.6L13 4.5l-7 7z" fill="currentColor"/></svg>
+        </button>
+      </header>
+      <h3><button class="lab-title-link" data-pdf="/master-labs/04-offensive-ics/04-offensive-ics-lab.pdf" data-title="Master Lab 04 — Offensive ICS">Offensive ICS &ndash; Authorised Kill-Chain</button></h3>
+      <p>Recon, protocol abuse, logic injection on the lab plant; produce ATT&amp;CK-mapped findings and the matching Zeek signatures.</p>
+      <div class="lab-tags"><span class="pill pill-docker">openplc</span><span class="pill pill-docker">student</span><span class="pill pill-docker">zeek</span><span>3&ndash;4&nbsp;h</span></div>
+      <div class="lab-actions">
+        <button class="lab-action" data-pdf="/master-labs/04-offensive-ics/04-offensive-ics-lab.pdf" data-title="Master Lab 04 — Offensive ICS">Open lab</button>
+        <button class="lab-action lab-action-ghost" data-pdf="/master-labs/04-offensive-ics/04-offensive-ics-lab-solutions.pdf" data-title="Master Lab 04 — Solutions"><span class="pill pill-sol">solutions</span></button>
+      </div>
+    </article>
+
+    <article class="lab-card" data-lab="m05" data-keywords="design architecture greenfield zones conduits sl-t 62443 sdl">
+      <header class="lab-card-head">
+        <div class="lab-num">M05</div>
+        <button class="lab-done" data-lab="m05" aria-label="Mark Master Lab 05 as completed" title="Mark as completed">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 11.5 2.5 8l1.4-1.4 2.1 2.1 5.6-5.6L13 4.5l-7 7z" fill="currentColor"/></svg>
+        </button>
+      </header>
+      <h3><button class="lab-title-link" data-pdf="/master-labs/05-secure-by-design/05-secure-by-design-lab.pdf" data-title="Master Lab 05 — Secure-by-Design Workshop">Secure-by-Design Architecture Workshop</button></h3>
+      <p>Team design exercise: derive SL-T per zone, draw the conduit diagram, produce a vendor-SDL contract pack.</p>
+      <div class="lab-tags"><span class="pill pill-paper">paper</span><span>4&nbsp;h, group</span></div>
+      <div class="lab-actions">
+        <button class="lab-action" data-pdf="/master-labs/05-secure-by-design/05-secure-by-design-lab.pdf" data-title="Master Lab 05 — Secure-by-Design Workshop">Open lab</button>
+        <button class="lab-action lab-action-ghost" data-pdf="/master-labs/05-secure-by-design/05-secure-by-design-lab-solutions.pdf" data-title="Master Lab 05 — Solutions"><span class="pill pill-sol">solutions</span></button>
+      </div>
+    </article>
+
+    <article class="lab-card" data-lab="m06" data-keywords="threat intel stix taxii diamond model att&amp;ck pir dragos">
+      <header class="lab-card-head">
+        <div class="lab-num">M06</div>
+        <button class="lab-done" data-lab="m06" aria-label="Mark Master Lab 06 as completed" title="Mark as completed">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 11.5 2.5 8l1.4-1.4 2.1 2.1 5.6-5.6L13 4.5l-7 7z" fill="currentColor"/></svg>
+        </button>
+      </header>
+      <h3><button class="lab-title-link" data-pdf="/master-labs/06-threat-intel/06-threat-intel-lab.pdf" data-title="Master Lab 06 — Threat Intel for OT">Threat Intelligence for OT &ndash; Build the Product</button></h3>
+      <p>From advisory to actionable: ATT&amp;CK navigator layer, Diamond Model write-up, STIX 2.1 bundle, PIRs for your plant.</p>
+      <div class="lab-tags"><span class="pill pill-docker">master-extras</span><span>3&ndash;4&nbsp;h</span></div>
+      <div class="lab-actions">
+        <button class="lab-action" data-pdf="/master-labs/06-threat-intel/06-threat-intel-lab.pdf" data-title="Master Lab 06 — Threat Intel for OT">Open lab</button>
+        <button class="lab-action lab-action-ghost" data-pdf="/master-labs/06-threat-intel/06-threat-intel-lab-solutions.pdf" data-title="Master Lab 06 — Solutions"><span class="pill pill-sol">solutions</span></button>
+      </div>
+    </article>
+
+    <article class="lab-card" data-lab="m07" data-keywords="safety security sis sil 61511 cyber hazop secop triton">
+      <header class="lab-card-head">
+        <div class="lab-num">M07</div>
+        <button class="lab-done" data-lab="m07" aria-label="Mark Master Lab 07 as completed" title="Mark as completed">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 11.5 2.5 8l1.4-1.4 2.1 2.1 5.6-5.6L13 4.5l-7 7z" fill="currentColor"/></svg>
+        </button>
+      </header>
+      <h3><button class="lab-title-link" data-pdf="/master-labs/07-safety-security/07-safety-security-lab.pdf" data-title="Master Lab 07 — Safety / Security Co-Engineering">Safety / Security Co-Engineering on a SIS</button></h3>
+      <p>Cross-discipline workshop: cyber-HAZOP / SECOP rows on a SIL-rated heat-exchanger node; consequence-driven mitigations.</p>
+      <div class="lab-tags"><span class="pill pill-paper">paper</span><span>4&nbsp;h, group</span></div>
+      <div class="lab-actions">
+        <button class="lab-action" data-pdf="/master-labs/07-safety-security/07-safety-security-lab.pdf" data-title="Master Lab 07 — Safety / Security Co-Engineering">Open lab</button>
+        <button class="lab-action lab-action-ghost" data-pdf="/master-labs/07-safety-security/07-safety-security-lab-solutions.pdf" data-title="Master Lab 07 — Solutions"><span class="pill pill-sol">solutions</span></button>
+      </div>
+    </article>
+
+    <article class="lab-card" data-lab="m08" data-keywords="research methods reproducibility artefact preregistration validity">
+      <header class="lab-card-head">
+        <div class="lab-num">M08</div>
+        <button class="lab-done" data-lab="m08" aria-label="Mark Master Lab 08 as completed" title="Mark as completed">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 11.5 2.5 8l1.4-1.4 2.1 2.1 5.6-5.6L13 4.5l-7 7z" fill="currentColor"/></svg>
+        </button>
+      </header>
+      <h3><button class="lab-title-link" data-pdf="/master-labs/08-research-methods/08-research-methods-lab.pdf" data-title="Master Lab 08 — Research Methods">Research Methods &ndash; Reproducible Artefact</button></h3>
+      <p>From hypothesis to a pre-registered, reproducible artefact: pinned container, run-cold README, archived DOI.</p>
+      <div class="lab-tags"><span class="pill pill-docker">master-extras</span><span>4&ndash;5&nbsp;h</span></div>
+      <div class="lab-actions">
+        <button class="lab-action" data-pdf="/master-labs/08-research-methods/08-research-methods-lab.pdf" data-title="Master Lab 08 — Research Methods">Open lab</button>
+        <button class="lab-action lab-action-ghost" data-pdf="/master-labs/08-research-methods/08-research-methods-lab-solutions.pdf" data-title="Master Lab 08 — Solutions"><span class="pill pill-sol">solutions</span></button>
+      </div>
+    </article>
+
+  </div>
+</section>
+
 <!-- ============================ STACK ============================ -->
 <section class="section section-alt" id="stack">
   <div class="section-head">

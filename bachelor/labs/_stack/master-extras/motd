@@ -1,0 +1,20 @@
+
+========================================================================
+  is-master-extras -- Master-labs analysis container
+========================================================================
+  Ships: binwalk, squashfs-tools, qemu-user-static, gdb, radare2, tshark,
+         nmap, scapy (incl. scada.goose), stix2, boofuzz, pymodbus, asyncua
+
+  Not shipped: Ghidra (install on host -- it is a graphical app).
+
+  Useful mounts:
+    /labs/master     -> master/labs/ on the host (read-only)
+    /labs/captures   -> shared PCAP capture directory
+    /labs/firmware   -> drop firmware samples here for §01 (RW)
+
+  Other containers reachable on this network:
+    172.28.0.10  is-openplc      (Modbus/502, web 8080)
+    172.28.0.11  is-opcua        (4840)
+    172.28.0.12  is-mqtt         (1883)
+    172.28.0.20  is-student      (Bachelor attacker workstation)
+========================================================================

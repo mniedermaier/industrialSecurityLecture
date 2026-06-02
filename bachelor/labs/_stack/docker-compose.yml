@@ -71,9 +71,11 @@ services:
     # to /usr/share/nginx/html anyway.
     volumes:
       - ./landing:/usr/share/nginx/html
-      # Serve every lab PDF at /labs/NN-topic/NN-topic-lab.pdf so the
-      # landing page's lab cards can deep-link to them.
+      # Serve every Bachelor lab PDF at /labs/NN-topic/NN-topic-lab.pdf
+      # so the landing page's Bachelor lab cards can deep-link to them.
       - ../:/usr/share/nginx/html/labs:ro
+      # And every Master lab PDF at /master-labs/NN-topic/NN-topic-lab.pdf.
+      - ../../../master/labs:/usr/share/nginx/html/master-labs:ro
 
   # --------------------------------------------------------------
   # OpenPLC -- soft PLC with Modbus TCP on 502
@@ -203,3 +205,43 @@ services:
     # -C ignores TCP/UDP checksums. The Docker bridge presents packets
     # before NIC checksum offload, so Zeek would otherwise drop them.
     command: ["zeek", "-C", "-i", "eth0", "/usr/local/zeek/share/zeek/site/local.zeek"]
+
+  # --------------------------------------------------------------
+  # master-extras -- analysis container for the MASTER labs.
+  #
+  # Bring up only when running Master labs:
+  #     docker compose --profile master up -d
+  #
+  # Then drop in:
+  #     docker compose exec master-extras bash
+  #
+  # Ships: binwalk, squashfs-tools, qemu-user-static, gdb, radare2, tshark,
+  #        nmap, scapy (with the scada.goose contrib), stix2, boofuzz,
+  #        pymodbus, asyncua.
+  #
+  # NOT shipped: Ghidra (~400 MB graphical app -- install on the host).
+  #
+  # The master/labs/ tree is bind-mounted read-only so students can see
+  # their lab sheets. /labs/firmware is a named volume so dropped firmware
+  # samples for Lab 01 persist across container restarts.
+  # --------------------------------------------------------------
+  master-extras:
+    build: ./master-extras
+    container_name: is-master-extras
+    profiles: ["master"]
+    networks:
+      is-lab:
+        ipv4_address: 172.28.0.30
+    volumes:
+      - ./scripts:/labs/scripts:ro
+      - ./captures:/labs/captures
+      - ../../../master/labs:/labs/master:ro
+      - master-firmware:/labs/firmware
+    stdin_open: true
+    tty: true
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+
+volumes:
+  master-firmware:
